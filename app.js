@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-18";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-19";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -769,7 +769,7 @@ const roleChip2 = r => r ? `<span class="chip plain role-${r==="목자"?"mok":r=
 const bdBox = b => `<span class="datebox"><span class="m">${b.month}월</span><span class="d">${b.day}</span></span>`;
 function birthRow(b, opts={}){
   const tag = can("care") ? "button" : "div";
-  return `<${tag} ${tag==="button"?`type="button" data-act="editBirth" data-id="${b.id}"`:""} class="row bday ${b.dd===0?"is-today":""} ${opts.past?"past":""}" aria-label="${b.month}월 ${b.day}일 ${esc(honor(b))}">
+  return `<${tag} ${tag==="button"?`type="button" data-act="editBirth" data-id="${b.id}"`:""} class="row bday ${b.dd===0?"is-today":""} ${opts.past?"past":""}" data-bkey="${b.month}-${b.day}" aria-label="${b.month}월 ${b.day}일 ${esc(honor(b))}">
     ${bdBox(b)}<span class="main"><span class="t">${esc(b.name)} ${roleChip2(b.role)}</span>${opts.sub?`<span class="s">${opts.sub}</span>`:""}</span>${opts.chip??ddChip(b.dd)}${tag==="button"?icon("chev","chev"):""}</${tag}>`;
 }
 function monthText(m){
@@ -798,16 +798,38 @@ function vBirth(){
         <div class="meta"><span>D-${nextDd}</span><span>${["일","월","화","수","목","금","토"][nextGroup[0].next.getDay()]}요일</span></div>${sheep("heart","hero-sheep")}</div>
       ${heroNames(nextGroup)}
     </section>`;
-  const monthList = all.filter(b=>b.month===m).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
-  const nextList = all.filter(b=>b.month===nm).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
-  const copyBtn = mm => `<button class="link" type="button" data-act="copyMonth" data-m="${mm}">${icon("copy")}복사</button>`;
+  // 달력 (이전·다음 달로 넘길 수 있고, 아래 명단도 같은 달로 바뀌어요)
+  if(!S.calYM){ const t=parse(TODAY); S.calYM={y:t.getFullYear(), m:t.getMonth()+1}; }
+  const {y, m:cm} = S.calYM;
+  const monthList = all.filter(b=>b.month===cm).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
+  const copyBtn = `<button class="link" type="button" data-act="copyMonth" data-m="${cm}">${icon("copy")}복사</button>`;
   return `${head("러너스 생일", `전체 ${all.length}명`, "", "챙김부")}${hero}
-    <div class="cols"><div>
-      ${section("2주 안에 다가오는 생일", soon.length?`<div class="card list">${soon.map(b=>birthRow(b,{sub:`${b.next.getMonth()+1}월 ${b.next.getDate()}일 ${["일","월","화","수","목","금","토"][b.next.getDay()]}요일`})).join("")}</div>`:`<div class="card"><p class="note" style="padding:16px">2주 안에는 생일이 없어요</p></div>`)}
-    </div><div>
-      ${section(`${m}월 생일 <span class="cnt">${monthList.length}</span>`, `<div class="card list">${monthList.map(b=>birthRow(b,{past:b.dd>300, chip:b.dd>300?`<span class="chip mute plain">지남</span>`:undefined})).join("")||`<p class="note" style="padding:16px">이번 달은 생일이 없어요</p>`}</div>`, copyBtn(m))}
-      ${section(`${nm}월 생일 <span class="cnt">${nextList.length}</span>`, `<div class="card list">${nextList.map(b=>birthRow(b)).join("")||`<p class="note" style="padding:16px">생일이 없어요</p>`}</div>`, copyBtn(nm))}
-    </div></div>`;
+    ${birthCal(y, cm, monthList)}
+    ${section(`${cm}월 생일 <span class="cnt">${monthList.length}</span>`, `<div class="card list">${monthList.map(b=>birthRow(b,{past:b.dd>300, chip:b.dd>300?`<span class="chip mute plain">지남</span>`:undefined})).join("")||`<p class="note" style="padding:16px">${cm}월은 생일이 없어요</p>`}</div>`, copyBtn)}`;
+}
+function birthCal(y, m, list){
+  const first = new Date(y, m-1, 1).getDay(); const days = new Date(y, m, 0).getDate();
+  const t = parse(TODAY); const isThis = t.getFullYear()===y && t.getMonth()+1===m;
+  const byDay = {}; list.forEach(b=>{ const d=Math.min(b.day, days); (byDay[d] ||= []).push(b); });
+  const cells = [];
+  for(let i=0;i<first;i++) cells.push(`<div class="cal-c empty"></div>`);
+  for(let d=1; d<=days; d++){
+    const bs = byDay[d]||[]; const dow=(first+d-1)%7; const today = isThis && d===t.getDate();
+    const names = bs.slice(0,2).map(b=>`<span class="cal-n">${esc(b.name)}</span>`).join("") + (bs.length>2?`<span class="cal-more">+${bs.length-2}</span>`:"");
+    const inner = `<span class="cal-d">${d}</span>${names}`;
+    cells.push(bs.length
+      ? `<button type="button" class="cal-c has ${today?"today":""} ${dow===0?"sun":dow===6?"sat":""}" data-act="calDay" data-key="${m}-${bs[0].day}" aria-label="${m}월 ${d}일 생일: ${bs.map(b=>esc(b.name)).join(", ")}">${inner}</button>`
+      : `<div class="cal-c ${today?"today":""} ${dow===0?"sun":dow===6?"sat":""}">${inner}</div>`);
+  }
+  return `<section class="card cal" aria-label="${y}년 ${m}월 생일 달력">
+    <div class="cal-h">
+      <button class="btn icon sm" type="button" data-act="calMove" data-v="-1" aria-label="이전 달">${icon("chev","flip")}</button>
+      <div class="cal-title"><h2><span class="tnum">${y}</span>년 <span class="tnum">${m}</span>월</h2>${isThis?"":`<button class="link cal-today" type="button" data-act="calToday">이번 달로 돌아가기</button>`}</div>
+      <button class="btn icon sm" type="button" data-act="calMove" data-v="1" aria-label="다음 달">${icon("chev")}</button>
+    </div>
+    <div class="cal-w" aria-hidden="true">${["일","월","화","수","목","금","토"].map((w,i)=>`<span class="${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}</div>
+    <div class="cal-g">${cells.join("")}</div>
+  </section>`;
 }
 function vBirths(){
   const q = S.birthQ.trim(); const all = births();
@@ -1049,6 +1071,11 @@ document.addEventListener("click", async e => {
   if(a==="copyToday"){ const td=births().filter(b=>b.dd===0); copy(`🎉 오늘은 ${td.map(honor).join(", ")} 생일이에요! 다 같이 축하해 주세요 🎂`); }
   if(a==="jumpMonth"){ const el=document.getElementById("m-"+t.dataset.m); if(el){ const bar=document.querySelector(".month-bar"); const y=el.getBoundingClientRect().top+scrollY-(bar?bar.offsetHeight+70:80); scrollTo({top:y, behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}); }
     t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); return; }
+  if(a==="calMove"){ let {y,m}=S.calYM; m+=+t.dataset.v; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.calYM={y,m}; render(); return; }
+  if(a==="calToday"){ S.calYM=null; render(); return; }
+  if(a==="calDay"){ const rows=[...document.querySelectorAll(`.row.bday[data-bkey="${t.dataset.key}"]`)]; if(!rows.length) return;
+    rows[0].scrollIntoView({block:"center", behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+    rows.forEach(r=>{ r.classList.remove("flash"); void r.offsetWidth; r.classList.add("flash"); }); return; }
   if(a==="clearBirthQ"){ S.birthQ=""; render(); }
   if(a==="delPerson"){
     const did=t.dataset.id;

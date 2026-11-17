@@ -453,3 +453,27 @@ button.link{background:none;border:0;font:inherit;cursor:pointer}
 .ig-step > div{display:flex;flex-direction:column;gap:2px;padding-top:2px}
 .ig-step b::before{content:counter(ig) ". ";color:var(--muted)}
 .ig-step small{font-size:13px;color:var(--muted);line-height:1.5}
+
+/* 챙김부: 생일 달력 */
+.cal{padding:14px 12px 12px;position:relative}
+.cal-h{display:flex;align-items:center;justify-content:space-between;padding:0 2px 8px}
+.cal-h h2{font-family:var(--f-display);font-weight:400;font-size:20px;color:var(--navy);margin:0}
+.cal-h .flip{transform:scaleX(-1)}
+.cal-title{display:flex;flex-direction:column;align-items:center;gap:0}
+.cal-today{font-size:12.5px;font-weight:700;color:var(--accent);padding:2px 6px}
+.cal-w,.cal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-w span{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding:4px 0}
+.cal-w .sun,.cal-c.sun .cal-d{color:var(--bad)}
+.cal-w .sat,.cal-c.sat .cal-d{color:var(--accent)}
+.cal-c{min-height:58px;border-radius:12px;padding:5px 2px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;border:0;background:transparent;font:inherit;color:inherit}
+.cal-c.empty{visibility:hidden}
+.cal-d{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink-2);width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
+.cal-c.today .cal-d{background:var(--accent);color:var(--accent-ink)!important}
+.cal-c.has{background:var(--warm-soft);cursor:pointer;transition:transform 120ms ease}
+.cal-c.has:active{transform:scale(.95)}
+.cal-n{max-width:100%;font-size:11px;font-weight:700;line-height:1.25;color:var(--warm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+.cal-more{font-size:10px;font-weight:700;color:var(--warm-muted)}
+@media (min-width:721px){ .cal-c{min-height:72px} .cal-n{font-size:12.5px} }
+@keyframes rowflash{ 0%,40%{background:var(--warm-soft)} 100%{background:transparent} }
+.row.flash{animation:rowflash 1.4s ease-out}
+@media (prefers-reduced-motion:reduce){ .row.flash{animation:none;background:var(--warm-soft)} }
