@@ -567,3 +567,49 @@ button.link{background:none;border:0;font:inherit;cursor:pointer}
   .ledger-xl .c-date{width:44px;padding-left:10px}
   .foot-sum{display:block!important;font-size:11.5px;margin-top:2px} .foot-sum .in{color:var(--in)} .foot-sum .out{color:var(--out)}
 }
+
+/* ---------- 리더단 ---------- */
+.ld-week{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:18px;padding:8px 10px;box-shadow:var(--shadow-1)}
+.ld-week-t{display:flex;flex-direction:column;align-items:center;gap:1px}
+.ld-week-t b{font-size:17px} .ld-week-t span{font-size:12px;color:var(--muted)}
+.ld-total{display:flex;flex-direction:column;gap:8px;padding:16px 18px}
+.ld-total-n{display:flex;align-items:baseline;justify-content:space-between}
+.ld-total-n .k{font-size:13px;font-weight:700;color:var(--muted)}
+.ld-total-n b{font-size:28px;letter-spacing:-.02em} .ld-total-n small{font-size:15px;color:var(--muted);font-weight:600}
+.ld-total-bar{height:10px;border-radius:99px;background:var(--sunken);overflow:hidden} .ld-total-bar div{height:100%;border-radius:99px;background:linear-gradient(90deg,#7A5CE0,#2F78D0)}
+.ld-total .s{font-size:12.5px;color:var(--muted)}
+.team-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:721px){ .team-grid{grid-template-columns:repeat(4,minmax(0,1fr))} }
+.team-card{display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;border:0;font:inherit;color:inherit;background:var(--surface);border-radius:20px;padding:14px;box-shadow:var(--shadow-1);cursor:pointer;position:relative;overflow:hidden;transition:transform 120ms ease}
+.team-card::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--tc)}
+.team-card:active{transform:scale(.97)}
+.team-card.mine{box-shadow:inset 0 0 0 2px var(--tc),var(--shadow-1)}
+.team-top{display:flex;align-items:center;gap:6px;min-width:0} .team-top b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.team-top .chip{margin-left:auto;padding:1px 7px;font-size:10.5px}
+.team-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--tc);flex:none}
+.team-n{font-size:24px;font-weight:700;letter-spacing:-.02em} .team-n small{font-size:13px;color:var(--muted);font-weight:600}
+.team-bar{height:6px;border-radius:99px;background:var(--sunken);overflow:hidden} .team-bar i{display:block;height:100%;background:var(--tc);border-radius:99px}
+.team-meta{font-size:11.5px;color:var(--muted)}
+.back-link{display:inline-flex;align-items:center;gap:2px;color:var(--accent);text-decoration:none;font-weight:700}
+.back-link .i{width:14px;height:14px}
+.team-h{display:flex;align-items:center;gap:10px} .team-h .team-dot{width:14px;height:14px}
+.tm-list{padding:4px 0}
+.tm-row{display:flex;flex-direction:column;gap:8px;padding:12px 14px}
+.tm-row + .tm-row{box-shadow:0 -1px 0 var(--line)}
+.tm-head{display:flex;align-items:center;gap:8px;min-width:0} .tm-head b{font-size:15px;white-space:nowrap}
+.tm-head .chip{padding:1px 7px;font-size:10.5px}
+.att-seg{margin-left:auto;display:flex;gap:4px;flex:none}
+.att{border:0;font:inherit;font-size:12.5px;font-weight:700;min-height:34px;padding:0 10px;border-radius:10px;background:var(--sunken);color:var(--muted);cursor:pointer;touch-action:manipulation;transition:transform 100ms ease}
+.att:active{transform:scale(.94)}
+.att.o[aria-checked="true"]{background:var(--ok);color:#fff} .att.on[aria-checked="true"]{background:var(--accent);color:var(--accent-ink)} .att.x[aria-checked="true"]{background:var(--bad);color:#fff}
+.att-seg.ro .att{cursor:default} .att-seg.ro .att:not([aria-checked="true"]){opacity:.5}
+.tm-pray,.tm-why{width:100%;font-size:16px;border-radius:12px;padding:9px 12px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);border:0;color:var(--ink);resize:vertical;line-height:1.5}
+.tm-pray.team{background:var(--surface)}
+.tm-why{min-height:38px}
+@media (max-width:380px){ .att{padding:0 7px;font-size:12px} .tm-head .av{display:none} }
+.att-xl{min-width:520px} .att-xl .c-mk{text-align:center;width:44px;padding:8px 4px}
+.att-xl .grp td{background:var(--surface-2);font-weight:700;font-size:12.5px;color:var(--ink-2)}
+.att-xl .grp .team-dot{margin-right:6px;vertical-align:-1px}
+.mk{font-weight:800;color:var(--faint)} .mk.o{color:var(--ok)} .mk.on{color:var(--accent)} .mk.x{color:var(--bad)}
+:root[data-theme="dark"] .att.o[aria-checked="true"],:root[data-theme="dark"] .att.x[aria-checked="true"]{color:#0A1428}
+.i.flip{transform:scaleX(-1)}

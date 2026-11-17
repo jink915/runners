@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-23";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-24";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -52,10 +52,10 @@ function loadPrefs(){ try{ return normPrefs(JSON.parse(store.get("runners-push-p
 const S = {
   approved:false, isOwner:false,
   push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
-  member:null, memberReady:false, members:[], births:[], birthQ:"", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
+  member:null, memberReady:false, members:[], births:[], birthQ:"", teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
   dept: store.get("runners-dept")==="care" ? "care" : "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false},
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false},
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -73,7 +73,7 @@ const addDays = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return is
 const dday = s => Math.round((parse(s)-parse(TODAY))/864e5);
 const isOwnerUser = () => S.isOwner;
 // 권한: 관리자 = 모든 부서·모든 권한 / 운영자 = 맡은 부서에서 관리자와 같은 권한 / 멤버 = 맡은 부서 보기만
-const ALL_DEPTS = ["social","care","finance"];
+const ALL_DEPTS = ["social","care","finance","leaders"];
 const LEGACY_DEPTS = ["social","care"];   // 부서를 정하기 전에 승인된 예전 멤버 (총무부는 따로 열어 줘야 보여요)
 const ROLE_NAME = { admin:"관리자", operator:"운영자", member:"멤버" };
 const deptsOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : Array.isArray(m.depts) ? m.depts.filter(d=>ALL_DEPTS.includes(d)) : [...LEGACY_DEPTS];
@@ -733,6 +733,8 @@ const TAB_ICON = {
   birth:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7z"/><path d="M4 20.5h16M5 15.5c1.2 1 2.4 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5v-3M12 5.6c.8-.6 1-1.5 0-2.6-1 1.1-.8 2 0 2.6z"/></svg>',
   ledger:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="4" width="17" height="16.5" rx="2.5"/><path d="M3.5 9h17M3.5 14h17M9.5 4v16.5"/></svg>',
   ledgerSum:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="4" y="12" width="4" height="8" rx="1"/><rect class="fillable" x="10" y="7" width="4" height="13" rx="1"/><rect class="fillable" x="16" y="3.5" width="4" height="16.5" rx="1"/></svg>',
+  lead:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle class="fillable" cx="12" cy="7.5" r="3.2"/><circle class="fillable" cx="5.5" cy="10" r="2.4"/><circle class="fillable" cx="18.5" cy="10" r="2.4"/><path d="M6.5 20c.6-3.4 2.7-5.3 5.5-5.3s4.9 1.9 5.5 5.3M1.8 18.5c.4-2.1 1.6-3.3 3.4-3.5M22.2 18.5c-.4-2.1-1.6-3.3-3.4-3.5"/></svg>',
+  leadHist:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="m8 9 1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H17M14.5 15.5H17"/></svg>',
   births:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01"/></svg>',
 };
 const DEPTS = {
@@ -742,11 +744,13 @@ const DEPTS = {
             tabs:[["birth","생일"],["births","전체"],["more","더보기"]] },
   finance:{ name:"총무부", desc:"회비·헌금·지출 장부", icon:"wallet", color:"#1F9D6B", home:"ledger",
             tabs:[["ledger","장부"],["ledgerSum","요약"],["more","더보기"]] },
+  leaders:{ name:"리더단", desc:"팀별 출석·기도제목", icon:"users", color:"#7A5CE0", home:"lead",
+            tabs:[["lead","이번 주"],["leadHist","출석부"],["more","더보기"]] },
 };
-const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance" };
+const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
-  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r;
+  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r;
   const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin;
   if(nav.dataset.key!==key){
     nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}">${TAB_ICON[k]}<span>${l}</span></a>`).join("");
@@ -891,6 +895,112 @@ function birthSheet(id){
       <label class="field"><span>일</span><select id="b-day">${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}" ${+b.day===d?"selected":""}>${d}일</option>`).join("")}</select></label>
     </div></div>`,
     `${id?`<button class="btn danger" type="button" data-act="delBirth" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="saveBirth" data-id="${id||""}">저장</button>`);
+}
+
+/* ---------- 리더단: 팀별 출석·기도제목 ---------- */
+const TEAMS = [
+  {id:"mychew", name:"마이쮸팀", c:"#E85D8A"}, {id:"secret", name:"시크릿주주팀", c:"#7A5CE0"}, {id:"honey", name:"꿀복팀", c:"#E3A21A"},
+  {id:"molar", name:"어금니팀", c:"#2F9E9A"}, {id:"yejong", name:"예종팀", c:"#2F78D0"}, {id:"barley", name:"하늘보리팀", c:"#4BA3E3"},
+  {id:"haribo", name:"하리보팀", c:"#E0663E"}, {id:"romance", name:"로맨스팀", c:"#C2457A"},
+];
+const ATT = { o:["참석","ok"], on:["온라인","acc"], x:["결석","bad"] };
+const teamOf = id => TEAMS.find(t=>t.id===id);
+const teamMembers = id => (S.teams[id]?.members||[]).filter(Boolean);
+const sundayOn = d => addDays(d, -parse(d).getDay());   // 그 주의 주일 (일요일이면 그날)
+const twKey = (date, team) => `${date}_${team}`;
+const tw = (date, team) => S.tweeks[twKey(date, team)] || {};
+function teamStat(date, id){
+  const ms = teamMembers(id); const w = tw(date, id); const att = w.att||{};
+  const n = k => ms.filter(m=>att[m]===k).length;
+  return { total:ms.length, o:n("o"), on:n("on"), x:n("x"), checked:ms.filter(m=>att[m]).length, prayers:ms.filter(m=>(w.prayers||{})[m]?.trim()).length + (w.teamPrayer?.trim()?1:0) };
+}
+const myTeam = () => TEAMS.find(t=>teamMembers(t.id).includes(myName()) || S.teams[t.id]?.leader===myName());
+function ldWeekNav(){
+  const d = S.ldSun;
+  return `<div class="ld-week">
+    <button class="btn icon sm" type="button" data-act="ldMove" data-v="-7" aria-label="지난주">${icon("chev","flip")}</button>
+    <div class="ld-week-t"><b>${fmtKo(d)}</b><span>${d===sundayOn(TODAY)?"이번 주일":dday(d)>0?"다가오는 주일":`${Math.round(-dday(d)/7)}주 전`}</span></div>
+    <button class="btn icon sm" type="button" data-act="ldMove" data-v="7" aria-label="다음 주">${icon("chev")}</button></div>`;
+}
+function vLead(){
+  if(!S.ldSun) S.ldSun = sundayOn(TODAY);
+  const d = S.ldSun; const stats = TEAMS.map(t=>({t, ...teamStat(d, t.id)}));
+  const tot = stats.reduce((a,x)=>({total:a.total+x.total, came:a.came+x.o+x.on, checked:a.checked+x.checked}), {total:0,came:0,checked:0});
+  const mine = myTeam();
+  return `${head("리더단", "팀별 출석과 기도제목", `<button class="btn" type="button" data-act="copyPrayers">${icon("copy")}기도제목 모아 복사</button>`, "리더단")}
+    ${ldWeekNav()}
+    <section class="card ld-total">
+      <div class="ld-total-n"><span class="k">전체 출석</span><b class="tnum">${tot.came}<small>/${tot.total}명</small></b></div>
+      <div class="ld-total-bar" role="img" aria-label="출석 ${tot.came}명, 전체 ${tot.total}명"><div style="width:${tot.total?tot.came/tot.total*100:0}%"></div></div>
+      <span class="s">${tot.total?`출석률 ${Math.round(tot.came/tot.total*100)}% · 체크 ${tot.checked}/${tot.total}`:"팀원을 먼저 등록해 주세요"}</span>
+    </section>
+    <div class="team-grid">${stats.map(x=>`<button type="button" class="team-card ${mine?.id===x.t.id?"mine":""}" data-act="openTeam" data-id="${x.t.id}" style="--tc:${x.t.c}">
+      <span class="team-top"><span class="team-dot"></span><b>${x.t.name}</b>${mine?.id===x.t.id?`<span class="chip acc plain">우리 팀</span>`:""}</span>
+      <span class="team-n tnum">${x.total?`${x.o+x.on}<small>/${x.total}</small>`:`<small>팀원 없음</small>`}</span>
+      <span class="team-bar"><i style="width:${x.total?(x.o+x.on)/x.total*100:0}%"></i></span>
+      <span class="team-meta">${x.total?`${x.checked<x.total?`미체크 ${x.total-x.checked}명`:"체크 완료"} · 기도제목 ${x.prayers}`:"눌러서 팀원 등록"}</span>
+    </button>`).join("")}</div>`;
+}
+function vTeam(){
+  const t = teamOf(S.teamSel) || TEAMS[0]; if(!S.ldSun) S.ldSun = sundayOn(TODAY);
+  const d = S.ldSun; const ms = teamMembers(t.id); const w = tw(d, t.id); const att = w.att||{}, pr = w.prayers||{}, why = w.reasons||{};
+  const edit = can("leaders"); const st = teamStat(d, t.id); const leader = S.teams[t.id]?.leader||"";
+  const memberRow = (m, i) => `<div class="tm-row" style="--tc:${t.c}">
+      <div class="tm-head">${av(m,"sm")}<b>${esc(m)}</b>${leader===m?`<span class="chip acc plain">팀장</span>`:""}
+        <div class="att-seg ${edit?"":"ro"}" role="radiogroup" aria-label="${esc(m)} 출석">${Object.entries(ATT).map(([k,[l]])=>`<button type="button" role="radio" class="att ${k}" ${edit?`data-act="att" data-m="${esc(m)}" data-v="${k}"`:"disabled"} aria-checked="${att[m]===k}">${l}</button>`).join("")}</div></div>
+      ${att[m]==="x"?`<input class="tm-why keep-val" id="why-${i}" data-why="${esc(m)}" maxlength="60" placeholder="결석 사유 (선택)" value="${esc(why[m]||"")}" ${edit?"":"readonly"}>`:""}
+      <textarea class="tm-pray keep-val" id="pr-${i}" data-pray="${esc(m)}" rows="2" maxlength="500" placeholder="${esc(m)}님의 이번 주 기도제목" ${edit?"":"readonly"}>${esc(pr[m]||"")}</textarea>
+    </div>`;
+  return `<div class="page-head"><div><p class="eyebrow"><a href="#lead" class="back-link">${icon("chev","flip")}리더단</a></p><h1 style="--tc:${t.c}" class="team-h"><span class="team-dot"></span>${t.name}</h1>
+      <p class="sub">${ms.length?`팀원 ${ms.length}명 · 참석 ${st.o} · 온라인 ${st.on} · 결석 ${st.x}`:"아직 팀원이 없어요"}</p></div>
+      ${edit?`<button class="btn" type="button" data-act="editTeam" data-id="${t.id}">${icon("users")}팀원 편집</button>`:""}</div>
+    ${ldWeekNav()}
+    ${ms.length ? `<section class="card tm-list">${ms.map(memberRow).join("")}</section>
+      <section class="section"><div class="section-h"><h2>팀 전체 기도제목</h2></div>
+        <textarea class="tm-pray team keep-val" id="pr-team" data-pray-team="1" rows="3" maxlength="800" placeholder="팀이 함께 기도할 제목" ${edit?"":"readonly"}>${esc(w.teamPrayer||"")}</textarea></section>
+      <p class="note">${edit?"적는 대로 자동 저장돼요.":"보기 전용이에요. 기록은 리더단 운영자가 할 수 있어요."}${w.updatedAt?.toDate?` 마지막 저장 ${ago(w.updatedAt.toDate())}`:""}</p>`
+      : `<div class="card">${empty("팀원을 먼저 등록해 주세요", edit?"오른쪽 위 '팀원 편집'에서 이름을 한 줄에 한 명씩 적으면 돼요.":"리더단 운영자가 팀원을 등록하면 여기에 보여요.","wave", edit?`<button class="btn pri" type="button" data-act="editTeam" data-id="${t.id}">팀원 편집</button>`:"")}</div>`}`;
+}
+function vLeadHist(){
+  const sel = S.histTeam; const N = 8;
+  const end = sundayOn(TODAY); const dates = Array.from({length:N},(_,i)=>addDays(end, -7*(N-1-i)));
+  const teams = sel==="all" ? TEAMS : [teamOf(sel)];
+  const mark = v => v==="o"?`<span class="mk o">○</span>`:v==="on"?`<span class="mk on">△</span>`:v==="x"?`<span class="mk x">✕</span>`:`<span class="mk">·</span>`;
+  const body = teams.map(t=>{ const ms = teamMembers(t.id); if(!ms.length) return "";
+    return `<tr class="grp"><td class="c-date" colspan="${N+2}" style="--tc:${t.c}"><span class="team-dot"></span>${t.name}</td></tr>` + ms.map(m=>{
+      const vals = dates.map(d=>(tw(d,t.id).att||{})[m]); const came = vals.filter(v=>v==="o"||v==="on").length, chk = vals.filter(Boolean).length;
+      return `<tr><td class="c-date">${esc(m)}</td>${vals.map(v=>`<td class="c-mk">${mark(v)}</td>`).join("")}<td class="c-num">${chk?Math.round(came/chk*100)+"%":"-"}</td></tr>`; }).join(""); }).join("");
+  return `${head("출석부", `최근 ${N}주 · ○ 참석  △ 온라인  ✕ 결석`, `<button class="btn" type="button" data-act="histCsv">${icon("dl")}엑셀로 받기</button>`, "리더단")}
+    <div class="seg mini months" role="group" aria-label="팀">${[["all","전체"],...TEAMS.map(t=>[t.id,t.name.replace(/팀$/,"")])].map(([k,l])=>`<button type="button" data-act="histTeam" data-v="${k}" aria-pressed="${sel===k}">${l}</button>`).join("")}</div>
+    <section class="card sheet-card"><div class="xl-wrap" tabindex="0" role="region" aria-label="출석부"><table class="xl att-xl">
+      <thead><tr><th class="c-date">이름</th>${dates.map(d=>`<th class="c-mk">${+d.slice(5,7)}/${+d.slice(8)}</th>`).join("")}<th class="c-num">출석률</th></tr></thead>
+      <tbody>${body || `<tr class="empty-row"><td colspan="${N+2}">등록된 팀원이 없어요</td></tr>`}</tbody></table></div></section>`;
+}
+function teamSheet(id){
+  const t = teamOf(id); const ms = teamMembers(id); const leader = S.teams[id]?.leader||"";
+  openSheet(`${t.name} 팀원`, `<div class="fields">
+    <label class="field"><span>팀원 (한 줄에 한 명)</span><textarea id="tm-names" rows="8" placeholder="홍길동&#10;김하늘">${esc(ms.join("\n"))}</textarea></label>
+    <label class="field"><span>팀장</span><input id="tm-leader" list="dl-tm" autocomplete="off" value="${esc(leader)}" placeholder="팀원 중 한 명"></label>
+    <datalist id="dl-tm">${ms.map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
+    <p class="hint" style="margin:0 18px">이름을 바꾸거나 빼도 지난 기록은 그대로 남아요. 팀원 이름을 멤버 이름과 똑같이 적으면 그 사람에게 '우리 팀'이 표시돼요.</p></div>`,
+    `<button class="btn pri block" type="button" data-act="saveTeam" data-id="${id}">저장</button>`);
+}
+let prayTimers = {};
+function savePray(el){
+  const d = S.ldSun, team = S.teamSel; if(!d || !team || !can("leaders")) return;
+  const key = el.id; clearTimeout(prayTimers[key]);
+  prayTimers[key] = setTimeout(()=>{
+    const patch = { date:d, team, updatedBy:myName(), updatedAt: FB?FB.m.serverTimestamp():new Date() };
+    if(el.dataset.prayTeam) patch.teamPrayer = el.value; else if(el.dataset.pray) patch.prayers = {[el.dataset.pray]: el.value}; else if(el.dataset.why) patch.reasons = {[el.dataset.why]: el.value};
+    S.db.doc("teamWeeks/"+twKey(d, team)).merge(patch).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"));
+  }, 700);
+}
+function prayersText(){
+  const d = S.ldSun || sundayOn(TODAY); const lines = [`🙏 러너스 리더단 기도제목 (${fmtKo(d)})`];
+  for(const t of TEAMS){ const w = tw(d, t.id); const pr = w.prayers||{}; const ms = teamMembers(t.id).filter(m=>pr[m]?.trim());
+    if(!ms.length && !w.teamPrayer?.trim()) continue;
+    lines.push("", `[${t.name}]`); if(w.teamPrayer?.trim()) lines.push(`· 팀: ${w.teamPrayer.trim()}`); ms.forEach(m=>lines.push(`· ${m}: ${pr[m].trim()}`)); }
+  return lines.length>1 ? lines.join("\n") : "";
 }
 
 /* ---------- 총무부: 장부 ---------- */
@@ -1080,7 +1190,7 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, requests:vRequests};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests};
 function homeRoute(){ if(!sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 function route(){ const h=location.hash.slice(1);
   if(S.approved && !sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); }
@@ -1112,13 +1222,15 @@ function render(){
   const need = ROUTE_DEPT[r];
   if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
   if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
+  if(need==="leaders" && !S.got.t){ main.innerHTML=skeleton(); return; }
   if(r==="members" && !S.got.m){ main.innerHTML=skeleton(); return; }
   if(r==="requests" && !S.got.r){ main.innerHTML=skeleton(); return; }
   if(need==="social" && (!S.got.s || !S.got.w)){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
   if(r==="people" && !S.got.p){ main.innerHTML=skeleton(); return; }
   const ae=document.activeElement; const aid=ae?.id && main.contains(ae) ? ae.id : null; const sel=aid&&"selectionStart" in ae?[ae.selectionStart,ae.selectionEnd]:null;
+  const keep = aid && ae.classList.contains("keep-val") ? ae.value : null;
   main.innerHTML = (S.mode==="slow"?`<div class="banner">연결이 느려서 최신 내용이 아닐 수 있어요.</div>`:"") + ROUTES[r]();
-  if(aid){ const el=document.getElementById(aid); if(el){ el.focus({preventScroll:true}); if(sel) try{el.setSelectionRange(...sel);}catch{} } }
+  if(aid){ const el=document.getElementById(aid); if(el){ if(keep!==null) el.value=keep; el.focus({preventScroll:true}); if(sel) try{el.setSelectionRange(...sel);}catch{} } }
   if(r==="schedule" && !S.schedScrolled){ S.schedScrolled=true; document.getElementById("next-row")?.scrollIntoView({block:"center"}); }
 }
 window.addEventListener("hashchange", ()=>{ closeSheet(); closeDrawer(); window.scrollTo(0,0); if(route()==="schedule") S.schedScrolled=false; render(); });
@@ -1238,6 +1350,21 @@ document.addEventListener("click", async e => {
   if(a==="copyToday"){ const td=births().filter(b=>b.dd===0); copy(`🎉 오늘은 ${td.map(honor).join(", ")} 생일이에요! 다 같이 축하해 주세요 🎂`); }
   if(a==="jumpMonth"){ const el=document.getElementById("m-"+t.dataset.m); if(el){ const bar=document.querySelector(".month-bar"); const y=el.getBoundingClientRect().top+scrollY-(bar?bar.offsetHeight+70:80); scrollTo({top:y, behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}); }
     t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); return; }
+  if(a==="ldMove"){ S.ldSun = addDays(S.ldSun, +t.dataset.v); render(); return; }
+  if(a==="openTeam"){ S.teamSel=t.dataset.id; location.hash="#team"; return; }
+  if(a==="att"){ const m=t.dataset.m, v=t.dataset.v; const cur=(tw(S.ldSun,S.teamSel).att||{})[m]; const nv = cur===v ? "" : v;
+    const key=twKey(S.ldSun,S.teamSel); S.tweeks[key] = {...(S.tweeks[key]||{}), att:{...((S.tweeks[key]||{}).att||{}), [m]:nv}}; render();
+    try{ await S.db.doc("teamWeeks/"+key).merge({date:S.ldSun, team:S.teamSel, att:{[m]:nv}, updatedBy:myName(), updatedAt:FB?FB.m.serverTimestamp():new Date()}); try{ navigator.vibrate?.(6); }catch{} }
+    catch{ toast("저장하지 못했어요. 리더단 운영자만 기록할 수 있어요"); } return; }
+  if(a==="editTeam"){ teamSheet(t.dataset.id); return; }
+  if(a==="saveTeam"){ const id=t.dataset.id; const names=[...new Set(document.getElementById("tm-names").value.split("\n").map(x=>x.trim()).filter(Boolean))].slice(0,40);
+    const leader=val("tm-leader"); if(await write(()=>S.db.doc("teams/"+id).set({name:teamOf(id).name, members:names, leader}), "팀원을 저장했어요")) closeSheet(); return; }
+  if(a==="copyPrayers"){ const txt=prayersText(); if(!txt){ toast("이번 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
+  if(a==="histTeam"){ S.histTeam=t.dataset.v; render(); return; }
+  if(a==="histCsv"){ const N=8, end=sundayOn(TODAY); const dates=Array.from({length:N},(_,i)=>addDays(end,-7*(N-1-i))); const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+    const L={o:"참석",on:"온라인",x:"결석"}; const lines=[["팀","이름",...dates].map(q).join(",")];
+    for(const tt of (S.histTeam==="all"?TEAMS:[teamOf(S.histTeam)])) for(const m of teamMembers(tt.id)) lines.push([tt.name, m, ...dates.map(d=>L[(tw(d,tt.id).att||{})[m]]||"")].map(q).join(","));
+    const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}); const el=document.createElement("a"); el.href=URL.createObjectURL(blob); el.download=`러너스_출석부_${end}.csv`; document.body.append(el); el.click(); setTimeout(()=>{URL.revokeObjectURL(el.href); el.remove();},1000); toast("엑셀 파일(csv)을 받았어요"); return; }
   if(a==="lgMove"){ let {y,m}=S.lgYM; m+=+t.dataset.v; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.lgYM={y,m}; render(); return; }
   if(a==="lgType"){ S.lgType=t.dataset.v; render(); return; }
   if(a==="lgNew"){ S.lgNew=t.dataset.v; const keep={date:val("lg-date"),cat:val("lg-cat"),memo:val("lg-memo"),amt:val("lg-amt"),who:val("lg-who")}; render();
@@ -1293,6 +1420,7 @@ document.addEventListener("input", e => {
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
   if(e.target.name==="m-role"){ syncDeptPick(); return; }
+  if(e.target.dataset?.pray || e.target.dataset?.prayTeam || e.target.dataset?.why){ savePray(e.target); return; }
   if(id==="lgq"){ S.lgQ=e.target.value; render(); return; }
   if(id==="lg-amt"||id==="le-amt"){ const n=parseWon(e.target.value); e.target.value = n ? won(n) : ""; return; }
   if(id==="bq"){ S.birthQ=e.target.value; render(); return; }
@@ -1346,7 +1474,7 @@ async function startFirebase(){
   S.fbReady = true; S.mode="live"; render();
   const { doc, collection, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writeBatch } = fsM;
   S.db = {
-    doc(path){ const r=doc(fs, ...path.split("/")); return { id:r.id, set:d=>setDoc(r,d), update:d=>updateDoc(r,d), delete:()=>deleteDoc(r) }; },
+    doc(path){ const r=doc(fs, ...path.split("/")); return { id:r.id, set:d=>setDoc(r,d), merge:d=>setDoc(r,d,{merge:true}), update:d=>updateDoc(r,d), delete:()=>deleteDoc(r) }; },
     collection(name){ return { doc(){ const r=doc(collection(fs,name)); return { id:r.id, set:d=>setDoc(r,d) }; } }; }
   };
   AUTH = { signOut: ()=>authM.signOut(auth) };
@@ -1362,7 +1490,7 @@ async function startFirebase(){
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
   const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
-    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.ledger=[]; S.got.l=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
+    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
     if(started) return; started = true;
@@ -1371,6 +1499,11 @@ async function startFirebase(){
       S.weeks = s.docs.map(d=>({...d.data(), date:d.data().date||d.id})); S.got.w=true;
       if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
     }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); }));
+    if(sees("leaders")){
+      let a=false, b=false; const done=()=>{ if(a&&b){ S.got.t=true; render(); } };
+      unsubs.push(onSnapshot(collection(fs,"teams"), s=>{ S.teams=Object.fromEntries(s.docs.map(d=>[d.id,d.data()])); a=true; done(); }, ()=>{ a=true; done(); }));
+      unsubs.push(onSnapshot(collection(fs,"teamWeeks"), s=>{ S.tweeks=Object.fromEntries(s.docs.map(d=>[d.id,d.data()])); b=true; done(); }, ()=>{ b=true; done(); }));
+    }
     if(sees("finance")) unsubs.push(onSnapshot(collection(fs,"ledger"), s=>{ S.ledger=s.docs.map(d=>({id:d.id,...d.data()})); S.got.l=true; render(); }, ()=>{ S.got.l=true; render(); }));
     if(sees("care")) unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
     if(can("social")){
