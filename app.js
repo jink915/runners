@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-24";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-25";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -939,7 +939,8 @@ function vLead(){
       <span class="team-n tnum">${x.total?`${x.o+x.on}<small>/${x.total}</small>`:`<small>팀원 없음</small>`}</span>
       <span class="team-bar"><i style="width:${x.total?(x.o+x.on)/x.total*100:0}%"></i></span>
       <span class="team-meta">${x.total?`${x.checked<x.total?`미체크 ${x.total-x.checked}명`:"체크 완료"} · 기도제목 ${x.prayers}`:"눌러서 팀원 등록"}</span>
-    </button>`).join("")}</div>`;
+    </button>`).join("")}</div>
+    <p class="note">팀 카드를 누르면 출석을 체크하고 기도제목을 적거나 그 팀 기도제목만 복사할 수 있어요.</p>`;
 }
 function vTeam(){
   const t = teamOf(S.teamSel) || TEAMS[0]; if(!S.ldSun) S.ldSun = sundayOn(TODAY);
@@ -953,10 +954,11 @@ function vTeam(){
     </div>`;
   return `<div class="page-head"><div><p class="eyebrow"><a href="#lead" class="back-link">${icon("chev","flip")}리더단</a></p><h1 style="--tc:${t.c}" class="team-h"><span class="team-dot"></span>${t.name}</h1>
       <p class="sub">${ms.length?`팀원 ${ms.length}명 · 참석 ${st.o} · 온라인 ${st.on} · 결석 ${st.x}`:"아직 팀원이 없어요"}</p></div>
-      ${edit?`<button class="btn" type="button" data-act="editTeam" data-id="${t.id}">${icon("users")}팀원 편집</button>`:""}</div>
+      <div class="head-acts"><button class="btn" type="button" data-act="copyTeamPrayers" data-id="${t.id}">${icon("copy")}기도제목 복사</button>
+      ${edit?`<button class="btn" type="button" data-act="editTeam" data-id="${t.id}">${icon("users")}팀원 편집</button>`:""}</div></div>
     ${ldWeekNav()}
     ${ms.length ? `<section class="card tm-list">${ms.map(memberRow).join("")}</section>
-      <section class="section"><div class="section-h"><h2>팀 전체 기도제목</h2></div>
+      <section class="section"><div class="section-h"><h2>팀 전체 기도제목</h2><button class="link" type="button" data-act="copyTeamPrayers" data-id="${t.id}">${icon("copy")}이 팀 기도제목 복사</button></div>
         <textarea class="tm-pray team keep-val" id="pr-team" data-pray-team="1" rows="3" maxlength="800" placeholder="팀이 함께 기도할 제목" ${edit?"":"readonly"}>${esc(w.teamPrayer||"")}</textarea></section>
       <p class="note">${edit?"적는 대로 자동 저장돼요.":"보기 전용이에요. 기록은 리더단 운영자가 할 수 있어요."}${w.updatedAt?.toDate?` 마지막 저장 ${ago(w.updatedAt.toDate())}`:""}</p>`
       : `<div class="card">${empty("팀원을 먼저 등록해 주세요", edit?"오른쪽 위 '팀원 편집'에서 이름을 한 줄에 한 명씩 적으면 돼요.":"리더단 운영자가 팀원을 등록하면 여기에 보여요.","wave", edit?`<button class="btn pri" type="button" data-act="editTeam" data-id="${t.id}">팀원 편집</button>`:"")}</div>`}`;
@@ -995,11 +997,17 @@ function savePray(el){
     S.db.doc("teamWeeks/"+twKey(d, team)).merge(patch).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"));
   }, 700);
 }
+function teamPrayerLines(d, t){
+  const w = tw(d, t.id); const pr = w.prayers||{}; const ms = teamMembers(t.id).filter(m=>pr[m]?.trim());
+  const out = []; if(w.teamPrayer?.trim()) out.push(`· 팀: ${w.teamPrayer.trim()}`); ms.forEach(m=>out.push(`· ${m}: ${pr[m].trim()}`)); return out;
+}
+function teamPrayersText(id){
+  const d = S.ldSun || sundayOn(TODAY); const t = teamOf(id); const lines = teamPrayerLines(d, t);
+  return lines.length ? [`🙏 ${t.name} 기도제목 (${fmtKo(d)})`, "", ...lines].join("\n") : "";
+}
 function prayersText(){
   const d = S.ldSun || sundayOn(TODAY); const lines = [`🙏 러너스 리더단 기도제목 (${fmtKo(d)})`];
-  for(const t of TEAMS){ const w = tw(d, t.id); const pr = w.prayers||{}; const ms = teamMembers(t.id).filter(m=>pr[m]?.trim());
-    if(!ms.length && !w.teamPrayer?.trim()) continue;
-    lines.push("", `[${t.name}]`); if(w.teamPrayer?.trim()) lines.push(`· 팀: ${w.teamPrayer.trim()}`); ms.forEach(m=>lines.push(`· ${m}: ${pr[m].trim()}`)); }
+  for(const t of TEAMS){ const tl = teamPrayerLines(d, t); if(tl.length) lines.push("", `[${t.name}]`, ...tl); }
   return lines.length>1 ? lines.join("\n") : "";
 }
 
@@ -1359,6 +1367,7 @@ document.addEventListener("click", async e => {
   if(a==="editTeam"){ teamSheet(t.dataset.id); return; }
   if(a==="saveTeam"){ const id=t.dataset.id; const names=[...new Set(document.getElementById("tm-names").value.split("\n").map(x=>x.trim()).filter(Boolean))].slice(0,40);
     const leader=val("tm-leader"); if(await write(()=>S.db.doc("teams/"+id).set({name:teamOf(id).name, members:names, leader}), "팀원을 저장했어요")) closeSheet(); return; }
+  if(a==="copyTeamPrayers"){ const txt=teamPrayersText(t.dataset.id); if(!txt){ toast("이 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
   if(a==="copyPrayers"){ const txt=prayersText(); if(!txt){ toast("이번 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
   if(a==="histTeam"){ S.histTeam=t.dataset.v; render(); return; }
   if(a==="histCsv"){ const N=8, end=sundayOn(TODAY); const dates=Array.from({length:N},(_,i)=>addDays(end,-7*(N-1-i))); const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
