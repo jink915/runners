@@ -51,8 +51,9 @@ function parseList(html) {
     const [y, mo, d] = texts[di].split(/[\/.-]/).map(Number);
     const date = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (new Date(Date.UTC(y, mo - 1, d)).getUTCDay() !== 0) continue;   // 일요일만
-    const ti = cells.findIndex(c => /command=body/i.test(c));
-    const ri = texts.findIndex((t, i) => i !== ti && i < di && parseRef(t) && /\d/.test(t));
+    // 이 게시판은 성경본문 칸과 제목 칸이 둘 다 글 링크예요 → 본문처럼 생긴 첫 칸이 본문, 그 뒤의 링크 칸이 제목
+    const ri = texts.findIndex((t, i) => i < di && /\d/.test(t) && parseRef(t) && /[:장]/.test(t));
+    const ti = cells.findIndex((c, i) => i > ri && i < di && /command=body/i.test(c));
     if (ri < 0) continue;
     const ref = parseRef(texts[ri]);
     const title = (ti >= 0 ? texts[ti] : texts[ri + 1] || "").replace(/\s*(\.\.+|…)\s*$/, "").trim();
