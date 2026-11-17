@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-28";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-1";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -948,7 +948,7 @@ function vTeam(){
   const d = S.ldSun; const ms = teamMembers(t.id); const w = tw(d, t.id); const att = w.att||{}, pr = w.prayers||{}, why = w.reasons||{};
   const edit = can("leaders"); const st = teamStat(d, t.id); const leader = S.teams[t.id]?.leader||"";
   const memberRow = (m, i) => `<div class="tm-row" style="--tc:${t.c}">
-      <div class="tm-head">${av(m,"sm")}<b>${esc(m)}</b>${leader===m?`<span class="chip acc plain">팀장</span>`:""}
+      <div class="tm-head">${av(m,"sm")}<b>${esc(m)}</b>${leader===m?`<span class="chip acc plain">리더</span>`:""}${(S.teams[t.id]?.mentor||"")===m?`<span class="chip ok plain">멘토</span>`:""}
         <div class="att-seg ${edit?"":"ro"}" role="radiogroup" aria-label="${esc(m)} 출석">${Object.entries(ATT).map(([k,[l]])=>`<button type="button" role="radio" class="att ${k}" ${edit?`data-act="att" data-m="${esc(m)}" data-v="${k}"`:"disabled"} aria-checked="${att[m]===k}">${l}</button>`).join("")}</div></div>
       ${att[m]==="x"?`<input class="tm-why keep-val" id="why-${i}" data-why="${esc(m)}" maxlength="60" placeholder="결석 사유 (선택)" value="${esc(why[m]||"")}" ${edit?"":"readonly"}>`:""}
       <textarea class="tm-pray keep-val" id="pr-${i}" data-pray="${esc(m)}" rows="2" maxlength="500" placeholder="${esc(m)}님의 이번 주 기도제목" ${edit?"":"readonly"}>${esc(pr[m]||"")}</textarea>
@@ -983,7 +983,8 @@ function teamSheet(id){
   const t = teamOf(id); const ms = teamMembers(id); const leader = S.teams[id]?.leader||"";
   openSheet(`${t.name} 팀원`, `<div class="fields">
     <label class="field"><span>팀원 (한 줄에 한 명)</span><textarea id="tm-names" rows="8" placeholder="홍길동&#10;김하늘">${esc(ms.join("\n"))}</textarea></label>
-    <label class="field"><span>팀장</span><input id="tm-leader" list="dl-tm" autocomplete="off" value="${esc(leader)}" placeholder="팀원 중 한 명"></label>
+    <div class="field-row"><label class="field"><span>리더</span><input id="tm-leader" list="dl-tm" autocomplete="off" value="${esc(leader)}" placeholder="팀원 중 한 명"></label>
+      <label class="field"><span>멘토</span><input id="tm-mentor" list="dl-tm" autocomplete="off" value="${esc(S.teams[id]?.mentor||"")}" placeholder="팀원 중 한 명"></label></div>
     <datalist id="dl-tm">${ms.map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
     <p class="hint" style="margin:0 18px">이름을 바꾸거나 빼도 지난 기록은 그대로 남아요. 팀원 이름을 멤버 이름과 똑같이 적으면 그 사람에게 '우리 팀'이 표시돼요.</p></div>`,
     `<button class="btn pri block" type="button" data-act="saveTeam" data-id="${id}">저장</button>`);
@@ -1379,7 +1380,7 @@ document.addEventListener("click", async e => {
     catch{ toast("저장하지 못했어요. 리더단 운영자만 기록할 수 있어요"); } return; }
   if(a==="editTeam"){ teamSheet(t.dataset.id); return; }
   if(a==="saveTeam"){ const id=t.dataset.id; const names=[...new Set(document.getElementById("tm-names").value.split("\n").map(x=>x.trim()).filter(Boolean))].slice(0,40);
-    const leader=val("tm-leader"); if(await write(()=>S.db.doc("teams/"+id).set({name:teamOf(id).name, members:names, leader}), "팀원을 저장했어요")) closeSheet(); return; }
+    const leader=val("tm-leader"), mentor=val("tm-mentor"); if(await write(()=>S.db.doc("teams/"+id).set({name:teamOf(id).name, members:names, leader, mentor}), "팀원을 저장했어요")) closeSheet(); return; }
   if(a==="copyTeamPrayers"){ const txt=teamPrayersText(t.dataset.id); if(!txt){ toast("이 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
   if(a==="copyPrayers"){ const txt=prayersText(); if(!txt){ toast("이번 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
   if(a==="histTeam"){ S.histTeam=t.dataset.v; render(); return; }
@@ -1431,9 +1432,9 @@ document.addEventListener("change", async e => {
   if(e.target.id!=="imp-file" || !e.target.files[0]) return;
   try{
     const data = JSON.parse(await e.target.files[0].text());
-    if(!["people","weeks","birthdays"].some(k=>Array.isArray(data[k])) && typeof data.topics!=="string") throw new Error("bad");
+    if(!["people","weeks","birthdays","teams"].some(k=>Array.isArray(data[k])) && typeof data.topics!=="string") throw new Error("bad");
     await IMPORT(data); closeSheet();
-    toast("가져왔어요: " + [data.people&&`사람 ${data.people.length}명`, data.weeks&&`주일 ${data.weeks.length}주`, data.birthdays&&`생일 ${data.birthdays.length}명`, data.topics&&"기도제목"].filter(Boolean).join(", "));
+    toast("가져왔어요: " + [data.people&&`사람 ${data.people.length}명`, data.weeks&&`주일 ${data.weeks.length}주`, data.birthdays&&`생일 ${data.birthdays.length}명`, data.teams&&`리더단 ${data.teams.length}팀`, data.topics&&"기도제목"].filter(Boolean).join(", "));
   }catch(err){ toast(err?.message==="bad"?"이 파일은 러너스 데이터 파일이 아니에요":"가져오지 못했어요. 운영자로 로그인했는지 확인해 주세요"); }
   e.target.value="";
 });
@@ -1506,6 +1507,7 @@ async function startFirebase(){
       ...(data.people||[]).map(p=>{ const {id,...rest}=p; return [doc(fs,"people",id), rest]; }),
       ...(data.weeks||[]).map(w=>[doc(fs,"weeks",w.date), w]),
       ...(data.birthdays||[]).map(b=>{ const {id,...rest}=b; return [doc(fs,"birthdays",id), rest]; }),
+      ...(data.teams||[]).map(t=>{ const {id,...rest}=t; return [doc(fs,"teams",id), rest]; }),
     ];
     if(data.topics) ops.push([doc(fs,"config","topics"), {text:data.topics}]);
     // 주일 배정은 합쳐 쓰기 (파일에 없는 칸은 그대로 둠)
