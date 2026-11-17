@@ -9,4 +9,4 @@ export const firebaseConfig = {
 };
 
 // Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 푸시 인증서의 "키 쌍" (공개 키). 비어 있으면 알림 기능이 꺼져 있어요.
-export const vapidKey = "";
+export const vapidKey = "BKaQyYr7u5cp3Irh85R5q4tpsr_LPMHZvrMjRw4eathhuWFd83VBnPoq_PtfZEJ82yrc6ea2A8_VpEwHDeFHtqI";
