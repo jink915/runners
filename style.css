@@ -615,3 +615,9 @@ button.link{background:none;border:0;font:inherit;cursor:pointer}
 .i.flip{transform:scaleX(-1)}
 .head-acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 @media (max-width:520px){ .head-acts .btn{min-height:38px;padding:0 12px;font-size:13.5px} }
+/* 글 칸은 내용만큼 자동으로 늘어나요 (끌어서 크기 조절·스크롤 막대 없음) */
+textarea{resize:none;overflow:hidden;min-height:44px}
+.tm-pray{min-height:44px}
+/* 글 칸은 내용만큼 자동으로 늘어나요 (끌어서 크기 조절·스크롤 막대 없음) */
+textarea{resize:none;overflow:hidden;min-height:44px}
+textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}

@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-27";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-28";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -565,6 +565,7 @@ function openSheet(title, body, foot=""){
       <div class="sheet-h"><h2 id="sheet-title">${title}</h2><button class="btn icon sm" type="button" data-act="closeSheet" aria-label="닫기">${icon("x")}</button></div></div>
       <div class="sheet-b">${body}</div>${foot?`<div class="sheet-f">${foot}</div>`:""}</div>`;
   sheetOpen = true; document.body.style.overflow="hidden";
+  growAll(root);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ root.className="open"; root.querySelector(".sheet-b input:not([disabled]):not([type=file]), .sheet-b select")?.focus({preventScroll:true}); }));
   bindSheetDrag(root.querySelector(".sheet"), root.querySelector(".drag-zone"));
 }
@@ -1219,6 +1220,9 @@ function skeleton(){
     <div class="sk" style="width:140px;height:36px"></div><div class="sk" style="height:360px;border-radius:32px"></div>
     <div class="card">${Array.from({length:3},()=>`<div class="row"><div class="sk" style="width:52px;height:46px"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="sk" style="width:70%;height:24px;border-radius:999px"></div><div class="sk" style="width:50%;height:12px"></div></div></div>`).join("")}</div></div>`;
 }
+// 글 칸: 스크롤 막대 대신 적은 만큼 칸이 늘어나요
+function grow(el){ if(!el || el.tagName!=="TEXTAREA") return; el.style.height="auto"; el.style.height = (el.scrollHeight + 2) + "px"; }
+const growAll = root => root?.querySelectorAll("textarea").forEach(grow);
 function render(){
   const main=document.getElementById("main");
   const gate = !S.authReady || !S.user;
@@ -1247,6 +1251,7 @@ function render(){
   const keep = aid && ae.classList.contains("keep-val") ? ae.value : null;
   main.innerHTML = (S.mode==="slow"?`<div class="banner">연결이 느려서 최신 내용이 아닐 수 있어요.</div>`:"") + ROUTES[r]();
   if(aid){ const el=document.getElementById(aid); if(el){ if(keep!==null) el.value=keep; el.focus({preventScroll:true}); if(sel) try{el.setSelectionRange(...sel);}catch{} } }
+  growAll(main);
   if(r==="schedule" && !S.schedScrolled){ S.schedScrolled=true; document.getElementById("next-row")?.scrollIntoView({block:"center"}); }
 }
 window.addEventListener("hashchange", ()=>{ closeSheet(); closeDrawer(); window.scrollTo(0,0); if(route()==="schedule") S.schedScrolled=false; render(); });
@@ -1433,6 +1438,7 @@ document.addEventListener("change", async e => {
   e.target.value="";
 });
 document.addEventListener("input", e => {
+  if(e.target.tagName==="TEXTAREA") grow(e.target);
   const id=e.target.id;
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
@@ -1568,3 +1574,5 @@ syncThemeButtons();
 render();
 loadSermons();
 startFirebase().catch(()=>{ S.mode="setup"; S.authReady=true; render(); toast("데이터 서버에 연결하지 못했어요"); });
+
+window.addEventListener("resize", ()=>growAll(document));
