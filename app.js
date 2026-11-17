@@ -33,6 +33,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 - 예배 말씀 섬기시는 이창무 목자님, 성령으로 함께하시길
 - 참석하는 모든 이들에게 집중력과 들을 귀를 허락하셔서 말씀의 은혜가 풍성하게 있을 수 있길`;
 
+const APP_VERSION = "11.17-14";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -318,7 +319,7 @@ function vMembers(){
   return `${head("멤버 관리", `멤버 ${ok.length}명${pend.length?` · 승인 대기 ${pend.length}명`:""}`)}
     ${pend.length?section("승인 대기", `<div class="card list">${pend.map(m=>row(m, `<span class="acts">
         <button class="btn sm danger" type="button" data-act="rejectMember" data-id="${m.id}">거절</button>
-        <button class="btn sm pri" type="button" data-act="editMember" data-id="${m.id}">${icon("check")}승인</button></span>`)).join("")}</div>
+        <button class="btn sm pri" type="button" data-act="editMember" data-id="${m.id}">${icon("check")}권한 정하고 승인</button></span>`)).join("")}</div>
         <p class="note">승인을 누르면 권한과 부서를 고른 뒤 승인할 수 있어요. 이름은 일정에 적힌 이름과 똑같이 맞춰 주세요(알림이 이 이름으로 가요).</p>`):""}
     ${section("멤버", `<div class="card list">${ok.map(m=>`<button type="button" class="row" data-act="editMember" data-id="${m.id}" aria-label="${esc(m.name)} 편집">${av(m.name||m.email)}<span class="main"><span class="t">${esc(m.name||"(이름 없음)")} ${roleChip(m)}</span><span class="s">${deptLine(m)} · ${esc(m.email)}</span></span>${icon("chev","chev")}</button>`).join("")||`<p class="note" style="padding:16px">아직 승인한 멤버가 없어요</p>`}</div>`)}
     ${rej.length?section("거절함", `<div class="card list">${rej.map(m=>row(m, `<span class="acts">
@@ -529,7 +530,8 @@ function vMore(){
       ${sees("social")?setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"'):""}
       ${S.isAdmin?setRow("#2F78D0","upload","데이터 가져오기","받은 json 파일로 명단·배정·생일을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
-    <div class="card list">${setRow("#C23A3F","logout",`<span style="color:var(--bad)">로그아웃</span>`,"","",'data-act="logout"')}</div>`;
+    <div class="card list">${setRow("#C23A3F","logout",`<span style="color:var(--bad)">로그아웃</span>`,"","",'data-act="logout"')}</div>
+    <p class="ver">러너스 버전 ${APP_VERSION}</p>`;
 }
 
 /* ---------- 시트 ---------- */
