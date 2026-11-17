@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-2";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-3";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -907,7 +907,9 @@ const TEAMS = [
 ];
 const ATT = { o:["참석","ok"], on:["온라인","acc"], x:["결석","bad"] };
 const teamOf = id => TEAMS.find(t=>t.id===id);
-const teamMembers = id => (S.teams[id]?.members||[]).filter(Boolean);
+// 팀원 순서: 리더 → 멘토 → 나머지(저장된 순서)
+function orderMembers(list, leader, mentor){ const ms = [...new Set((list||[]).filter(Boolean))]; const top = [leader, mentor].filter((x,i,a)=>x && ms.includes(x) && a.indexOf(x)===i); return [...top, ...ms.filter(x=>!top.includes(x))]; }
+const teamMembers = id => orderMembers(S.teams[id]?.members, S.teams[id]?.leader, S.teams[id]?.mentor);
 const sundayOn = d => addDays(d, -parse(d).getDay());   // 그 주의 주일 (일요일이면 그날)
 const twKey = (date, team) => `${date}_${team}`;
 const tw = (date, team) => S.tweeks[twKey(date, team)] || {};
@@ -994,7 +996,7 @@ function teamSheet(id){
 // 팀원 이동·빼기·추가 (팀 문서의 members/leader/mentor를 고쳐요. 지난 출석·기도제목 기록은 그대로)
 const teamDoc = id => ({ name:teamOf(id).name, members:[...teamMembers(id)], leader:S.teams[id]?.leader||"", mentor:S.teams[id]?.mentor||"" });
 const teamWhere = name => TEAMS.find(t=>teamMembers(t.id).includes(name));
-async function putTeam(id, d){ S.teams[id] = {...(S.teams[id]||{}), ...d}; await S.db.doc("teams/"+id).set(d); }
+async function putTeam(id, d){ d = {...d, members: orderMembers(d.members, d.leader, d.mentor)}; S.teams[id] = {...(S.teams[id]||{}), ...d}; await S.db.doc("teams/"+id).set(d); }
 function without(d, m){ return {...d, members:d.members.filter(x=>x!==m), leader:d.leader===m?"":d.leader, mentor:d.mentor===m?"":d.mentor}; }
 async function moveMember(m, from, to){
   const a = without(teamDoc(from), m); const b = teamDoc(to); if(!b.members.includes(m)) b.members.push(m);
@@ -1418,7 +1420,7 @@ document.addEventListener("click", async e => {
                      : await write(()=>putTeam(id, {...teamDoc(id), members:[...teamMembers(id), m]}), `${m}님을 추가했어요`);
     if(ok){ render(); document.getElementById("tm-new")?.focus(); } return; }
   if(a==="saveTeam"){ const id=t.dataset.id; const names=[...new Set(document.getElementById("tm-names").value.split("\n").map(x=>x.trim()).filter(Boolean))].slice(0,40);
-    const leader=val("tm-leader"), mentor=val("tm-mentor"); if(await write(()=>S.db.doc("teams/"+id).set({name:teamOf(id).name, members:names, leader, mentor}), "팀원을 저장했어요")) closeSheet(); return; }
+    const leader=val("tm-leader"), mentor=val("tm-mentor"); if(await write(()=>putTeam(id, {name:teamOf(id).name, members:names, leader, mentor}), "팀원을 저장했어요")){ closeSheet(); render(); } return; }
   if(a==="copyTeamPrayers"){ const txt=teamPrayersText(t.dataset.id); if(!txt){ toast("이 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
   if(a==="copyPrayers"){ const txt=prayersText(); if(!txt){ toast("이번 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
   if(a==="histTeam"){ S.histTeam=t.dataset.v; render(); return; }
