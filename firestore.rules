@@ -2,42 +2,71 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 운영자(편집 가능) 이메일 — 여기에 추가·삭제
+    // 최고 관리자 이메일 (앱의 멤버 관리에서 권한을 뺄 수 없음)
     function adminEmails() {
       return ['jink021124@gmail.com'];
     }
-    function isAdmin() {
-      return request.auth != null
+    function signedIn() { return request.auth != null; }
+    function isOwner() {
+      return signedIn()
         && request.auth.token.email_verified == true
         && request.auth.token.email in adminEmails();
     }
+    // 앱에서 가입 신청 → 관리자 승인으로 관리하는 멤버 정보
+    function myPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
+    function hasMe() { return signedIn() && exists(myPath()); }
+    function me() { return get(myPath()).data; }
+    function isMember() { return isOwner() || (hasMe() && me().status == 'approved'); }
+    function isAdmin() { return isOwner() || (hasMe() && me().status == 'approved' && me().role == 'admin'); }
+    function okName(n) { return n is string && n.size() > 0 && n.size() <= 20; }
 
-    // 앱이 "내가 운영자인가"를 확인하는 용도
+    // 앱이 "내가 최고 관리자인가"를 확인하는 용도
     match /admins/{email} {
-      allow read: if isAdmin() && request.auth.token.email == email;
+      allow read: if isOwner() && request.auth.token.email == email;
       allow write: if false;
     }
-    // 주일 배정(사회·대표기도·찬송): 누구나 보기, 운영자만 수정
+    // 멤버: 본인은 가입 신청(대기 상태로만)과 대기 중 이름 수정, 관리자는 승인·거절·권한·이름 관리
+    match /members/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && okName(request.resource.data.name)
+        && (isOwner()
+            || (request.resource.data.status == 'pending'
+                && request.resource.data.role == 'member'
+                && request.resource.data.owner == false));
+      allow update: if (isAdmin()
+            && request.resource.data.owner == resource.data.owner
+            && okName(request.resource.data.name)
+            && request.resource.data.status in ['pending', 'approved', 'rejected']
+            && request.resource.data.role in ['member', 'admin'])
+        || (signedIn() && request.auth.uid == uid
+            && resource.data.status == 'pending'
+            && okName(request.resource.data.name)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']));
+      allow delete: if (isAdmin() && resource.data.owner != true) || (signedIn() && request.auth.uid == uid);
+    }
+    // 주일 배정(사회·대표기도·찬송): 승인된 멤버만 보기, 관리자만 수정
     match /weeks/{date} {
-      allow read: if true;
+      allow read: if isMember();
       allow write: if isAdmin();
     }
-    // 대표기도 명단(메모·사유 포함)과 기도제목: 운영자만
+    // 대표기도 명단(메모·사유 포함)과 기도제목: 관리자만
     match /people/{id} {
       allow read, write: if isAdmin();
     }
     match /config/{id} {
       allow read, write: if isAdmin();
     }
-    // 사회자 알림을 받을 기기 등록: 로그인한 사람이 자기 기기만 등록·해제, 목록은 운영자만
+    // 알림 받을 기기: 승인된 멤버가 자기 기기만, 자기 멤버 이름으로만 등록. 목록은 관리자만
     match /pushTokens/{token} {
-      allow create, update: if request.auth != null
+      allow create, update: if isMember() && hasMe()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.token == token
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 20;
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+        && request.resource.data.name == me().name
+        && request.resource.data.admin == (me().role == 'admin' || isOwner())
+        && request.resource.data.prefs is map;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
       allow read: if isAdmin();
     }
   }

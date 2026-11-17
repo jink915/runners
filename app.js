@@ -34,10 +34,22 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 - 참석하는 모든 이들에게 집중력과 들을 귀를 허락하셔서 말씀의 은혜가 풍성하게 있을 수 있길`;
 
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
+const ALERTS = [
+  ["prayer",  "대표기도 미정",   "사회 맡은 주, 수·목 낮 12시까지 대표기도가 비어 있으면"],
+  ["hymn",    "헌금찬송 미정",   "사회 맡은 주, 수·목 낮 12시까지 헌금찬송이 비어 있으면"],
+  ["script",  "기도문 작성",     "사회 맡은 주, 수·목 낮 12시까지 묵도·헌금기도 문장이 비어 있으면"],
+  ["mcDay",   "사회 전날",       "내가 사회인 주일 전날, 토요일 저녁 8시"],
+  ["prayDay", "대표기도 전날",   "내가 대표기도인 주일 전날, 토요일 저녁 8시"],
+  ["fallback","사회자 대신 받기", "사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받기", "admin"],
+];
+const defaultPrefs = () => Object.fromEntries(ALERTS.map(a=>[a[0], true]));
+function loadPrefs(){ try{ return {...defaultPrefs(), ...JSON.parse(store.get("runners-push-prefs")||"{}")}; }catch{ return defaultPrefs(); } }
 const S = {
-  push:{ name: store.get("runners-push-name")||"", token: store.get("runners-push-token")||"", busy:false },
+  approved:false, isOwner:false,
+  push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
+  member:null, memberReady:false, members:[],
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false},
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false},
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -53,6 +65,8 @@ const fmtFull = s => { if(!s) return "기록 없음"; const d=parse(s); return `
 const fmtKo = s => { const d=parse(s); return `${d.getMonth()+1}월 ${d.getDate()}일`; };
 const addDays = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return iso(d); };
 const dday = s => Math.round((parse(s)-parse(TODAY))/864e5);
+const isOwnerUser = () => S.isOwner;
+const myName = () => (S.member?.name || S.user?.displayName || "").trim();
 const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n; };
 
 const ICON = {
@@ -67,6 +81,8 @@ const ICON = {
   music:'<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
   logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/>',
   phone:'<rect x="6.5" y="2.5" width="11" height="19" rx="3"/><path d="M11 18.5h2"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.6 6.5-5.6s5.7 2 6.5 5.6M15.5 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20c-.5-2.5-1.8-4.1-3.6-4.9"/>',
+  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
   upload:'<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
@@ -240,8 +256,58 @@ function vLogin(){
     <p class="tag">진실됨으로 하나님께 나아가자<br>주일 예배 준비를 한곳에서</p>
     ${sheep("heart")}
     <button class="gbtn" type="button" data-act="login" ${ready?"":"disabled"}>${GOOGLE}${ready?"Google 계정으로 시작하기":"연결하는 중…"}</button>
-    <p class="fine">러너스 멤버라면 누구나 일정과 원고를 볼 수 있어요. 배정 수정은 운영자만 할 수 있어요.</p>
+    <p class="fine">처음이면 Google 계정으로 가입 신청을 하고, 관리자가 승인하면 이용할 수 있어요.</p>
   </section>`;
+}
+
+/* ---------- 승인 대기 ---------- */
+function vPending(){
+  const m = S.member||{}; const rejected = m.status==="rejected";
+  return `<section class="login" aria-labelledby="pend-title">
+    ${SPARK("12%","16%",22)}${SPARK("82%","11%",30)}${SPARK("8%","52%",16,.8)}${SPARK("78%","70%",20)}
+    ${themeBtn("theme-fab")}
+    <span class="pillbadge">${rejected?"가입 안내":"가입 신청 완료"}</span>
+    <h1 id="pend-title" class="pend-h">${rejected?"승인되지 않았어요":"승인을 기다리고 있어요"}</h1>
+    <p class="tag">${rejected?"러너스 관리자에게 문의해 주세요.":"관리자가 승인하면 이 화면이 바로 열려요.<br>앱을 닫아도 괜찮아요."}</p>
+    ${sheep(rejected?"pray":"wave")}
+    ${rejected?"":`<div class="pend-card">
+      <label class="field"><span>러너스에서 쓰는 이름 (일정에 적히는 이름과 똑같이)</span>
+        <input id="pend-name" name="name" autocomplete="name" spellcheck="false" maxlength="20" value="${esc(m.name||"")}"></label>
+      <button class="btn pri block" type="button" data-act="savePendName">이름 저장</button>
+      <span class="hint">${esc(S.user?.email||"")}</span>
+    </div>`}
+    <button class="btn" type="button" data-act="logout">${icon("logout")}다른 계정으로 로그인</button>
+  </section>`;
+}
+
+/* ---------- 멤버 관리 ---------- */
+const pendingCount = () => S.members.filter(m=>m.status==="pending").length;
+const roleChip = m => m.owner ? `<span class="chip acc plain">최고 관리자</span>` : m.role==="admin" ? `<span class="chip acc plain">관리자</span>` : "";
+function vMembers(){
+  if(!S.got.m) return skeleton();
+  const by = st => S.members.filter(m=>m.status===st).sort((a,b)=>(a.name||"").localeCompare(b.name||"","ko"));
+  const pend = by("pending"), ok = by("approved"), rej = by("rejected");
+  const row = (m, acts) => `<div class="row">${av(m.name||m.email)}<span class="main"><span class="t">${esc(m.name||"(이름 없음)")} ${roleChip(m)}</span><span class="s">${esc(m.email)}</span></span>${acts}</div>`;
+  return `${head("멤버 관리", `멤버 ${ok.length}명${pend.length?` · 승인 대기 ${pend.length}명`:""}`)}
+    ${pend.length?section("승인 대기", `<div class="card list">${pend.map(m=>row(m, `<span class="acts">
+        <button class="btn sm danger" type="button" data-act="rejectMember" data-id="${m.id}">거절</button>
+        <button class="btn sm pri" type="button" data-act="approveMember" data-id="${m.id}">${icon("check")}승인</button></span>`)).join("")}</div>
+        <p class="note">이름이 일정에 적힌 이름과 다르면 승인한 뒤 눌러서 고쳐 주세요. 알림은 이 이름으로 가요.</p>`):""}
+    ${section("멤버", `<div class="card list">${ok.map(m=>`<button type="button" class="row" data-act="editMember" data-id="${m.id}" aria-label="${esc(m.name)} 편집">${av(m.name||m.email)}<span class="main"><span class="t">${esc(m.name||"(이름 없음)")} ${roleChip(m)}</span><span class="s">${esc(m.email)}</span></span>${icon("chev","chev")}</button>`).join("")||`<p class="note" style="padding:16px">아직 승인한 멤버가 없어요</p>`}</div>`)}
+    ${rej.length?section("거절함", `<div class="card list">${rej.map(m=>row(m, `<span class="acts">
+        <button class="btn sm" type="button" data-act="deleteMember" data-id="${m.id}">기록 지우기</button>
+        <button class="btn sm" type="button" data-act="approveMember" data-id="${m.id}">승인</button></span>`)).join("")}</div>`):""}`;
+}
+function memberSheet(id){
+  const m = S.members.find(x=>x.id===id); if(!m) return; const owner = !!m.owner;
+  openSheet(esc(m.name||m.email), `<div class="fields">
+    <label class="field"><span>이름 (일정에 적힌 이름과 똑같이)</span><input id="m-name" name="name" maxlength="20" autocomplete="off" spellcheck="false" value="${esc(m.name||"")}"></label>
+    <div class="field"><span class="lab" id="lab-role">권한</span>${owner?`<span class="readout">최고 관리자 (바꿀 수 없어요)</span>`:`<div class="radios" role="radiogroup" aria-labelledby="lab-role">
+      <label><input type="radio" name="m-role" value="member" ${m.role!=="admin"?"checked":""}>멤버</label>
+      <label><input type="radio" name="m-role" value="admin" ${m.role==="admin"?"checked":""}>관리자</label></div>
+      <span class="hint">관리자는 배정·명단 수정과 멤버 승인을 할 수 있어요.</span>`}</div>
+    <div class="field"><span>이메일</span><span class="readout">${esc(m.email)}</span></div></div>`,
+    `${owner?"":`<button class="btn danger" type="button" data-act="rejectMember" data-id="${m.id}">내보내기</button>`}<button class="btn pri" type="button" data-act="saveMember" data-id="${m.id}">저장</button>`);
 }
 
 /* ---------- 홈 ---------- */
@@ -252,7 +318,7 @@ function vDash(){
   const mc = {}; S.weeks.filter(w=>w.date.startsWith(year)&&w.mc&&!w.event).forEach(w=>mc[w.mc]=(mc[w.mc]||0)+1);
   const mcArr = Object.entries(mc).sort((a,b)=>b[1]-a[1]); const mcMax = Math.max(1,...mcArr.map(x=>x[1]));
   const tile = (ic,k,v,full=false) => `<div class="tile ${full?"full":""}"><span class="ic">${icon(ic)}</span><div><div class="k">${k}</div><div class="v ${v?"":"none"}">${v||"아직 미정"}</div></div></div>`;
-  const name = firstName(S.user?.displayName||"");
+  const name = firstName(myName());
   const hero = nx ? `
     <section class="hero" aria-label="다음 주일 예배">
       ${SPARK("52%","16px",20)}${SPARK("45%","74px",11)}${SPARK("10px","calc(100% - 110px)",14,.8)}
@@ -275,7 +341,8 @@ function vDash(){
   const upcoming = section("다가오는 주일", `<div class="card list">${up.map(w=>weekRow(w,nx)).join("")}</div>`, `<a class="link" href="#schedule">전체 일정${icon("chev")}</a>`);
   const ranks = S.canEdit && S.got.p ? section("대표기도 순서", rankBoard(), `<a class="link" href="#people">명단${icon("chev")}</a>`) : "";
   const bars = section(`${year} 사회 횟수`, `<div class="card"><div class="bars">${mcArr.map(([n,c])=>`<div class="bar"><span class="who">${av(n,"sm")}${esc(n)}</span><div class="track" role="img" aria-label="${esc(n)} ${c}회"><div class="fill" style="width:${c/mcMax*100}%"></div></div><span class="n">${c}</span></div>`).join("")||`<p class="note">기록이 없어요</p>`}</div></div>`);
-  return `${head("이번 주일 준비", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}${hero}<div class="cols"><div>${upcoming}</div><div>${ranks}${bars}</div></div>`;
+  const pendBanner = S.canEdit && pendingCount() ? `<a class="banner pend" href="#members">${icon("users")}<span>가입 신청 <b>${pendingCount()}명</b>이 승인을 기다리고 있어요</span>${icon("chev","chev")}</a>` : "";
+  return `${head("이번 주일 준비", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}${pendBanner}${hero}<div class="cols"><div>${upcoming}</div><div>${ranks}${bars}</div></div>`;
 }
 
 /* ---------- 일정 ---------- */
@@ -409,11 +476,12 @@ function vMore(){
   const u = S.user;
   const setRow = (c, ic, t, s, right="", act="") => `<${act?"button":"div"} ${act?`type="button" ${act}`:""} class="row"><span class="set-ic" style="--c:${c}">${icon(ic)}</span><span class="main"><span class="t">${t}</span>${s?`<span class="s" style="white-space:normal">${s}</span>`:""}</span>${right}</${act?"button":"div"}>`;
   return `${head("더보기")}
-    <div class="card"><div class="profile">${av(u?.displayName||u?.email||"?","lg")}<div class="main"><div class="t">${esc(u?.displayName||"러너스 멤버")}</div><div class="s">${esc(u?.email||"")}</div></div>${S.canEdit?`<span class="chip acc">운영자</span>`:`<span class="chip mute">보기 전용</span>`}</div></div>
+    <div class="card"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(u?.email||"")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:S.canEdit?`<span class="chip acc">관리자</span>`:`<span class="chip mute">멤버</span>`}</div></div>
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
       ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", ios?"Safari 아래쪽 공유 버튼 → 홈 화면에 추가":"Chrome 오른쪽 위 ⋮ 메뉴 → 앱 설치", S.installEvt?`<button class="btn sm pri" type="button" data-act="install">설치</button>`:"")}
-      ${setRow("#F0A020","bell","사회자 알림", S.push.token?`<b>${esc(S.push.name)}</b>님이 사회인 주에 수·목 낮 12시까지 대표기도가 비어 있으면 알려 드려요`:"사회 맡은 주에 대표기도가 비어 있으면 이 휴대폰으로 알려 드려요", S.push.token?`<span class="chip ok">켜짐</span>`:icon("chev","chev"),'data-act="notify"')}
+      ${setRow("#F0A020","bell","알림", S.push.token?`${ALERTS.filter(a=>S.push.prefs[a[0]] && (!a[3]||S.canEdit)).map(a=>a[1]).join(" · ")||"모두 꺼짐"}`:"대표기도·찬송·기도문 준비가 비어 있으면 이 휴대폰으로 알려 드려요", S.push.token?`<span class="chip ok">켜짐</span>`:icon("chev","chev"),'data-act="notify"')}
+      ${S.canEdit?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
       ${setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"')}
       ${S.canEdit?setRow("#2F78D0","upload","데이터 가져오기","처음 한 번, 받은 json 파일로 명단과 배정을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
@@ -508,47 +576,47 @@ function pushSupportNote(){
   return "";
 }
 function notifySheet(){
-  const note = pushSupportNote(); const on = !!S.push.token;
-  const guess = S.push.name || mcPool().find(n=>n===(S.user?.displayName||"").replace(/\s/g,"")) || "";
-  openSheet("사회자 알림", `<div class="fields">
-      <p class="note" style="margin:0 4px">사회를 맡은 주에 <b>수요일·목요일 낮 12시</b>까지 대표기도가 정해지지 않으면 이 기기로 알림을 보내 드려요.</p>
-      <label class="field"><span>내 이름 (일정에 적힌 사회자 이름과 똑같이)</span><input id="n-name" name="name" list="dl-mcn" autocomplete="off" spellcheck="false" value="${esc(guess)}" ${on?"disabled":""}></label>
-      ${note?`<p class="hint" role="alert" style="color:var(--warn);margin:0 4px">${note}</p>`:""}
-      ${on?`<p class="hint" style="margin:0 4px">이 기기에서 <b>${esc(S.push.name)}</b> 이름으로 알림을 받고 있어요.</p>`:""}
-    </div><datalist id="dl-mcn">${mcPool().map(n=>`<option value="${esc(n)}">`).join("")}</datalist>`,
-    on ? `<button class="btn danger" type="button" data-act="pushOff">알림 끄기</button>`
+  const note = pushSupportNote(); const on = !!S.push.token; const pf = S.push.prefs;
+  const list = ALERTS.filter(a=>!a[3] || S.canEdit);
+  openSheet("알림", `<div class="fields">
+      ${note?`<p class="hint" role="alert" style="color:var(--warn);margin:0 18px">${note}</p>`:""}
+      <div class="card list toggles">${list.map(([k,t,d])=>`<label class="row toggle"><span class="main"><span class="t">${t}</span><span class="s">${d}</span></span>
+        <input type="checkbox" role="switch" class="switch" data-pref="${k}" ${pf[k]?"checked":""}></label>`).join("")}</div>
+      <p class="hint" style="margin:4px 18px 8px">알림은 <b>${esc(myName()||"(이름 없음)")}</b> 이름으로 와요. 일정에 적힌 이름과 다르면 관리자에게 이름을 고쳐 달라고 해 주세요.</p>
+    </div>`,
+    on ? `<button class="btn danger" type="button" data-act="pushOff">모두 끄기</button><button class="btn pri" type="button" data-act="pushSave">저장</button>`
        : `<button class="btn pri" type="button" data-act="pushOn" ${note?"disabled":""}>알림 켜기</button>`);
 }
+const readPrefs = () => { const p = {...S.push.prefs}; document.querySelectorAll("[data-pref]").forEach(el=>p[el.dataset.pref]=el.checked); return p; };
 async function pushToken(){
   const m = await import(SDK+"firebase-messaging.js");
   if(!(await m.isSupported())) throw new Error("unsupported");
   const reg = await navigator.serviceWorker.ready;
   return { m, messaging: m.getMessaging(FB.app), token: await m.getToken(m.getMessaging(FB.app), { vapidKey, serviceWorkerRegistration: reg }) };
 }
-async function saveToken(token, name){
+async function saveToken(token, prefs){
   const { doc, setDoc, serverTimestamp } = FB.m;
-  await setDoc(doc(FB.fs,"pushTokens",token), { token, name, email:S.user?.email||"", uid:S.user.uid, updatedAt: serverTimestamp(), ua: navigator.userAgent.slice(0,120) });
+  await setDoc(doc(FB.fs,"pushTokens",token), { token, name: myName(), email:S.user?.email||"", uid:S.user.uid, admin:!!S.canEdit, prefs, updatedAt: serverTimestamp(), ua: navigator.userAgent.slice(0,120) });
 }
-async function pushOn(name){
-  if(!FB || !S.user) return;
-  if(await Notification.requestPermission()!=="granted"){ toast("알림 권한을 허용해야 받을 수 있어요"); return; }
+function keepPush(token, prefs){ S.push = { token, prefs }; store.set("runners-push-token", token||null); store.set("runners-push-prefs", JSON.stringify(prefs)); }
+async function pushOn(prefs){
+  if(!FB || !S.user) return false;
+  if(await Notification.requestPermission()!=="granted"){ toast("알림 권한을 허용해야 받을 수 있어요"); return false; }
   const { token } = await pushToken();
-  await saveToken(token, name);
-  S.push = { name, token, busy:false }; store.set("runners-push-name", name); store.set("runners-push-token", token);
-  toast("알림을 켰어요");
+  await saveToken(token, prefs); keepPush(token, prefs);
+  toast("알림을 켰어요"); return true;
 }
 async function pushOff(){
   const old = S.push.token;
   try{ const { m, messaging } = await pushToken(); await m.deleteToken(messaging); }catch{}
   try{ await FB.m.deleteDoc(FB.m.doc(FB.fs,"pushTokens",old)); }catch{}
-  S.push = { name:S.push.name, token:"", busy:false }; store.set("runners-push-token", null);
-  toast("알림을 껐어요");
+  keepPush("", S.push.prefs); toast("알림을 껐어요");
 }
-// 로그인할 때마다 토큰을 새로 확인해 저장 (토큰은 가끔 바뀌어요)
+// 로그인할 때마다 토큰을 새로 확인해 저장 (토큰은 가끔 바뀌고, 이름·권한이 바뀌었을 수도 있어서)
 async function refreshPush(){
   if(!S.push.token || !vapidKey || !("Notification" in window) || Notification.permission!=="granted") return;
-  try{ const { token } = await pushToken(); await saveToken(token, S.push.name);
-    if(token!==S.push.token){ try{ await FB.m.deleteDoc(FB.m.doc(FB.fs,"pushTokens",S.push.token)); }catch{} S.push.token=token; store.set("runners-push-token", token); }
+  try{ const { token } = await pushToken(); await saveToken(token, S.push.prefs);
+    if(token!==S.push.token){ try{ await FB.m.deleteDoc(FB.m.doc(FB.fs,"pushTokens",S.push.token)); }catch{} keepPush(token, S.push.prefs); }
   }catch{}
 }
 function topicsSheet(){
@@ -562,8 +630,8 @@ function importSheet(){
 const val = id => document.getElementById(id)?.value.trim() ?? "";
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore};
-function route(){ const h=location.hash.slice(1); if(h==="people" && !S.canEdit) return "dash"; return ROUTES[h]?h:"dash"; }
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers};
+function route(){ const h=location.hash.slice(1); if((h==="people"||h==="members") && !S.canEdit) return "dash"; return ROUTES[h]?h:"dash"; }
 function skeleton(){
   return `<div aria-busy="true" aria-label="불러오는 중…" style="display:flex;flex-direction:column;gap:24px;padding-top:12px">
     <div class="sk" style="width:140px;height:36px"></div><div class="sk" style="height:360px;border-radius:32px"></div>
@@ -577,10 +645,12 @@ function render(){
     if(!S.authReady && S.mode!=="setup"){ main.innerHTML=""; return; } // 로그인 상태 확인 전엔 잠깐 빈 화면 (로그인 화면이 깜빡이지 않도록)
     main.innerHTML = vLogin(); syncThemeButtons(); return;
   }
+  if(!S.memberReady){ document.body.classList.add("gate"); main.innerHTML=""; return; }
+  if(!S.approved){ document.body.classList.add("gate"); const ae=document.activeElement?.id; main.innerHTML = vPending(); syncThemeButtons(); if(ae) document.getElementById(ae)?.focus({preventScroll:true}); return; }
   const r=route();
-  document.querySelectorAll("#tabs a").forEach(a=>{ const on=a.getAttribute("href")==="#"+r; on?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"); });
+  document.querySelectorAll("#tabs a").forEach(a=>{ const on=a.getAttribute("href")==="#"+(r==="members"?"more":r); on?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"); });
   document.querySelectorAll("[data-admin]").forEach(el=>el.hidden=!S.canEdit);
-  const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(S.user.displayName||S.user.email,"");
+  const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(myName()||S.user.email,"");
   syncThemeButtons();
   S.all = mergedWeeks();
   if(!S.got.s || !S.got.w){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
@@ -607,11 +677,28 @@ document.addEventListener("click", async e => {
   if(a==="scriptTab"){ S.scriptTab=t.dataset.v; render(); }
   if(a==="topics") topicsSheet();
   if(a==="notify") notifySheet();
-  if(a==="pushOn"){ const name=val("n-name"); if(!name){ toast("이름을 적어 주세요"); return; }
+  if(a==="pushOn"){ if(!myName()){ toast("이름이 없어서 켤 수 없어요. 관리자에게 이름 등록을 부탁해 주세요"); return; }
     t.disabled=true; t.textContent="켜는 중…";
-    try{ await pushOn(name); closeSheet(); render(); }
+    try{ if(await pushOn(readPrefs())){ closeSheet(); render(); } else { t.disabled=false; t.textContent="알림 켜기"; } }
     catch(err){ t.disabled=false; t.textContent="알림 켜기"; toast(err?.message==="unsupported"?"이 기기는 알림을 지원하지 않아요":"알림을 켜지 못했어요. 잠시 후 다시 시도해 주세요"); }
   }
+  if(a==="pushSave"){ const p=readPrefs(); t.disabled=true;
+    try{ await saveToken(S.push.token, p); keepPush(S.push.token, p); toast("알림 설정을 저장했어요"); closeSheet(); render(); }
+    catch{ t.disabled=false; toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } }
+  if(a==="goMembers") location.hash="#members";
+  if(a==="editMember") memberSheet(t.dataset.id);
+  if(a==="approveMember"){ const m=S.members.find(x=>x.id===t.dataset.id);
+    await write(()=>S.db.doc("members/"+t.dataset.id).update({status:"approved", role:m?.role||"member"}), `${m?.name||"멤버"}님을 승인했어요`); }
+  if(a==="rejectMember"){ const m=S.members.find(x=>x.id===t.dataset.id); const label = m?.status==="pending"?"거절":"내보내기";
+    if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent = m?.status==="pending"?"거절할까요?":"정말 내보낼까요?"; t.classList.add("solid");
+      setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent=label; t.classList.remove("solid"); } }, 3000); return; }
+    if(await write(()=>S.db.doc("members/"+t.dataset.id).update({status:"rejected", role:"member"}), "처리했어요")) closeSheet(); }
+  if(a==="deleteMember") await write(()=>S.db.doc("members/"+t.dataset.id).delete(), "기록을 지웠어요. 다시 로그인하면 새로 신청돼요");
+  if(a==="saveMember"){ const name=val("m-name"); if(!name){ toast("이름을 적어 주세요"); return; }
+    const role=document.querySelector('input[name="m-role"]:checked')?.value; const patch={name}; if(role) patch.role=role;
+    if(await write(()=>S.db.doc("members/"+t.dataset.id).update(patch), "저장했어요")) closeSheet(); }
+  if(a==="savePendName"){ const name=val("pend-name"); if(!name){ toast("이름을 적어 주세요"); return; }
+    try{ await FB.m.updateDoc(FB.m.doc(FB.fs,"members",S.user.uid), {name}); toast("이름을 저장했어요"); }catch{ toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } }
   if(a==="pushOff"){ t.disabled=true; await pushOff(); closeSheet(); render(); }
   if(a==="importSheet") importSheet();
   if(a==="assign"){ t.disabled=true; await assign(t.dataset.name, t.dataset.date); }
@@ -733,25 +820,50 @@ async function startFirebase(){
     if(data.topics) ops.push([doc(fs,"config","topics"), {text:data.topics}]);
     for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>b.set(r,d)); await b.commit(); }
   };
-  let unsubs = [], weeksUnsub = null, slow = null;
+  let unsubs = [], memberUnsub = null, slow = null, started = false;
+  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
+    S.people=[]; S.weeks=[]; S.members=[]; S.got.p=false; S.got.w=false; S.got.m=false; S.topics=null; };
+  // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
+  const startData = () => {
+    if(started) return; started = true;
+    slow = setTimeout(()=>{ if(!S.got.w){ S.mode="slow"; render(); } }, 10000);
+    unsubs.push(onSnapshot(collection(fs,"weeks"), s=>{
+      S.weeks = s.docs.map(d=>({...d.data(), date:d.data().date||d.id})); S.got.w=true;
+      if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
+    }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); }));
+    if(S.canEdit){
+      unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
+      unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
+      unsubs.push(onSnapshot(collection(fs,"members"), s=>{ S.members=s.docs.map(d=>({id:d.id,...d.data()})); S.got.m=true; render(); }, ()=>{ S.got.m=true; render(); }));
+    }
+    refreshPush();
+  };
   authM.getRedirectResult(auth).catch(()=>{});
   authM.onAuthStateChanged(auth, async u=>{
-    unsubs.forEach(f=>f()); unsubs=[]; weeksUnsub?.(); weeksUnsub=null; clearTimeout(slow);
-    S.user = u; S.canEdit = false; S.people=[]; S.weeks=[]; S.got.p=false; S.got.w=false; S.topics=null; S.authReady = true;
-    if(u){
-      slow = setTimeout(()=>{ if(!S.got.w){ S.mode="slow"; render(); } }, 10000);
-      weeksUnsub = onSnapshot(collection(fs,"weeks"), s=>{
-        S.weeks = s.docs.map(d=>({...d.data(), date:d.data().date||d.id})); S.got.w=true;
-        if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
-      }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); });
-      if(u.email){ try{ await getDoc(doc(fs,"admins",u.email)); S.canEdit = true; }catch{ S.canEdit = false; } }
-      refreshPush();
-      if(S.canEdit){
-        unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
-        unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
-      }
-    }
+    stopData(); memberUnsub?.(); memberUnsub=null;
+    S.user = u; S.canEdit = false; S.approved = false; S.isOwner = false; S.member = null; S.memberReady = false; S.authReady = true;
     render();
+    if(!u) return;
+    // 최고 관리자 확인: 규칙(firestore.rules)에 적힌 이메일만 이 문서를 읽을 수 있어요
+    if(u.email){ try{ await getDoc(doc(fs,"admins",u.email)); S.isOwner = true; }catch{ S.isOwner = false; } }
+    const ref = doc(fs,"members",u.uid);
+    memberUnsub = onSnapshot(ref, async snap=>{
+      if(!snap.exists()){
+        // 처음 로그인: 가입 신청 (최고 관리자는 바로 승인된 관리자로)
+        const owner = S.isOwner;
+        try{ await setDoc(ref, { name:(u.displayName||"").replace(/\s+/g,"").slice(0,20) || (u.email||"").split("@")[0].slice(0,20), email:u.email||"", photo:u.photoURL||"",
+          status: owner?"approved":"pending", role: owner?"admin":"member", owner, createdAt: fsM.serverTimestamp() }); }
+        catch{ S.memberReady=true; S.member={status:"pending"}; render(); toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); }
+        return;
+      }
+      const m = snap.data(); const wasAdmin = S.canEdit;
+      S.member = m; S.memberReady = true;
+      S.approved = S.isOwner || m.status==="approved";
+      S.canEdit = S.isOwner || (m.status==="approved" && m.role==="admin");
+      if(!S.approved || wasAdmin!==S.canEdit) stopData();
+      if(S.approved) startData();
+      render();
+    }, ()=>{ S.memberReady=true; S.member={status:"pending"}; render(); });
   });
 }
 
