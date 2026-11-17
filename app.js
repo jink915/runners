@@ -36,12 +36,14 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
-  {k:"prayer",   t:"대표기도 미정",     d:"사회 맡은 주에 대표기도가 아직 비어 있으면",        days:[3,4], hour:12},
-  {k:"hymn",     t:"헌금찬송 미정",     d:"사회 맡은 주에 헌금찬송이 아직 비어 있으면",        days:[3,4], hour:12},
-  {k:"script",   t:"기도문 작성",       d:"사회 맡은 주에 묵도·헌금기도 문장이 아직 비어 있으면", days:[3,4], hour:12},
-  {k:"mcDay",    t:"사회 차례 알림",    d:"내가 사회인 주에 미리 알려 드려요",                 days:[6],   hour:20},
-  {k:"prayDay",  t:"대표기도 차례 알림", d:"내가 대표기도인 주에 미리 알려 드려요",              days:[6],   hour:20},
-  {k:"fallback", t:"사회자 대신 받기",   d:"사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받아요", days:[3,4], hour:12, admin:true},
+  {k:"prayer",   dept:"social", t:"대표기도 미정",     d:"사회 맡은 주에 대표기도가 아직 비어 있으면",        days:[3,4], hour:12},
+  {k:"hymn",     dept:"social", t:"헌금찬송 미정",     d:"사회 맡은 주에 헌금찬송이 아직 비어 있으면",        days:[3,4], hour:12},
+  {k:"script",   dept:"social", t:"기도문 작성",       d:"사회 맡은 주에 묵도·헌금기도 문장이 아직 비어 있으면", days:[3,4], hour:12},
+  {k:"mcDay",    dept:"social", t:"사회 차례 알림",    d:"내가 사회인 주에 미리 알려 드려요",                 days:[6],   hour:20},
+  {k:"prayDay",  dept:"social", t:"대표기도 차례 알림", d:"내가 대표기도인 주에 미리 알려 드려요",              days:[6],   hour:20},
+  {k:"fallback", dept:"social", t:"사회자 대신 받기",   d:"사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받아요", days:[3,4], hour:12, edit:true},
+  {k:"bdToday",  dept:"care",   t:"오늘 생일",         d:"고른 요일에 그날 생일인 사람이 있으면",              days:[0,1,2,3,4,5,6], hour:9},
+  {k:"bdWeek",   dept:"care",   t:"이번 주 생일 미리보기", d:"앞으로 7일 안의 생일을 한 번에 알려 드려요",       days:[1], hour:9},
 ];
 const DAYS = ["일","월","화","수","목","금","토"];
 const DAY_ORDER = [1,2,3,4,5,6,0];
@@ -80,6 +82,13 @@ const fmtKo = s => { const d=parse(s); return `${d.getMonth()+1}월 ${d.getDate(
 const addDays = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return iso(d); };
 const dday = s => Math.round((parse(s)-parse(TODAY))/864e5);
 const isOwnerUser = () => S.isOwner;
+// 권한: 관리자 = 모든 부서·모든 권한 / 운영자 = 맡은 부서에서 관리자와 같은 권한 / 멤버 = 맡은 부서 보기만
+const ALL_DEPTS = ["social","care"];
+const ROLE_NAME = { admin:"관리자", operator:"운영자", member:"멤버" };
+const deptsOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : Array.isArray(m.depts) ? m.depts.filter(d=>ALL_DEPTS.includes(d)) : [...ALL_DEPTS];
+const sees = d => S.isAdmin || (S.approved && deptsOf(S.member).includes(d));
+const can = d => S.isAdmin || (S.approved && S.member?.role==="operator" && deptsOf(S.member).includes(d));
+const alertVisible = a => sees(a.dept) && (!a.edit || can(a.dept));
 const myName = () => (S.member?.name || S.user?.displayName || "").trim();
 const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n; };
 
@@ -198,9 +207,9 @@ function verseText(w){ if(!w||!w.book) return ""; let t=`${w.book}`; if(w.ch) t+
 
 /* ---------- 저장 ---------- */
 async function write(fn, okMsg){
-  if(!S.db || !S.canEdit){ toast("운영자만 바꿀 수 있어요"); return false; }
+  if(!S.db){ toast("아직 연결 중이에요"); return false; }
   try{ await fn(); if(okMsg) toast(okMsg); try{ navigator.vibrate?.(8); }catch{} return true; }
-  catch(e){ toast(e?.code==="permission-denied" ? "이 계정은 운영자로 등록돼 있지 않아요" : "저장하지 못했어요. 잠시 후 다시 시도해 주세요"); return false; }
+  catch(e){ toast(e?.code==="permission-denied" ? "이 부서를 수정할 권한이 없어요" : "저장하지 못했어요. 잠시 후 다시 시도해 주세요"); return false; }
 }
 function opsOf(w, patch={}){
   const o = {date:w.date, event:w.event||"", mc:w.mc||"", prayer:w.prayer||"", hymn:w.hymn||""};
@@ -299,7 +308,8 @@ function vPending(){
 
 /* ---------- 멤버 관리 ---------- */
 const pendingCount = () => S.members.filter(m=>m.status==="pending").length;
-const roleChip = m => m.owner ? `<span class="chip acc plain">최고 관리자</span>` : m.role==="admin" ? `<span class="chip acc plain">관리자</span>` : "";
+const roleChip = m => m.owner ? `<span class="chip acc plain">최고 관리자</span>` : m.role==="admin" ? `<span class="chip acc plain">관리자</span>` : m.role==="operator" ? `<span class="chip ok plain">운영자</span>` : `<span class="chip mute plain">멤버</span>`;
+const deptLine = m => (m.owner||m.role==="admin") ? "모든 부서" : (deptsOf(m).map(d=>DEPTS[d].name).join(" · ") || "부서 없음");
 function vMembers(){
   if(!S.got.m) return skeleton();
   const by = st => S.members.filter(m=>m.status===st).sort((a,b)=>(a.name||"").localeCompare(b.name||"","ko"));
@@ -308,23 +318,39 @@ function vMembers(){
   return `${head("멤버 관리", `멤버 ${ok.length}명${pend.length?` · 승인 대기 ${pend.length}명`:""}`)}
     ${pend.length?section("승인 대기", `<div class="card list">${pend.map(m=>row(m, `<span class="acts">
         <button class="btn sm danger" type="button" data-act="rejectMember" data-id="${m.id}">거절</button>
-        <button class="btn sm pri" type="button" data-act="approveMember" data-id="${m.id}">${icon("check")}승인</button></span>`)).join("")}</div>
-        <p class="note">이름이 일정에 적힌 이름과 다르면 승인한 뒤 눌러서 고쳐 주세요. 알림은 이 이름으로 가요.</p>`):""}
-    ${section("멤버", `<div class="card list">${ok.map(m=>`<button type="button" class="row" data-act="editMember" data-id="${m.id}" aria-label="${esc(m.name)} 편집">${av(m.name||m.email)}<span class="main"><span class="t">${esc(m.name||"(이름 없음)")} ${roleChip(m)}</span><span class="s">${esc(m.email)}</span></span>${icon("chev","chev")}</button>`).join("")||`<p class="note" style="padding:16px">아직 승인한 멤버가 없어요</p>`}</div>`)}
+        <button class="btn sm pri" type="button" data-act="editMember" data-id="${m.id}">${icon("check")}승인</button></span>`)).join("")}</div>
+        <p class="note">승인을 누르면 권한과 부서를 고른 뒤 승인할 수 있어요. 이름은 일정에 적힌 이름과 똑같이 맞춰 주세요(알림이 이 이름으로 가요).</p>`):""}
+    ${section("멤버", `<div class="card list">${ok.map(m=>`<button type="button" class="row" data-act="editMember" data-id="${m.id}" aria-label="${esc(m.name)} 편집">${av(m.name||m.email)}<span class="main"><span class="t">${esc(m.name||"(이름 없음)")} ${roleChip(m)}</span><span class="s">${deptLine(m)} · ${esc(m.email)}</span></span>${icon("chev","chev")}</button>`).join("")||`<p class="note" style="padding:16px">아직 승인한 멤버가 없어요</p>`}</div>`)}
     ${rej.length?section("거절함", `<div class="card list">${rej.map(m=>row(m, `<span class="acts">
         <button class="btn sm" type="button" data-act="deleteMember" data-id="${m.id}">기록 지우기</button>
-        <button class="btn sm" type="button" data-act="approveMember" data-id="${m.id}">승인</button></span>`)).join("")}</div>`):""}`;
+        <button class="btn sm" type="button" data-act="editMember" data-id="${m.id}">승인</button></span>`)).join("")}</div>`):""}`;
 }
 function memberSheet(id){
-  const m = S.members.find(x=>x.id===id); if(!m) return; const owner = !!m.owner;
-  openSheet(esc(m.name||m.email), `<div class="fields">
+  const m = S.members.find(x=>x.id===id); if(!m) return; const owner = !!m.owner; const approving = m.status!=="approved";
+  const role = m.role==="admin"||m.role==="operator" ? m.role : "member";
+  const ds = approving && !Array.isArray(m.depts) ? [...ALL_DEPTS] : deptsOf(m);
+  openSheet(approving ? `${esc(m.name||m.email)} 승인` : esc(m.name||m.email), `<div class="fields">
     <label class="field"><span>이름 (일정에 적힌 이름과 똑같이)</span><input id="m-name" name="name" maxlength="20" autocomplete="off" spellcheck="false" value="${esc(m.name||"")}"></label>
-    <div class="field"><span class="lab" id="lab-role">권한</span>${owner?`<span class="readout">최고 관리자 (바꿀 수 없어요)</span>`:`<div class="radios" role="radiogroup" aria-labelledby="lab-role">
-      <label><input type="radio" name="m-role" value="member" ${m.role!=="admin"?"checked":""}>멤버</label>
-      <label><input type="radio" name="m-role" value="admin" ${m.role==="admin"?"checked":""}>관리자</label></div>
-      <span class="hint">관리자는 배정·명단 수정과 멤버 승인을 할 수 있어요.</span>`}</div>
+    <div class="field"><span class="lab" id="lab-role">권한</span>${owner?`<span class="readout">최고 관리자 (바꿀 수 없어요)</span>`:`
+      <div class="role-pick" role="radiogroup" aria-labelledby="lab-role">
+        ${[["admin","관리자","모든 부서에서 모든 권한 (멤버 관리 포함)"],["operator","운영자","고른 부서에서 관리자와 같은 권한"],["member","멤버","고른 부서를 보기만"]].map(([v,t,d])=>`
+        <label class="role-opt"><input type="radio" name="m-role" value="${v}" ${role===v?"checked":""}><span><b>${t}</b><small>${d}</small></span></label>`).join("")}
+      </div>`}</div>
+    ${owner?"":`<div class="field" id="m-depts-wrap"><span class="lab" id="lab-dept">활동 부서 (여러 개 고를 수 있어요)</span>
+      <div class="dept-pick" role="group" aria-labelledby="lab-dept">${ALL_DEPTS.map(d=>`
+        <label class="dept-opt"><input type="checkbox" name="m-dept" value="${d}" ${ds.includes(d)?"checked":""}><span class="set-ic" style="--c:${DEPTS[d].color}">${icon(DEPTS[d].icon)}</span><span><b>${DEPTS[d].name}</b><small>${DEPTS[d].desc}</small></span></label>`).join("")}</div>
+      <span class="hint" id="m-dept-hint" ${role==="admin"?"":"hidden"}>관리자는 고르지 않아도 모든 부서를 볼 수 있어요.</span></div>`}
     <div class="field"><span>이메일</span><span class="readout">${esc(m.email)}</span></div></div>`,
-    `${owner?"":`<button class="btn danger" type="button" data-act="rejectMember" data-id="${m.id}">내보내기</button>`}<button class="btn pri" type="button" data-act="saveMember" data-id="${m.id}">저장</button>`);
+    owner ? `<button class="btn pri block" type="button" data-act="saveMember" data-id="${m.id}">저장</button>`
+    : approving ? `<button class="btn danger" type="button" data-act="rejectMember" data-id="${m.id}">거절</button><button class="btn pri" type="button" data-act="saveMember" data-id="${m.id}" data-approve="1">${icon("check")}승인</button>`
+    : `<button class="btn danger" type="button" data-act="rejectMember" data-id="${m.id}">내보내기</button><button class="btn pri" type="button" data-act="saveMember" data-id="${m.id}">저장</button>`);
+  syncDeptPick();
+}
+function syncDeptPick(){
+  const role = document.querySelector('input[name="m-role"]:checked')?.value;
+  const wrap = document.getElementById("m-depts-wrap"); if(!wrap) return;
+  wrap.classList.toggle("dim", role==="admin");
+  const h=document.getElementById("m-dept-hint"); if(h) h.hidden = role!=="admin";
 }
 
 /* ---------- 홈 ---------- */
@@ -358,7 +384,7 @@ function vDash(){
   const upcoming = section("다가오는 주일", `<div class="card list">${up.map(w=>weekRow(w,nx)).join("")}</div>`, `<a class="link" href="#schedule">전체 일정${icon("chev")}</a>`);
   const ranks = S.canEdit && S.got.p ? section("대표기도 순서", rankBoard(), `<a class="link" href="#people">명단${icon("chev")}</a>`) : "";
   const bars = section(`${year} 사회 횟수`, `<div class="card"><div class="bars">${mcArr.map(([n,c])=>`<div class="bar"><span class="who">${av(n,"sm")}${esc(n)}</span><div class="track" role="img" aria-label="${esc(n)} ${c}회"><div class="fill" style="width:${c/mcMax*100}%"></div></div><span class="n">${c}</span></div>`).join("")||`<p class="note">기록이 없어요</p>`}</div></div>`);
-  const pendBanner = S.canEdit && pendingCount() ? `<a class="banner pend" href="#members">${icon("users")}<span>가입 신청 <b>${pendingCount()}명</b>이 승인을 기다리고 있어요</span>${icon("chev","chev")}</a>` : "";
+  const pendBanner = S.isAdmin && pendingCount() ? `<a class="banner pend" href="#members">${icon("users")}<span>가입 신청 <b>${pendingCount()}명</b>이 승인을 기다리고 있어요</span>${icon("chev","chev")}</a>` : "";
   return `${head("이번 주일 준비", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}${pendBanner}${hero}<div class="cols"><div>${upcoming}</div><div>${ranks}${bars}</div></div>`;
 }
 
@@ -492,15 +518,16 @@ function vMore(){
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const u = S.user;
   const setRow = (c, ic, t, s, right="", act="") => `<${act?"button":"div"} ${act?`type="button" ${act}`:""} class="row"><span class="set-ic" style="--c:${c}">${icon(ic)}</span><span class="main"><span class="t">${t}</span>${s?`<span class="s" style="white-space:normal">${s}</span>`:""}</span>${right}</${act?"button":"div"}>`;
-  return `${head("더보기")}
-    <div class="card"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(u?.email||"")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:S.canEdit?`<span class="chip acc">관리자</span>`:`<span class="chip mute">멤버</span>`}</div></div>
+  const noDept = !ALL_DEPTS.some(sees);
+  return `${head("더보기")}${noDept?`<div class="banner">아직 볼 수 있는 부서가 없어요. 관리자에게 부서를 열어 달라고 해 주세요.</div>`:""}
+    <div class="card"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(u?.email||"")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.member?.role==="member"?"mute":"acc"}">${ROLE_NAME[S.member?.role]||"멤버"}</span>`}</div></div>
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
       ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", ios?"Safari 아래쪽 공유 버튼 → 홈 화면에 추가":"Chrome 오른쪽 위 ⋮ 메뉴 → 앱 설치", S.installEvt?`<button class="btn sm pri" type="button" data-act="install">설치</button>`:"")}
-      ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?(ALERTS.filter(a=>S.push.prefs[a.k].on && (!a.admin||S.canEdit)).map(a=>a.t).join(" · ")||"모든 종류 꺼짐"):"전체 알림 꺼짐"):"대표기도·찬송·기도문 준비가 비어 있으면 이 휴대폰으로 알려 드려요", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
-      ${S.canEdit?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
-      ${setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"')}
-      ${S.canEdit?setRow("#2F78D0","upload","데이터 가져오기","받은 json 파일로 명단·배정·생일을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
+      ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?(ALERTS.filter(a=>S.push.prefs[a.k].on && alertVisible(a)).map(a=>a.t).join(" · ")||"모든 종류 꺼짐"):"전체 알림 꺼짐"):"예배 준비·생일 소식을 이 휴대폰으로 알려 드려요", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
+      ${S.isAdmin?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
+      ${sees("social")?setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"'):""}
+      ${S.isAdmin?setRow("#2F78D0","upload","데이터 가져오기","받은 json 파일로 명단·배정·생일을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
     <div class="card list">${setRow("#C23A3F","logout",`<span style="color:var(--bad)">로그아웃</span>`,"","",'data-act="logout"')}</div>`;
 }
@@ -594,7 +621,7 @@ function pushSupportNote(){
 }
 function notifySheet(){
   const note = pushSupportNote(); const on = !!S.push.token; const pf = S.push.prefs;
-  const list = ALERTS.filter(a=>!a.admin || S.canEdit);
+  const list = ALERTS.filter(alertVisible);
   openSheet("알림", `<div class="fields">
       ${note?`<p class="hint" role="alert" style="color:var(--warn);margin:0 18px">${note}</p>`:""}
       <div class="card list toggles">
@@ -610,7 +637,7 @@ function notifySheet(){
             <div class="select-wrap hour"><select data-hour aria-label="${a.t} 시각">${HOURS.map(h=>`<option value="${h}" ${h===v.hour?"selected":""}>${fmtHour(h)}</option>`).join("")}</select>${icon("down")}</div>
           </div>
         </div>`; }).join("")}</div>
-      <p class="hint" style="margin:4px 18px 8px">알림은 <b>${esc(myName()||"(이름 없음)")}</b> 이름으로 와요. 일정에 적힌 이름과 다르면 관리자에게 고쳐 달라고 해 주세요. 시각은 1시간 단위이고, 몇 분 늦게 올 수 있어요. 요일은 그 주 주일(일요일) 기준이에요.</p>
+      <p class="hint" style="margin:4px 18px 8px">알림은 <b>${esc(myName()||"(이름 없음)")}</b> 이름으로 와요. 일정에 적힌 이름과 다르면 관리자에게 고쳐 달라고 해 주세요. 시각은 1시간 단위이고, 몇 분 늦게 올 수 있어요. 사회부 알림의 요일은 그 주 주일(일요일) 기준이에요.</p>
     </div>`,
     on ? `<button class="btn pri block" type="button" data-act="pushSave">저장</button>`
        : `<button class="btn pri block" type="button" data-act="pushOn" ${note?"disabled":""}>알림 켜기</button>`);
@@ -629,7 +656,7 @@ async function pushToken(){
 }
 async function saveToken(token, prefs){
   const { doc, setDoc, serverTimestamp } = FB.m;
-  await setDoc(doc(FB.fs,"pushTokens",token), { token, name: myName(), email:S.user?.email||"", uid:S.user.uid, admin:!!S.canEdit, prefs, updatedAt: serverTimestamp(), ua: navigator.userAgent.slice(0,120) });
+  await setDoc(doc(FB.fs,"pushTokens",token), { token, name: myName(), email:S.user?.email||"", uid:S.user.uid, admin:!!S.isAdmin, prefs, updatedAt: serverTimestamp(), ua: navigator.userAgent.slice(0,120) });
 }
 function keepPush(token, prefs){ S.push = { token, prefs }; store.set("runners-push-token", token||null); store.set("runners-push-prefs", JSON.stringify(prefs)); }
 async function pushOn(prefs){
@@ -682,7 +709,7 @@ const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
   const nav=document.getElementById("tabs"); const cur = r==="members" ? "more" : r;
-  const key = S.dept+"|"+S.canEdit;
+  const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin;
   if(nav.dataset.key!==key){
     nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}">${TAB_ICON[k]}<span>${l}</span></a>`).join("");
     nav.dataset.key = key;
@@ -701,9 +728,9 @@ function openDrawer(){
       <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스</span>
         <button class="btn icon sm" type="button" data-act="closeDrawer" aria-label="메뉴 닫기">${icon("x")}</button></div>
       <p class="drawer-label">부서</p>
-      ${item("social")}${item("care")}
+      ${ALL_DEPTS.filter(sees).map(item).join("")}
       <div class="drawer-sep"></div>
-      <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span><span class="s">알림, 화면 모드${S.canEdit?", 멤버 관리":""}</span></span></a>
+      <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span><span class="s">알림, 화면 모드${S.isAdmin?", 멤버 관리":""}</span></span></a>
       <div class="drawer-foot">${av(myName()||S.user?.email||"?","sm")}<span>${esc(myName()||"")}</span></div>
     </nav>`;
   drawerOpen=true; document.body.style.overflow="hidden";
@@ -734,7 +761,7 @@ const ddChip = dd => dd===0 ? `<span class="chip warm plain">오늘</span>` : dd
 const roleChip2 = r => r ? `<span class="chip plain role-${r==="목자"?"mok":r==="형제"?"bro":"sis"}">${esc(r)}</span>` : "";
 const bdBox = b => `<span class="datebox"><span class="m">${b.month}월</span><span class="d">${b.day}</span></span>`;
 function birthRow(b, opts={}){
-  const tag = S.canEdit ? "button" : "div";
+  const tag = can("care") ? "button" : "div";
   return `<${tag} ${tag==="button"?`type="button" data-act="editBirth" data-id="${b.id}"`:""} class="row bday ${b.dd===0?"is-today":""} ${opts.past?"past":""}" aria-label="${b.month}월 ${b.day}일 ${esc(honor(b))}">
     ${bdBox(b)}<span class="main"><span class="t">${esc(b.name)} ${roleChip2(b.role)}</span>${opts.sub?`<span class="s">${opts.sub}</span>`:""}</span>${opts.chip??ddChip(b.dd)}${tag==="button"?icon("chev","chev"):""}</${tag}>`;
 }
@@ -744,7 +771,7 @@ function monthText(m){
 }
 function vBirth(){
   const all = births(); const m = parse(TODAY).getMonth()+1; const nm = m%12+1;
-  if(!all.length) return `${head("러너스 생일","","", "챙김부")}<div class="card">${empty("아직 생일 정보가 없어요", S.canEdit?"더보기 → 데이터 가져오기에서 생일 파일을 올리거나, 전체 탭에서 한 명씩 추가해 주세요.":"관리자가 생일 정보를 올리면 여기에 보여요.","wave", S.canEdit?`<a class="btn pri" href="#births">전체 탭으로</a>`:"")}</div>`;
+  if(!all.length) return `${head("러너스 생일","","", "챙김부")}<div class="card">${empty("아직 생일 정보가 없어요", can("care")?(S.isAdmin?"더보기 → 데이터 가져오기에서 생일 파일을 올리거나, ":"")+"전체 탭에서 한 명씩 추가해 주세요.":"관리자가 생일 정보를 올리면 여기에 보여요.","wave", can("care")?`<a class="btn pri" href="#births">전체 탭으로</a>`:"")}</div>`;
   const today = all.filter(b=>b.dd===0);
   const soon = all.filter(b=>b.dd>0 && b.dd<=14).sort((a,b)=>a.dd-b.dd||a.name.localeCompare(b.name,"ko"));
   const nextDd = Math.min(...all.map(b=>b.dd).filter(d=>d>0));
@@ -781,7 +808,7 @@ function vBirths(){
   const list = all.filter(b=>!q || b.name.includes(q));
   const months = Array.from({length:12},(_,i)=>i+1);
   return `${head("전체 생일", `${all.length}명 · 목자 ${all.filter(b=>b.role==="목자").length} · 형제 ${all.filter(b=>b.role==="형제").length} · 자매 ${all.filter(b=>b.role==="자매").length}`,
-      S.canEdit?`<button class="btn pri" type="button" data-act="editBirth">${icon("plus")}추가</button>`:"")}
+      can("care")?`<button class="btn pri" type="button" data-act="editBirth">${icon("plus")}추가</button>`:"")}
     <div class="year-bar month-bar">
       <label class="sr-only" for="bq">이름 검색</label>
       <input id="bq" type="search" placeholder="이름으로 찾기…" autocomplete="off" autocapitalize="none" autocorrect="off" enterkeyhint="search" spellcheck="false" value="${esc(S.birthQ)}">
@@ -808,7 +835,13 @@ function birthSheet(id){
 
 /* ---------- 렌더 ---------- */
 const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths};
-function route(){ const h=location.hash.slice(1); if((h==="people"||h==="members") && !S.canEdit) return "dash"; if(ROUTES[h]){ if(ROUTE_DEPT[h]) setDept(ROUTE_DEPT[h]); return h; } return DEPTS[S.dept].home; }
+function homeRoute(){ if(!sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
+function route(){ const h=location.hash.slice(1);
+  if(S.approved && !sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); }
+  if(h==="members" && !S.isAdmin) return homeRoute();
+  if(h==="people" && !can("social")) return homeRoute();
+  if(ROUTE_DEPT[h] && !sees(ROUTE_DEPT[h])) return homeRoute();
+  if(ROUTES[h]){ if(ROUTE_DEPT[h]) setDept(ROUTE_DEPT[h]); return h; } return homeRoute(); }
 function skeleton(){
   return `<div aria-busy="true" aria-label="불러오는 중…" style="display:flex;flex-direction:column;gap:24px;padding-top:12px">
     <div class="sk" style="width:140px;height:36px"></div><div class="sk" style="height:360px;border-radius:32px"></div>
@@ -848,7 +881,7 @@ document.addEventListener("click", async e => {
   if(a==="closeSheet"){ closeSheet(); return; }
   if(a==="menu"){ drawerOpen?closeDrawer():openDrawer(); return; }
   if(a==="closeDrawer"){ closeDrawer(); return; }
-  if(a==="goDept"){ setDept(t.dataset.dept); closeDrawer(); if(location.hash==="#"+DEPTS[S.dept].home) render(); return; }
+  if(a==="goDept"){ if(!sees(t.dataset.dept)) return; setDept(t.dataset.dept); closeDrawer(); if(location.hash==="#"+DEPTS[S.dept].home) render(); return; }
   if(a==="theme"){ setTheme(!isDark()); if(route()==="more"&&!document.body.classList.contains("gate")) render(); return; }
   if(a==="themeSet"){ setTheme(t.dataset.v==="dark"); render(); return; }
   if(a==="openScript"){ syncScript(t.dataset.date); S.scriptTab="script"; if(route()==="script") render(); else location.hash="#script"; return; }
@@ -871,16 +904,18 @@ document.addEventListener("click", async e => {
     t.setAttribute("aria-pressed", String(!on)); return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="editMember") memberSheet(t.dataset.id);
-  if(a==="approveMember"){ const m=S.members.find(x=>x.id===t.dataset.id);
-    await write(()=>S.db.doc("members/"+t.dataset.id).update({status:"approved", role:m?.role||"member"}), `${m?.name||"멤버"}님을 승인했어요`); }
+
   if(a==="rejectMember"){ const m=S.members.find(x=>x.id===t.dataset.id); const label = m?.status==="pending"?"거절":"내보내기";
     if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent = m?.status==="pending"?"거절할까요?":"정말 내보낼까요?"; t.classList.add("solid");
       setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent=label; t.classList.remove("solid"); } }, 3000); return; }
-    if(await write(()=>S.db.doc("members/"+t.dataset.id).update({status:"rejected", role:"member"}), "처리했어요")) closeSheet(); }
+    if(await write(()=>S.db.doc("members/"+t.dataset.id).update({status:"rejected", role:"member", depts:[]}), "처리했어요")) closeSheet(); }
   if(a==="deleteMember") await write(()=>S.db.doc("members/"+t.dataset.id).delete(), "기록을 지웠어요. 다시 로그인하면 새로 신청돼요");
   if(a==="saveMember"){ const name=val("m-name"); if(!name){ toast("이름을 적어 주세요"); return; }
-    const role=document.querySelector('input[name="m-role"]:checked')?.value; const patch={name}; if(role) patch.role=role;
-    if(await write(()=>S.db.doc("members/"+t.dataset.id).update(patch), "저장했어요")) closeSheet(); }
+    const role=document.querySelector('input[name="m-role"]:checked')?.value; const patch={name};
+    if(role){ patch.role=role; patch.depts=[...document.querySelectorAll('input[name="m-dept"]:checked')].map(x=>x.value);
+      if(role!=="admin" && !patch.depts.length){ toast("활동 부서를 하나 이상 골라 주세요"); return; } }
+    if(t.dataset.approve) patch.status="approved";
+    if(await write(()=>S.db.doc("members/"+t.dataset.id).update(patch), t.dataset.approve?`${name}님을 승인했어요`:"저장했어요")) closeSheet(); }
   if(a==="savePendName"){ const name=val("pend-name"); if(!name){ toast("이름을 적어 주세요"); return; }
     try{ await FB.m.updateDoc(FB.m.doc(FB.fs,"members",S.user.uid), {name}); toast("이름을 저장했어요"); }catch{ toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } }
   if(a==="pushOff"){ t.disabled=true; await pushOff(); closeSheet(); render(); }
@@ -966,6 +1001,7 @@ document.addEventListener("input", e => {
   const id=e.target.id;
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
+  if(e.target.name==="m-role"){ syncDeptPick(); return; }
   if(id==="bq"){ S.birthQ=e.target.value; render(); return; }
   if(id==="pq"){ S.peopleQ=e.target.value; render(); return; }
   if(id==="w-kind"){ const k=e.target.value; document.getElementById("w-other-wrap").hidden = k!=="__other"; document.getElementById("w-roles").hidden = !!k; return; }
@@ -1025,23 +1061,23 @@ async function startFirebase(){
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
     if(started) return; started = true;
-    slow = setTimeout(()=>{ if(!S.got.w){ S.mode="slow"; render(); } }, 10000);
-    unsubs.push(onSnapshot(collection(fs,"weeks"), s=>{
+    slow = setTimeout(()=>{ if(!S.got.w && sees("social")){ S.mode="slow"; render(); } }, 10000);
+    if(sees("social")) unsubs.push(onSnapshot(collection(fs,"weeks"), s=>{
       S.weeks = s.docs.map(d=>({...d.data(), date:d.data().date||d.id})); S.got.w=true;
       if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
     }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); }));
-    unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
-    if(S.canEdit){
+    if(sees("care")) unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
+    if(can("social")){
       unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
-      unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
-      unsubs.push(onSnapshot(collection(fs,"members"), s=>{ S.members=s.docs.map(d=>({id:d.id,...d.data()})); S.got.m=true; render(); }, ()=>{ S.got.m=true; render(); }));
     }
+    if(sees("social")) unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
+    if(S.isAdmin) unsubs.push(onSnapshot(collection(fs,"members"), s=>{ S.members=s.docs.map(d=>({id:d.id,...d.data()})); S.got.m=true; render(); }, ()=>{ S.got.m=true; render(); }));
     refreshPush();
   };
   authM.getRedirectResult(auth).catch(()=>{});
   authM.onAuthStateChanged(auth, async u=>{
     stopData(); memberUnsub?.(); memberUnsub=null;
-    S.user = u; S.canEdit = false; S.approved = false; S.isOwner = false; S.member = null; S.memberReady = false; S.authReady = true;
+    S.user = u; S.canEdit = false; S.isAdmin = false; S.approved = false; S.isOwner = false; S.member = null; S.memberReady = false; S.authReady = true;
     render();
     if(!u) return;
     // 최고 관리자 확인: 규칙(firestore.rules)에 적힌 이메일만 이 문서를 읽을 수 있어요
@@ -1052,18 +1088,20 @@ async function startFirebase(){
         // 처음 로그인: 가입 신청 (최고 관리자는 바로 승인된 관리자로)
         const owner = S.isOwner;
         try{ await setDoc(ref, { name:(u.displayName||"").replace(/\s+/g,"").slice(0,20) || (u.email||"").split("@")[0].slice(0,20), email:u.email||"", photo:u.photoURL||"",
-          status: owner?"approved":"pending", role: owner?"admin":"member", owner, createdAt: fsM.serverTimestamp() }); }
-        catch{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.canEdit=true; startData(); } else toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); render(); }
+          status: owner?"approved":"pending", role: owner?"admin":"member", depts: owner?[...ALL_DEPTS]:[], owner, createdAt: fsM.serverTimestamp() }); }
+        catch{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } else toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); render(); }
         return;
       }
-      const m = snap.data(); const wasAdmin = S.canEdit;
+      const m = snap.data(); const before = [S.approved, S.isAdmin, S.member?.role, deptsOf(S.member).join()].join("|");
       S.member = m; S.memberReady = true;
       S.approved = S.isOwner || m.status==="approved";
-      S.canEdit = S.isOwner || (m.status==="approved" && m.role==="admin");
-      if(!S.approved || wasAdmin!==S.canEdit) stopData();
+      S.isAdmin = S.isOwner || (S.approved && m.role==="admin");
+      S.canEdit = can("social");
+      // 권한·부서가 바뀌면 읽는 데이터를 다시 정리
+      if(before !== [S.approved, S.isAdmin, m.role, deptsOf(m).join()].join("|")) stopData();
       if(S.approved) startData();
       render();
-    }, ()=>{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.canEdit=true; startData(); } render(); });
+    }, ()=>{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } render(); });
   });
 }
 

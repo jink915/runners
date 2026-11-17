@@ -427,3 +427,14 @@ button.link{background:none;border:0;font:inherit;cursor:pointer}
 .month-bar .months::-webkit-scrollbar{display:none}
 .month-bar .months button{flex:0 0 auto;min-width:52px}
 .month-h{scroll-margin-top:150px}
+
+/* 멤버 권한·부서 고르기 */
+.role-pick,.dept-pick{display:flex;flex-direction:column;gap:8px}
+.role-opt,.dept-opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;transition:box-shadow 120ms ease,background-color 120ms ease}
+.role-opt input,.dept-opt input{flex:none;width:20px;height:20px;margin:0;accent-color:var(--accent)}
+.role-opt span:last-child,.dept-opt span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.role-opt b,.dept-opt b{font-size:15px}
+.role-opt small,.dept-opt small{font-size:12.5px;color:var(--muted)}
+.role-opt:has(input:checked),.dept-opt:has(input:checked){background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.dept-opt .set-ic{width:34px;height:34px}
+#m-depts-wrap.dim .dept-pick{opacity:.45;pointer-events:none}

@@ -12,7 +12,10 @@ const TEST = process.env.TEST === "true";
 const DEFAULTS = {   // 앱의 ALERTS 기본값과 같게
   prayer: { days: [3, 4], hour: 12 }, hymn: { days: [3, 4], hour: 12 }, script: { days: [3, 4], hour: 12 },
   mcDay: { days: [6], hour: 20 }, prayDay: { days: [6], hour: 20 }, fallback: { days: [3, 4], hour: 12 },
+  bdToday: { days: [0, 1, 2, 3, 4, 5, 6], hour: 9 }, bdWeek: { days: [1], hour: 9 },
 };
+const ALL_DEPTS = ["social", "care"];
+const HONOR = { "목자": "목자님", "형제": "형제님", "자매": "자매님" };
 
 initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
 const db = getFirestore(), fcm = getMessaging();
@@ -40,7 +43,12 @@ const members = Object.fromEntries((await db.collection("members").get()).docs.m
 const devices = (await db.collection("pushTokens").get()).docs.map(d => d.data())
   .map(t => ({ ...t, m: members[t.uid] }))
   .filter(t => t.m && (t.m.status === "approved" || t.m.owner))
-  .map(t => ({ token: t.token, name: (t.m.name || "").trim(), admin: !!(t.m.owner || t.m.role === "admin"), prefs: t.prefs || {} }));
+  .map(t => {
+    const admin = !!(t.m.owner || t.m.role === "admin");
+    const depts = admin ? ALL_DEPTS : Array.isArray(t.m.depts) ? t.m.depts : ALL_DEPTS;   // 예전 멤버는 모든 부서
+    return { token: t.token, name: (t.m.name || "").trim(), admin, depts,
+      editSocial: admin || (t.m.role === "operator" && depts.includes("social")), prefs: t.prefs || {} };
+  });
 const pref = (d, k) => {
   const v = d.prefs[k], def = DEFAULTS[k];
   if (v && typeof v === "object") return { on: v.on !== false, days: Array.isArray(v.days) && v.days.length ? v.days : def.days, hour: Number.isInteger(v.hour) ? v.hour : def.hour };
@@ -48,16 +56,19 @@ const pref = (d, k) => {
 };
 const enabled = (d, k) => d.prefs.all !== false && pref(d, k).on;
 const dueNow = (d, k) => { const p = pref(d, k); return enabled(d, k) && p.days.includes(dow) && hour >= p.hour; };
-const byName = n => n ? devices.filter(d => d.name === n) : [];
+const social = devices.filter(d => d.depts.includes("social"));
+const care = devices.filter(d => d.depts.includes("care"));
+const byName = n => n ? social.filter(d => d.name === n) : [];
 
 const out = new Map();   // token → { lines[], keys[] }
 const add = (d, key, line) => { const o = out.get(d.token) || { lines: [], keys: [] }; o.lines.push(line); o.keys.push(key); out.set(d.token, o); };
 
 if (TEST) {
   for (const d of devices.filter(d => d.admin)) add(d, null, `알림이 잘 와요. ${when} 사회 ${mc || "미정"}, 대표기도 ${prayer || "미정"}.`);
-} else if (!w.event) {
+} else {
   // 후보 알림 모으기
   const cands = [];
+  if (!w.event) {
   const mcDevices = byName(mc);
   for (const d of mcDevices) {
     if (!prayer) cands.push([d, "prayer", `아직 대표기도가 세워지지 않았어요! ${until >= 2 ? `이번주(${label})` : when} 대표기도 섭외를 진행해주세요:)`]);
@@ -68,7 +79,21 @@ if (TEST) {
   for (const d of byName(prayer)) cands.push([d, "prayDay", `${when} 대표기도 차례예요. 기도 준비 부탁드려요.`]);
   if (!prayer && !mcDevices.some(d => enabled(d, "prayer"))) {
     const why = mc ? `${mc}님이 대표기도 알림을 켜지 않아 대신 알려 드려요. ` : "사회자도 아직 정해지지 않았어요. ";
-    for (const d of devices.filter(d => d.admin)) cands.push([d, "fallback", `${why}${label} 대표기도가 아직 세워지지 않았어요.`]);
+    for (const d of social.filter(d => d.editSocial)) cands.push([d, "fallback", `${why}${label} 대표기도가 아직 세워지지 않았어요.`]);
+  }
+  }
+  // 챙김부: 생일
+  const bds = (await db.collection("birthdays").get()).docs.map(d => d.data()).filter(b => b.month && b.day && b.name);
+  const y = kst.getUTCFullYear();
+  const nextOf = b => { const last = new Date(Date.UTC(y, b.month, 0)).getUTCDate(); let d = Date.UTC(y, b.month - 1, Math.min(b.day, last));
+    const t0 = Date.UTC(y, kst.getUTCMonth(), kst.getUTCDate()); if (d < t0) d = Date.UTC(y + 1, b.month - 1, Math.min(b.day, new Date(Date.UTC(y + 1, b.month, 0)).getUTCDate()));
+    return Math.round((d - t0) / 864e5); };
+  const who = b => `${b.name} ${HONOR[b.role] || "님"}`.replace(/ 님$/, "님");
+  const todays = bds.filter(b => nextOf(b) === 0);
+  const week = bds.map(b => ({ b, dd: nextOf(b) })).filter(x => x.dd <= 6).sort((a, b) => a.dd - b.dd);
+  for (const d of care) {
+    if (todays.length) cands.push([d, "bdToday", `🎂 오늘은 ${todays.map(who).join(", ")} 생일이에요! 축하 메시지를 보내 주세요.`]);
+    if (week.length) cands.push([d, "bdWeek", `이번 주 생일 ${week.length}명: ` + week.map(({ b, dd }) => `${b.month}/${b.day} ${b.name}${dd === 0 ? "(오늘)" : ""}`).join(", ")]);
   }
   // 지금 보낼 차례이고 오늘 아직 안 보낸 것만
   const due = cands.filter(([d, k]) => dueNow(d, k));
@@ -82,7 +107,7 @@ else {
   const tokens = [...out.keys()];
   const res = await fcm.sendEach(tokens.map(token => {
     const o = out.get(token);
-    return { token, data: { title: TEST ? "[테스트] 주일 준비 알림" : `주일 준비 알림 · ${label}`, body: o.lines.join("\n"), link: APP + "#dash", tag: `runners-${today}-${hour}` },
+    return { token, data: { title: TEST ? "[테스트] 러너스 알림" : o.keys.every(k => /_bd(Today|Week)_/.test(k)) ? "러너스 생일 알림" : `주일 준비 알림 · ${label}`, body: o.lines.join("\n"), link: APP + (o.keys.every(k => /_bd(Today|Week)_/.test(k)) ? "#birth" : "#dash"), tag: `runners-${today}-${hour}` },
       webpush: { headers: { Urgency: "high", TTL: "21600" } } };
   }));
   console.log(`보냄: 성공 ${res.successCount} / 실패 ${res.failureCount}`);

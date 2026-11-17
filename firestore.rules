@@ -19,6 +19,11 @@ service cloud.firestore {
     function isMember() { return isOwner() || (hasMe() && me().status == 'approved'); }
     function isAdmin() { return isOwner() || (hasMe() && me().status == 'approved' && me().role == 'admin'); }
     function okName(n) { return n is string && n.size() > 0 && n.size() <= 20; }
+    // 부서 권한: 관리자 = 모든 부서·모든 권한 / 운영자 = 맡은 부서에서 관리자와 같은 권한 / 멤버 = 맡은 부서 보기만
+    // (depts가 없는 예전 멤버는 모든 부서)
+    function myDepts() { return me().get('depts', ['social', 'care']); }
+    function sees(d) { return isAdmin() || (isMember() && hasMe() && d in myDepts()); }
+    function canEdit(d) { return isAdmin() || (isMember() && hasMe() && me().role == 'operator' && d in myDepts()); }
 
     // 앱이 "내가 최고 관리자인가"를 확인하는 용도
     match /admins/{email} {
@@ -34,38 +39,42 @@ service cloud.firestore {
         && (isOwner()
             || (request.resource.data.status == 'pending'
                 && request.resource.data.role == 'member'
+                && request.resource.data.get('depts', []).size() == 0
                 && request.resource.data.owner == false));
       allow update: if (isAdmin()
             && request.resource.data.owner == resource.data.owner
             && okName(request.resource.data.name)
             && request.resource.data.status in ['pending', 'approved', 'rejected']
-            && request.resource.data.role in ['member', 'admin'])
+            && request.resource.data.role in ['member', 'operator', 'admin']
+            && request.resource.data.get('depts', []) is list
+            && request.resource.data.get('depts', []).hasOnly(['social', 'care']))
         || (signedIn() && request.auth.uid == uid
             && resource.data.status == 'pending'
             && okName(request.resource.data.name)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']));
       allow delete: if (isAdmin() && resource.data.owner != true) || (signedIn() && request.auth.uid == uid);
     }
-    // 주일 배정(사회·대표기도·찬송): 승인된 멤버만 보기, 관리자만 수정
+    // 사회부: 주일 배정(사회·대표기도·찬송)
     match /weeks/{date} {
-      allow read: if isMember();
-      allow write: if isAdmin();
+      allow read: if sees('social');
+      allow write: if canEdit('social');
     }
-    // 챙김부: 러너스 생일 — 승인된 멤버만 보기, 관리자만 수정
+    // 챙김부: 러너스 생일
     match /birthdays/{id} {
-      allow read: if isMember();
-      allow write: if isAdmin()
+      allow read: if sees('care');
+      allow write: if canEdit('care')
         && (request.resource == null
             || (okName(request.resource.data.name)
                 && request.resource.data.month is int && request.resource.data.month >= 1 && request.resource.data.month <= 12
                 && request.resource.data.day is int && request.resource.data.day >= 1 && request.resource.data.day <= 31));
     }
-    // 대표기도 명단(메모·사유 포함)과 기도제목: 관리자만
+    // 사회부: 대표기도 명단(메모·사유 포함)과 기도제목 — 사회부 관리자·운영자만
     match /people/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if canEdit('social');
     }
     match /config/{id} {
-      allow read, write: if isAdmin();
+      allow read: if sees('social');
+      allow write: if canEdit('social');
     }
     // 알림 받을 기기: 승인된 멤버가 자기 기기만, 자기 멤버 이름으로만 등록. 목록은 관리자만
     match /pushTokens/{token} {
