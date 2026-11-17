@@ -34,16 +34,29 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 - 참석하는 모든 이들에게 집중력과 들을 귀를 허락하셔서 말씀의 은혜가 풍성하게 있을 수 있길`;
 
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
+// 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
-  ["prayer",  "대표기도 미정",   "사회 맡은 주, 수·목 낮 12시까지 대표기도가 비어 있으면"],
-  ["hymn",    "헌금찬송 미정",   "사회 맡은 주, 수·목 낮 12시까지 헌금찬송이 비어 있으면"],
-  ["script",  "기도문 작성",     "사회 맡은 주, 수·목 낮 12시까지 묵도·헌금기도 문장이 비어 있으면"],
-  ["mcDay",   "사회 전날",       "내가 사회인 주일 전날, 토요일 저녁 8시"],
-  ["prayDay", "대표기도 전날",   "내가 대표기도인 주일 전날, 토요일 저녁 8시"],
-  ["fallback","사회자 대신 받기", "사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받기", "admin"],
+  {k:"prayer",   t:"대표기도 미정",     d:"사회 맡은 주에 대표기도가 아직 비어 있으면",        days:[3,4], hour:12},
+  {k:"hymn",     t:"헌금찬송 미정",     d:"사회 맡은 주에 헌금찬송이 아직 비어 있으면",        days:[3,4], hour:12},
+  {k:"script",   t:"기도문 작성",       d:"사회 맡은 주에 묵도·헌금기도 문장이 아직 비어 있으면", days:[3,4], hour:12},
+  {k:"mcDay",    t:"사회 차례 알림",    d:"내가 사회인 주에 미리 알려 드려요",                 days:[6],   hour:20},
+  {k:"prayDay",  t:"대표기도 차례 알림", d:"내가 대표기도인 주에 미리 알려 드려요",              days:[6],   hour:20},
+  {k:"fallback", t:"사회자 대신 받기",   d:"사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받아요", days:[3,4], hour:12, admin:true},
 ];
-const defaultPrefs = () => Object.fromEntries(ALERTS.map(a=>[a[0], true]));
-function loadPrefs(){ try{ return {...defaultPrefs(), ...JSON.parse(store.get("runners-push-prefs")||"{}")}; }catch{ return defaultPrefs(); } }
+const DAYS = ["일","월","화","수","목","금","토"];
+const DAY_ORDER = [1,2,3,4,5,6,0];
+const HOURS = Array.from({length:18},(_,i)=>i+6);   // 오전 6시 ~ 밤 11시
+const fmtHour = h => h<12 ? `오전 ${h}시` : h===12 ? "낮 12시" : h<18 ? `오후 ${h-12}시` : `저녁 ${h-12}시`;
+const daysText = ds => DAY_ORDER.filter(d=>ds.includes(d)).map(d=>DAYS[d]).join("·");
+function normPrefs(p){
+  p = p || {}; const o = { all: p.all!==false };
+  for(const a of ALERTS){ const v = p[a.k];
+    o[a.k] = (v && typeof v==="object")
+      ? { on: v.on!==false, days: Array.isArray(v.days)&&v.days.length ? v.days.filter(d=>d>=0&&d<=6) : a.days, hour: Number.isInteger(v.hour) ? v.hour : a.hour }
+      : { on: v!==false, days: [...a.days], hour: a.hour }; }
+  return o;
+}
+function loadPrefs(){ try{ return normPrefs(JSON.parse(store.get("runners-push-prefs")||"{}")); }catch{ return normPrefs(); } }
 const S = {
   approved:false, isOwner:false,
   push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
@@ -480,7 +493,7 @@ function vMore(){
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
       ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", ios?"Safari 아래쪽 공유 버튼 → 홈 화면에 추가":"Chrome 오른쪽 위 ⋮ 메뉴 → 앱 설치", S.installEvt?`<button class="btn sm pri" type="button" data-act="install">설치</button>`:"")}
-      ${setRow("#F0A020","bell","알림", S.push.token?`${ALERTS.filter(a=>S.push.prefs[a[0]] && (!a[3]||S.canEdit)).map(a=>a[1]).join(" · ")||"모두 꺼짐"}`:"대표기도·찬송·기도문 준비가 비어 있으면 이 휴대폰으로 알려 드려요", S.push.token?`<span class="chip ok">켜짐</span>`:icon("chev","chev"),'data-act="notify"')}
+      ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?(ALERTS.filter(a=>S.push.prefs[a.k].on && (!a.admin||S.canEdit)).map(a=>a.t).join(" · ")||"모든 종류 꺼짐"):"전체 알림 꺼짐"):"대표기도·찬송·기도문 준비가 비어 있으면 이 휴대폰으로 알려 드려요", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
       ${S.canEdit?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
       ${setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"')}
       ${S.canEdit?setRow("#2F78D0","upload","데이터 가져오기","처음 한 번, 받은 json 파일로 명단과 배정을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
@@ -577,17 +590,33 @@ function pushSupportNote(){
 }
 function notifySheet(){
   const note = pushSupportNote(); const on = !!S.push.token; const pf = S.push.prefs;
-  const list = ALERTS.filter(a=>!a[3] || S.canEdit);
+  const list = ALERTS.filter(a=>!a.admin || S.canEdit);
   openSheet("알림", `<div class="fields">
       ${note?`<p class="hint" role="alert" style="color:var(--warn);margin:0 18px">${note}</p>`:""}
-      <div class="card list toggles">${list.map(([k,t,d])=>`<label class="row toggle"><span class="main"><span class="t">${t}</span><span class="s">${d}</span></span>
-        <input type="checkbox" role="switch" class="switch" data-pref="${k}" ${pf[k]?"checked":""}></label>`).join("")}</div>
-      <p class="hint" style="margin:4px 18px 8px">알림은 <b>${esc(myName()||"(이름 없음)")}</b> 이름으로 와요. 일정에 적힌 이름과 다르면 관리자에게 이름을 고쳐 달라고 해 주세요.</p>
+      <div class="card list toggles">
+        <label class="row toggle master"><span class="set-ic" style="--c:#F0A020">${icon("bell")}</span><span class="main"><span class="t">전체 알림</span><span class="s">끄면 아래 설정은 그대로 두고 모든 알림을 멈춰요</span></span>
+          <input type="checkbox" role="switch" class="switch" id="pref-all" ${pf.all?"checked":""}></label>
+      </div>
+      <div class="card list toggles alerts ${pf.all?"":"dim"}" id="alert-list">${list.map(a=>{ const v=pf[a.k]; return `
+        <div class="alert" data-alert="${a.k}">
+          <label class="row toggle"><span class="main"><span class="t">${a.t}</span><span class="s">${a.d}</span></span>
+            <input type="checkbox" role="switch" class="switch" data-pref="${a.k}" ${v.on?"checked":""}></label>
+          <div class="alert-cfg" ${v.on?"":"hidden"}>
+            <div class="days" role="group" aria-label="${a.t} 요일">${DAY_ORDER.map(d=>`<button type="button" class="day ${d===0?"sun":""}" data-act="day" data-day="${d}" aria-pressed="${v.days.includes(d)}">${DAYS[d]}</button>`).join("")}</div>
+            <div class="select-wrap hour"><select data-hour aria-label="${a.t} 시각">${HOURS.map(h=>`<option value="${h}" ${h===v.hour?"selected":""}>${fmtHour(h)}</option>`).join("")}</select>${icon("down")}</div>
+          </div>
+        </div>`; }).join("")}</div>
+      <p class="hint" style="margin:4px 18px 8px">알림은 <b>${esc(myName()||"(이름 없음)")}</b> 이름으로 와요. 일정에 적힌 이름과 다르면 관리자에게 고쳐 달라고 해 주세요. 시각은 1시간 단위이고, 몇 분 늦게 올 수 있어요. 요일은 그 주 주일(일요일) 기준이에요.</p>
     </div>`,
-    on ? `<button class="btn danger" type="button" data-act="pushOff">모두 끄기</button><button class="btn pri" type="button" data-act="pushSave">저장</button>`
-       : `<button class="btn pri" type="button" data-act="pushOn" ${note?"disabled":""}>알림 켜기</button>`);
+    on ? `<button class="btn pri block" type="button" data-act="pushSave">저장</button>`
+       : `<button class="btn pri block" type="button" data-act="pushOn" ${note?"disabled":""}>알림 켜기</button>`);
 }
-const readPrefs = () => { const p = {...S.push.prefs}; document.querySelectorAll("[data-pref]").forEach(el=>p[el.dataset.pref]=el.checked); return p; };
+function readPrefs(){
+  const p = { all: document.getElementById("pref-all")?.checked ?? S.push.prefs.all };
+  for(const a of ALERTS){ const el = document.querySelector(`[data-alert="${a.k}"]`);
+    p[a.k] = el ? { on: el.querySelector("[data-pref]").checked, days: [...el.querySelectorAll('.day[aria-pressed="true"]')].map(b=>+b.dataset.day), hour: +el.querySelector("[data-hour]").value } : S.push.prefs[a.k]; }
+  return normPrefs(p);
+}
 async function pushToken(){
   const m = await import(SDK+"firebase-messaging.js");
   if(!(await m.isSupported())) throw new Error("unsupported");
@@ -685,6 +714,9 @@ document.addEventListener("click", async e => {
   if(a==="pushSave"){ const p=readPrefs(); t.disabled=true;
     try{ await saveToken(S.push.token, p); keepPush(S.push.token, p); toast("알림 설정을 저장했어요"); closeSheet(); render(); }
     catch{ t.disabled=false; toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } }
+  if(a==="day"){ const on=t.getAttribute("aria-pressed")==="true";
+    if(on && t.parentElement.querySelectorAll('[aria-pressed="true"]').length===1){ toast("요일을 하나 이상 골라 주세요"); return; }
+    t.setAttribute("aria-pressed", String(!on)); return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="editMember") memberSheet(t.dataset.id);
   if(a==="approveMember"){ const m=S.members.find(x=>x.id===t.dataset.id);
@@ -769,6 +801,8 @@ document.addEventListener("change", async e => {
 });
 document.addEventListener("input", e => {
   const id=e.target.id;
+  if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
+  if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
   if(id==="pq"){ S.peopleQ=e.target.value; render(); return; }
   if(id==="w-kind"){ const k=e.target.value; document.getElementById("w-other-wrap").hidden = k!=="__other"; document.getElementById("w-roles").hidden = !!k; return; }
   const map={"s-prayer":"prayer","s-honor":"honor","s-book":"book","s-ch":"ch","s-v1":"v1","s-v2":"v2","s-hymn":"hymn","s-mukdo":"mukdo","s-offering":"offering"};
