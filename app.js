@@ -1024,7 +1024,15 @@ async function login(){
   }
 }
 window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); S.installEvt=e; if(route()==="more") render(); });
-if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker" in navigator){
+  // 새 버전이 설치되면 한 번 자동으로 새로고침 (처음 설치 때는 제외)
+  const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{ if(hadSW && !reloaded && !sheetOpen){ reloaded = true; location.reload(); } });
+  navigator.serviceWorker.register("sw.js", {updateViaCache:"none"}).then(reg=>{
+    reg.update().catch(()=>{});
+    document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") reg.update().catch(()=>{}); });
+  }).catch(()=>{});
+}
 
 async function loadSermons(){
   try{ const r = await fetch("data/sermons.json", {cache:"no-cache"}); if(r.ok) S.sermons = await r.json(); }catch{}
