@@ -7,33 +7,20 @@ let IMPORT = async () => { throw new Error("no-db"); };
 
 const EVENTS = ["통합예배","전국학생수양회","봄수양회","여름수양회","가을수양회","겨울수양회","WMC"];
 const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
-- 무슨 말씀이었는지, 러너스에게 어떤 의미가 있는지 (안암UBF anamubf.org "주일말씀" 칸에서 설교 말씀 참고)
+- 무슨 말씀이었는지, 러너스에게 어떤 의미가 있는지
 
 2. 세계선교
-- 2041년까지 233개국에 10만명 선교사 파송할 수 있도록
-- 세계 각 센터가 사랑의 공동체, 영적인 공동체 이룰 수 있도록
-- 지혜를 주셔서 다음 세대 리더들을 세울 수 있도록
-- 캠퍼스 미션의 불이 타오르고, 말씀의 역사가 충만할 수 있도록
-- 세계 대표 '라널드' 목자님과 대륙별, 국가별 지부장들에게 지혜를 허락하여 주시도록
-- 우크라이나의 평화와 선교사님들의 안전을 허락하여 주시도록
 
 3. 성서한국
-- 우리나라가 제사장 나라로 쓰임 받고, 한국교회와 우리 모임이 하나님께서 주신 사명을 잘 감당하도록
-- 본국 5000팀의 일대일을 이루어 주시도록
-- 전체 모임을 섬기시는 김느헤미야 목자님, 안암센타를 섬기시는 이창무, 이요한 목자님께 건강과 지혜를 주시도록
 
 4. 러너스
-- 100명의 제자들로 성장하고, 각 사람이 하나님 안에서 믿음으로 성장하도록
-- 러너스를 섬기는 리더들과 모든 구성원에게 러너스 역사를 이뤄가는데 믿음과 지혜를 주시도록
-- 직장생활, 논문, 취업, 대학 입시를 준비하는 분들과 함께하여 주시도록
-- 군 선교사로 가 있는 최성준, 최진성, 김주명 형제님들을 보호하여 주시도록
 
 5. 예배
 - 예배 모든 순서 하나님 홀로 영광 받으시길
-- 예배 말씀 섬기시는 이창무 목자님, 성령으로 함께하시길
-- 참석하는 모든 이들에게 집중력과 들을 귀를 허락하셔서 말씀의 은혜가 풍성하게 있을 수 있길`;
 
-const APP_VERSION = "11.17-16";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+(관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
+
+const APP_VERSION = "11.17-17";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -205,7 +192,7 @@ function candidates(people=S.people, weeks=S.weeks){
     });
 }
 const openSlot = () => sortedWeeks().find(w => w.date >= TODAY && isService(w) && !w.prayer);
-function mcPool(){ const s=new Set(["김세한","김스테반","이다니엘","이성산","유진규"]); S.weeks.forEach(w=>w.mc&&s.add(w.mc)); return [...s]; }
+function mcPool(){ const s=new Set(); S.weeks.forEach(w=>w.mc&&s.add(w.mc)); return [...s]; }   // 사회자 이름은 일정 기록에서만 가져와요
 function verseText(w){ if(!w||!w.book) return ""; let t=`${w.book}`; if(w.ch) t+=` ${w.ch}장`; if(w.v1) t+=` ${w.v1}절`; if(w.v2) t+=` – ${w.v2}절`; return t; }
 
 /* ---------- 저장 ---------- */
@@ -1067,9 +1054,9 @@ document.addEventListener("change", async e => {
   if(e.target.id!=="imp-file" || !e.target.files[0]) return;
   try{
     const data = JSON.parse(await e.target.files[0].text());
-    if(!["people","weeks","birthdays"].some(k=>Array.isArray(data[k]))) throw new Error("bad");
+    if(!["people","weeks","birthdays"].some(k=>Array.isArray(data[k])) && typeof data.topics!=="string") throw new Error("bad");
     await IMPORT(data); closeSheet();
-    toast("가져왔어요: " + [data.people&&`사람 ${data.people.length}명`, data.weeks&&`주일 ${data.weeks.length}주`, data.birthdays&&`생일 ${data.birthdays.length}명`].filter(Boolean).join(", "));
+    toast("가져왔어요: " + [data.people&&`사람 ${data.people.length}명`, data.weeks&&`주일 ${data.weeks.length}주`, data.birthdays&&`생일 ${data.birthdays.length}명`, data.topics&&"기도제목"].filter(Boolean).join(", "));
   }catch(err){ toast(err?.message==="bad"?"이 파일은 러너스 데이터 파일이 아니에요":"가져오지 못했어요. 운영자로 로그인했는지 확인해 주세요"); }
   e.target.value="";
 });
@@ -1137,7 +1124,8 @@ async function startFirebase(){
       ...(data.birthdays||[]).map(b=>{ const {id,...rest}=b; return [doc(fs,"birthdays",id), rest]; }),
     ];
     if(data.topics) ops.push([doc(fs,"config","topics"), {text:data.topics}]);
-    for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>b.set(r,d)); await b.commit(); }
+    // 주일 배정은 합쳐 쓰기 (파일에 없는 칸은 그대로 둠)
+    for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>r.parent.id==="weeks" ? b.set(r,d,{merge:true}) : b.set(r,d)); await b.commit(); }
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
   const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
@@ -1167,7 +1155,7 @@ async function startFirebase(){
     S.user = u; S.canEdit = false; S.isAdmin = false; S.approved = false; S.isOwner = false; S.member = null; S.memberReady = false; S.authReady = true;
     render();
     if(!u) return;
-    // 최고 관리자 확인: 규칙(firestore.rules)에 적힌 이메일만 이 문서를 읽을 수 있어요
+    // 최고 관리자 확인: Firestore 보안 규칙에 등록된 계정만 이 문서를 읽을 수 있어요
     if(u.email){ try{ await getDoc(doc(fs,"admins",u.email)); S.isOwner = true; }catch{ S.isOwner = false; } }
     const ref = doc(fs,"members",u.uid);
     memberUnsub = onSnapshot(ref, async snap=>{

@@ -1,16 +1,18 @@
 # 러너스 예배
 
-러너스 주일 예배의 사회·대표기도 배정, 대표기도 순서, 사회 원고를 관리하는 웹앱(PWA)입니다. 휴대폰 홈 화면에 설치해서 앱처럼 쓸 수 있습니다.
+러너스(안암UBF 1부) 주일 예배 준비와 챙김부 활동을 돕는 웹앱(PWA)입니다. 휴대폰 홈 화면에 설치해서 앱처럼 쓸 수 있습니다.
 
 - 화면: GitHub Pages (무료)
-- 배정·명단 데이터: Firebase Firestore 무료 플랜
-- 본문·설교 제목·묵도·헌금기도: `data/sermons.json` (매주 예약 작업이 안암UBF 주일말씀 게시판을 읽어 갱신)
+- 데이터(멤버·배정·명단·생일·요청): Firebase Firestore — 가입 승인을 받은 멤버만, 각자 권한과 부서만큼 읽고 쓸 수 있습니다
+- 설교 본문·제목 목록: `data/sermons.json`
+- 알림: GitHub Actions가 매시간 확인해서 Firebase로 푸시 알림 발송 (`scripts/remind.mjs`)
 
-## 처음 설정
-1. Firebase 콘솔에서 프로젝트 생성 → 웹 앱 추가 → 설정값을 `firebase-config.js`에 넣기
-2. Authentication → 로그인 방법 → Google 사용 설정, 승인된 도메인에 `<아이디>.github.io` 추가
-3. Firestore Database 만들기(서울 asia-northeast3) → 규칙 탭에 `firestore.rules` 붙여넣기(운영자 이메일 수정)
-4. 운영자로 로그인 → 더보기 → 데이터 가져오기
+개인 정보(이름·생일·메모 등)와 Firestore 보안 규칙 파일은 이 저장소에 두지 않습니다.
+보안 규칙은 Firebase 콘솔의 Firestore → 규칙 탭에서 관리합니다.
 
-## 운영자 추가
-`firestore.rules`의 `adminEmails()` 목록에 이메일을 추가하고 Firebase 콘솔 규칙 탭에 다시 게시합니다.
+## 권한
+- 관리자: 모든 부서에서 모든 권한, 멤버 승인·권한 지정
+- 운영자: 맡은 부서에서 관리자와 같은 권한
+- 멤버: 맡은 부서 보기만
+
+멤버 승인과 권한·부서 지정은 앱의 더보기 → 멤버 관리에서 합니다.
