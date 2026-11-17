@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-1";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-2";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -105,6 +105,7 @@ const ICON = {
   download:'<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
   share:'<path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M7 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-1"/>',
   plusSq:'<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/>',
+  dots:'<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
   bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
   upload:'<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
@@ -949,7 +950,7 @@ function vTeam(){
   const edit = can("leaders"); const st = teamStat(d, t.id); const leader = S.teams[t.id]?.leader||"";
   const memberRow = (m, i) => `<div class="tm-row" style="--tc:${t.c}">
       <div class="tm-head">${av(m,"sm")}<b>${esc(m)}</b>${leader===m?`<span class="chip acc plain">리더</span>`:""}${(S.teams[t.id]?.mentor||"")===m?`<span class="chip ok plain">멘토</span>`:""}
-        <div class="att-seg ${edit?"":"ro"}" role="radiogroup" aria-label="${esc(m)} 출석">${Object.entries(ATT).map(([k,[l]])=>`<button type="button" role="radio" class="att ${k}" ${edit?`data-act="att" data-m="${esc(m)}" data-v="${k}"`:"disabled"} aria-checked="${att[m]===k}">${l}</button>`).join("")}</div></div>
+        <div class="att-seg ${edit?"":"ro"}" role="radiogroup" aria-label="${esc(m)} 출석">${Object.entries(ATT).map(([k,[l]])=>`<button type="button" role="radio" class="att ${k}" ${edit?`data-act="att" data-m="${esc(m)}" data-v="${k}"`:"disabled"} aria-checked="${att[m]===k}">${l}</button>`).join("")}</div>${edit?`<button class="btn icon sm tm-more" type="button" data-act="memberMenu" data-m="${esc(m)}" aria-label="${esc(m)} 이동·빼기">${icon("dots")}</button>`:""}</div>
       ${att[m]==="x"?`<input class="tm-why keep-val" id="why-${i}" data-why="${esc(m)}" maxlength="60" placeholder="결석 사유 (선택)" value="${esc(why[m]||"")}" ${edit?"":"readonly"}>`:""}
       <textarea class="tm-pray keep-val" id="pr-${i}" data-pray="${esc(m)}" rows="2" maxlength="500" placeholder="${esc(m)}님의 이번 주 기도제목" ${edit?"":"readonly"}>${esc(pr[m]||"")}</textarea>
     </div>`;
@@ -958,7 +959,8 @@ function vTeam(){
       <div class="head-acts"><button class="btn" type="button" data-act="copyTeamPrayers" data-id="${t.id}">${icon("copy")}기도제목 복사</button>
       ${edit?`<button class="btn" type="button" data-act="editTeam" data-id="${t.id}">${icon("users")}팀원 편집</button>`:""}</div></div>
     ${ldWeekNav()}
-    ${ms.length ? `<section class="card tm-list">${ms.map(memberRow).join("")}</section>
+    ${ms.length ? `<section class="card tm-list">${ms.map(memberRow).join("")}
+      ${edit?`<div class="tm-add"><label class="sr-only" for="tm-new">팀원 추가</label><input id="tm-new" maxlength="20" autocomplete="off" enterkeyhint="done" placeholder="팀원 이름 추가"><button class="btn sm pri" type="button" data-act="addMember">${icon("plus")}추가</button></div>`:""}</section>
       <section class="section"><div class="section-h"><h2>팀 전체 기도제목</h2><button class="link" type="button" data-act="copyTeamPrayers" data-id="${t.id}">${icon("copy")}이 팀 기도제목 복사</button></div>
         <textarea class="tm-pray team keep-val" id="pr-team" data-pray-team="1" rows="3" maxlength="800" placeholder="팀이 함께 기도할 제목" ${edit?"":"readonly"}>${esc(w.teamPrayer||"")}</textarea></section>
       <p class="note">${edit?"적는 대로 자동 저장돼요.":"보기 전용이에요. 기록은 리더단 운영자가 할 수 있어요."}${w.updatedAt?.toDate?` 마지막 저장 ${ago(w.updatedAt.toDate())}`:""}</p>`
@@ -988,6 +990,27 @@ function teamSheet(id){
     <datalist id="dl-tm">${ms.map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
     <p class="hint" style="margin:0 18px">이름을 바꾸거나 빼도 지난 기록은 그대로 남아요. 팀원 이름을 멤버 이름과 똑같이 적으면 그 사람에게 '우리 팀'이 표시돼요.</p></div>`,
     `<button class="btn pri block" type="button" data-act="saveTeam" data-id="${id}">저장</button>`);
+}
+// 팀원 이동·빼기·추가 (팀 문서의 members/leader/mentor를 고쳐요. 지난 출석·기도제목 기록은 그대로)
+const teamDoc = id => ({ name:teamOf(id).name, members:[...teamMembers(id)], leader:S.teams[id]?.leader||"", mentor:S.teams[id]?.mentor||"" });
+const teamWhere = name => TEAMS.find(t=>teamMembers(t.id).includes(name));
+async function putTeam(id, d){ S.teams[id] = {...(S.teams[id]||{}), ...d}; await S.db.doc("teams/"+id).set(d); }
+function without(d, m){ return {...d, members:d.members.filter(x=>x!==m), leader:d.leader===m?"":d.leader, mentor:d.mentor===m?"":d.mentor}; }
+async function moveMember(m, from, to){
+  const a = without(teamDoc(from), m); const b = teamDoc(to); if(!b.members.includes(m)) b.members.push(m);
+  await putTeam(from, a); await putTeam(to, b);
+}
+function memberMenu(m){
+  const id = S.teamSel; const t = teamOf(id); const d = teamDoc(id);
+  openSheet(esc(m), `<div class="fields">
+    <div class="field"><span>지금 팀</span><span class="readout" style="--tc:${t.c}"><span class="team-dot"></span> ${t.name}${d.leader===m?" · 리더":d.mentor===m?" · 멘토":""}</span></div>
+    <div class="field"><span class="lab" id="lab-mv">다른 팀으로 이동</span>
+      <div class="mv-grid" role="group" aria-labelledby="lab-mv">${TEAMS.filter(x=>x.id!==id).map(x=>`<button type="button" class="mv-team" data-act="moveTo" data-m="${esc(m)}" data-to="${x.id}" style="--tc:${x.c}"><span class="team-dot"></span>${x.name}<small>${teamMembers(x.id).length}명</small></button>`).join("")}</div>
+      <span class="hint">이동해도 이 팀에서의 지난 출석·기도제목 기록은 그대로 남아요.</span></div>
+    <div class="field"><span class="lab">역할</span><div class="mv-roles">
+      <button type="button" class="btn sm" data-act="setRole" data-m="${esc(m)}" data-r="leader">${d.leader===m?"리더 해제":"리더로 지정"}</button>
+      <button type="button" class="btn sm" data-act="setRole" data-m="${esc(m)}" data-r="mentor">${d.mentor===m?"멘토 해제":"멘토로 지정"}</button></div></div>
+  </div>`, `<button class="btn danger block" type="button" data-act="removeMember" data-m="${esc(m)}">${t.name}에서 빼기</button>`);
 }
 let prayTimers = {};
 function savePray(el){
@@ -1379,6 +1402,21 @@ document.addEventListener("click", async e => {
     try{ await S.db.doc("teamWeeks/"+key).merge({date:S.ldSun, team:S.teamSel, att:{[m]:nv}, updatedBy:myName(), updatedAt:FB?FB.m.serverTimestamp():new Date()}); try{ navigator.vibrate?.(6); }catch{} }
     catch{ toast("저장하지 못했어요. 리더단 운영자만 기록할 수 있어요"); } return; }
   if(a==="editTeam"){ teamSheet(t.dataset.id); return; }
+  if(a==="memberMenu"){ memberMenu(t.dataset.m); return; }
+  if(a==="moveTo"){ const m=t.dataset.m, to=t.dataset.to;
+    if(await write(()=>moveMember(m, S.teamSel, to), `${m}님을 ${teamOf(to).name}으로 옮겼어요`)){ closeSheet(); render(); } return; }
+  if(a==="setRole"){ const m=t.dataset.m, r=t.dataset.r; const d=teamDoc(S.teamSel); d[r] = d[r]===m ? "" : m; if(r==="leader"&&d.mentor===m&&d.leader===m) d.mentor=""; if(r==="mentor"&&d.leader===m&&d.mentor===m) d.leader="";
+    if(await write(()=>putTeam(S.teamSel, d), d[r]===m?`${m}님을 ${r==="leader"?"리더":"멘토"}로 정했어요`:"역할을 해제했어요")){ closeSheet(); render(); } return; }
+  if(a==="removeMember"){ const m=t.dataset.m;
+    if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent=`정말 ${m}님을 뺄까요?`; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent=`${teamOf(S.teamSel).name}에서 빼기`; t.classList.remove("solid"); } }, 3000); return; }
+    if(await write(()=>putTeam(S.teamSel, without(teamDoc(S.teamSel), m)), `${m}님을 팀에서 뺐어요`)){ closeSheet(); render(); } return; }
+  if(a==="addMember"){ const inp=document.getElementById("tm-new"); const m=(inp?.value||"").trim(); if(!m){ inp?.focus(); return; }
+    const id=S.teamSel; if(teamMembers(id).includes(m)){ toast("이미 이 팀에 있어요"); return; }
+    const other=teamWhere(m);
+    if(other && t.dataset.confirm!==other.id){ t.dataset.confirm=other.id; t.textContent=`${other.name}에서 옮겨오기`; toast(`${m}님은 지금 ${other.name}이에요. 한 번 더 누르면 옮겨와요`); return; }
+    const ok = other ? await write(()=>moveMember(m, other.id, id), `${m}님을 ${other.name}에서 옮겨왔어요`)
+                     : await write(()=>putTeam(id, {...teamDoc(id), members:[...teamMembers(id), m]}), `${m}님을 추가했어요`);
+    if(ok){ render(); document.getElementById("tm-new")?.focus(); } return; }
   if(a==="saveTeam"){ const id=t.dataset.id; const names=[...new Set(document.getElementById("tm-names").value.split("\n").map(x=>x.trim()).filter(Boolean))].slice(0,40);
     const leader=val("tm-leader"), mentor=val("tm-mentor"); if(await write(()=>S.db.doc("teams/"+id).set({name:teamOf(id).name, members:names, leader, mentor}), "팀원을 저장했어요")) closeSheet(); return; }
   if(a==="copyTeamPrayers"){ const txt=teamPrayersText(t.dataset.id); if(!txt){ toast("이 주에 적힌 기도제목이 없어요"); return; } copy(txt); return; }
@@ -1454,6 +1492,7 @@ document.addEventListener("input", e => {
   if(map[id]) S.script[map[id]]=e.target.value;
 });
 document.addEventListener("keydown", e => {
+  if(e.key==="Enter" && e.target.id==="tm-new" && !e.isComposing){ e.preventDefault(); document.querySelector('[data-act="addMember"]')?.click(); return; }
   if(e.key==="Enter" && (e.target.id==="lg-amt"||e.target.id==="lg-memo") && !e.isComposing){ e.preventDefault(); document.querySelector('[data-act="lgAdd"]')?.click(); return; }
   if((e.key==="Enter"||e.key===" ") && e.target.matches?.('tr[data-act]')){ e.preventDefault(); e.target.click(); return; } if(e.key==="Escape"){ if(sheetOpen) closeSheet(); else closeDrawer(); } });
 
