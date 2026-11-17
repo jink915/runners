@@ -477,3 +477,93 @@ button.link{background:none;border:0;font:inherit;cursor:pointer}
 @keyframes rowflash{ 0%,40%{background:var(--warm-soft)} 100%{background:transparent} }
 .row.flash{animation:rowflash 1.4s ease-out}
 @media (prefers-reduced-motion:reduce){ .row.flash{animation:none;background:var(--warm-soft)} }
+
+/* ---------- 총무부: 엑셀형 장부 ---------- */
+:root{ --in:#1F9D6B; --in-soft:#E3F5EC; --out:#D24A3E; --out-soft:#FCE9E7; --xl-line:rgb(20 40 80 / .09); --xl-head:#F2F6FB; }
+:root[data-theme="dark"]{ --in:#5FD3A0; --in-soft:#173A2C; --out:#FF8A7D; --out-soft:#3E1F1C; --xl-line:rgb(255 255 255 / .09); --xl-head:#182746; }
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:721px){ .kpis{grid-template-columns:repeat(4,minmax(0,1fr))} }
+.kpi{background:var(--surface);border-radius:20px;padding:14px 16px;box-shadow:var(--shadow-1);display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi .k{font-size:12.5px;font-weight:700;color:var(--muted)}
+.kpi .v{font-size:21px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .s{font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.bal{background:linear-gradient(150deg,#1F9D6B,#147A52);color:#fff} .kpi.bal .k,.kpi.bal .s{color:rgb(255 255 255 / .8)}
+.kpi.in .v{color:var(--in)} .kpi.out .v{color:var(--out)} .kpi.neg .v{color:var(--out)} .kpi.net .v{color:var(--ink)}
+.kpi.neg.bal,.kpi.neg:first-child{background:var(--out);color:#fff}
+
+.lg-entry{padding:0;overflow:hidden}
+.lg-entry summary{list-style:none;display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;font-weight:700}
+.lg-entry summary::-webkit-details-marker{display:none}
+.lg-entry summary .i{width:20px;height:20px;color:var(--in)}
+.lg-entry summary small{margin-left:auto;font-weight:500;color:var(--muted);font-size:12.5px}
+.lg-entry[open] summary{box-shadow:0 1px 0 var(--line)}
+.lg-form{display:flex;flex-direction:column;gap:12px;padding:14px 16px 16px}
+.lg-form .seg{align-self:flex-start}
+.lg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.lg-grid .field{padding:0}
+.lg-grid .wide{grid-column:1/-1}
+@media (min-width:721px){ .lg-grid{grid-template-columns:150px 1fr 2fr 140px 120px} .lg-grid .wide{grid-column:auto} }
+
+.sheet-card{padding:0;overflow:hidden}
+.lg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 12px;box-shadow:0 1px 0 var(--line)}
+.lg-month{display:flex;align-items:center;gap:4px}
+.lg-month b{font-size:16px;min-width:64px;text-align:center}
+.lg-bar input[type=search]{flex:1;min-width:120px;min-height:36px;padding:0 12px;border-radius:12px}
+.xl-wrap{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.xl{border-collapse:separate;border-spacing:0;width:100%;min-width:560px;font-size:13.5px;font-variant-numeric:tabular-nums}
+.xl th,.xl td{padding:9px 10px;border-bottom:1px solid var(--xl-line);border-right:1px solid var(--xl-line);text-align:left;white-space:nowrap;vertical-align:middle}
+.xl th:last-child,.xl td:last-child{border-right:0}
+.xl thead th{position:sticky;top:0;z-index:2;background:var(--xl-head);font-size:12px;font-weight:700;color:var(--muted)}
+.xl .c-date{position:sticky;left:0;z-index:1;background:var(--surface);width:58px;color:var(--ink-2)}
+.xl thead .c-date{z-index:3;background:var(--xl-head)}
+.xl tfoot .c-date{background:var(--xl-head)}
+.xl .c-cat{width:96px}
+.xl .c-memo{white-space:normal;min-width:160px;color:var(--ink)}
+.xl .c-memo small{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+.xl .c-num{text-align:right;width:92px}
+.xl td.in{color:var(--in);font-weight:600} .xl td.out{color:var(--out);font-weight:600}
+.xl td.bal{font-weight:700;color:var(--ink)} .xl td.neg{color:var(--out)}
+.xl tbody tr[data-act]{cursor:pointer}
+@media (hover:hover) and (pointer:fine){ .xl tbody tr[data-act]:hover td{background:var(--sunken)} }
+.xl tbody tr[data-act]:active td{background:var(--sunken)}
+.xl tbody tr:focus-visible td{background:var(--accent-soft)}
+.xl tbody tr.carry td{color:var(--muted);background:var(--surface-2)}
+.xl tbody tr.carry .c-date{background:var(--surface-2)}
+.xl tbody tr.dim td{color:var(--faint)}
+.xl tfoot td{background:var(--xl-head);font-weight:700;border-bottom:0}
+.xl .empty-row td{text-align:center;color:var(--muted);padding:28px 10px;white-space:normal}
+.tag{display:inline-block;padding:2px 8px;border-radius:7px;font-size:12px;font-weight:700;background:var(--sunken);color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.tag.in{background:var(--in-soft);color:var(--in)} .tag.out{background:var(--out-soft);color:var(--out)}
+.lg-note{margin:0;padding:10px 14px;font-size:12.5px}
+
+/* 총무부 요약 */
+.chart-card{padding:14px 12px 10px}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);padding:0 4px 8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.legend i.in,.b.in,.cat-fill.in{background:var(--in)} .legend i.out,.b.out,.cat-fill.out{background:var(--out)}
+.mchart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;height:150px;align-items:end}
+.mcol{display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;border:0;background:none;padding:0;cursor:pointer;font:inherit}
+.bars2{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+.b{width:42%;max-width:12px;border-radius:4px 4px 1px 1px;min-height:0}
+.ml{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cat-list{padding:8px 14px}
+.cat-row{display:grid;grid-template-columns:84px 1fr auto 36px;align-items:center;gap:10px;padding:8px 0;font-size:13.5px}
+.cat-row + .cat-row{box-shadow:0 -1px 0 var(--line)}
+.cat-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-track{height:8px;border-radius:99px;background:var(--sunken);overflow:hidden}
+.cat-fill{height:100%;border-radius:99px}
+.cat-v{font-weight:700} .cat-p{color:var(--muted);text-align:right;font-size:12px}
+/* 장부: 휴대폰에선 항목을 내용 칸에, 수입·지출을 한 칸(±)으로 */
+.xl .m-only{display:none}
+@media (max-width:720px){
+  .xl.ledger-xl{min-width:0}
+  .ledger-xl .c-cat,.ledger-xl .d-only{display:none}
+  .ledger-xl .m-only{display:revert}
+  .ledger-xl td.m-only.amt.in{color:var(--in);font-weight:700} .ledger-xl td.m-only.amt.out{color:var(--out);font-weight:700}
+  .ledger-xl .c-memo{min-width:0;width:auto}
+  .ledger-xl .c-memo .tag{margin-right:6px;font-size:11px;padding:1px 6px}
+  .ledger-xl .c-num{width:auto;padding-left:6px;padding-right:8px}
+  .ledger-xl th,.ledger-xl td{padding:9px 8px}
+  .ledger-xl .c-date{width:44px;padding-left:10px}
+  .foot-sum{display:block!important;font-size:11.5px;margin-top:2px} .foot-sum .in{color:var(--in)} .foot-sum .out{color:var(--out)}
+}

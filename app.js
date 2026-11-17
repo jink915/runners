@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-22";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-23";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -52,10 +52,10 @@ function loadPrefs(){ try{ return normPrefs(JSON.parse(store.get("runners-push-p
 const S = {
   approved:false, isOwner:false,
   push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
-  member:null, memberReady:false, members:[], births:[], birthQ:"", requests:[], reqTab:"inbox", reqCat:"bug",
+  member:null, memberReady:false, members:[], births:[], birthQ:"", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
   dept: store.get("runners-dept")==="care" ? "care" : "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false},
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false},
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -73,9 +73,10 @@ const addDays = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return is
 const dday = s => Math.round((parse(s)-parse(TODAY))/864e5);
 const isOwnerUser = () => S.isOwner;
 // 권한: 관리자 = 모든 부서·모든 권한 / 운영자 = 맡은 부서에서 관리자와 같은 권한 / 멤버 = 맡은 부서 보기만
-const ALL_DEPTS = ["social","care"];
+const ALL_DEPTS = ["social","care","finance"];
+const LEGACY_DEPTS = ["social","care"];   // 부서를 정하기 전에 승인된 예전 멤버 (총무부는 따로 열어 줘야 보여요)
 const ROLE_NAME = { admin:"관리자", operator:"운영자", member:"멤버" };
-const deptsOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : Array.isArray(m.depts) ? m.depts.filter(d=>ALL_DEPTS.includes(d)) : [...ALL_DEPTS];
+const deptsOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : Array.isArray(m.depts) ? m.depts.filter(d=>ALL_DEPTS.includes(d)) : [...LEGACY_DEPTS];
 const sees = d => S.isAdmin || (S.approved && deptsOf(S.member).includes(d));
 const can = d => S.isAdmin || (S.approved && S.member?.role==="operator" && deptsOf(S.member).includes(d));
 const alertVisible = a => a.admin ? S.isAdmin : sees(a.dept) && (!a.edit || can(a.dept));
@@ -98,6 +99,8 @@ const ICON = {
   check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   cake:'<path d="M4 20.5h16M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M5 15.5c1.2 1 2.4 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5v-3M12 5.6c.8-.6 1-1.5 0-2.6-1 1.1-.8 2 0 2.6z"/>',
   menu:'<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+  wallet:'<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a1 1 0 0 1 1 1v2"/><rect x="4" y="7.5" width="16" height="12" rx="2.5"/><path d="M16 13.5h.01"/>',
+  dl:'<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/>',
   grid:'<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01"/>',
   download:'<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
   share:'<path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M7 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-1"/>',
@@ -344,7 +347,7 @@ function vMembers(){
 function memberSheet(id){
   const m = S.members.find(x=>x.id===id); if(!m) return; const owner = !!m.owner; const approving = m.status!=="approved";
   const role = m.role==="admin"||m.role==="operator" ? m.role : "member";
-  const ds = approving && !Array.isArray(m.depts) ? [...ALL_DEPTS] : deptsOf(m);
+  const ds = approving && !Array.isArray(m.depts) ? [...LEGACY_DEPTS] : deptsOf(m);
   openSheet(approving ? `${esc(m.name||m.email)} 승인` : esc(m.name||m.email), `<div class="fields">
     <label class="field"><span>이름 (일정에 적힌 이름과 똑같이)</span><input id="m-name" name="name" maxlength="20" autocomplete="off" spellcheck="false" value="${esc(m.name||"")}"></label>
     <div class="field"><span class="lab" id="lab-role">권한</span>${owner?`<span class="readout">최고 관리자 (바꿀 수 없어요)</span>`:`
@@ -728,6 +731,8 @@ const TAB_ICON = {
   script:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M6 3h8.5L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h5"/></svg>',
   more:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle class="fillable" cx="12" cy="12" r="8.5"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg>',
   birth:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7z"/><path d="M4 20.5h16M5 15.5c1.2 1 2.4 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5v-3M12 5.6c.8-.6 1-1.5 0-2.6-1 1.1-.8 2 0 2.6z"/></svg>',
+  ledger:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="4" width="17" height="16.5" rx="2.5"/><path d="M3.5 9h17M3.5 14h17M9.5 4v16.5"/></svg>',
+  ledgerSum:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="4" y="12" width="4" height="8" rx="1"/><rect class="fillable" x="10" y="7" width="4" height="13" rx="1"/><rect class="fillable" x="16" y="3.5" width="4" height="16.5" rx="1"/></svg>',
   births:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01"/></svg>',
 };
 const DEPTS = {
@@ -735,8 +740,10 @@ const DEPTS = {
             tabs:[["dash","홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
   care:   { name:"챙김부", desc:"러너스 생일 챙기기", icon:"cake", color:"#E0663E", home:"birth",
             tabs:[["birth","생일"],["births","전체"],["more","더보기"]] },
+  finance:{ name:"총무부", desc:"회비·헌금·지출 장부", icon:"wallet", color:"#1F9D6B", home:"ledger",
+            tabs:[["ledger","장부"],["ledgerSum","요약"],["more","더보기"]] },
 };
-const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care" };
+const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
   const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r;
@@ -886,6 +893,138 @@ function birthSheet(id){
     `${id?`<button class="btn danger" type="button" data-act="delBirth" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="saveBirth" data-id="${id||""}">저장</button>`);
 }
 
+/* ---------- 총무부: 장부 ---------- */
+const CAT_IN  = ["회비","헌금","후원","이월","기타 수입"];
+const CAT_OUT = ["식비·간식","행사","선물·경조사","비품","교통","인쇄","기타 지출"];
+const won = n => (Math.round(n)||0).toLocaleString("ko-KR");
+const sgn = n => n<0 ? `−${won(-n)}` : won(n);
+// 날짜 순(같은 날은 입력 순)으로 쌓으며 줄마다 누적 잔액 계산
+function ledgerRows(){
+  const tsv = r => r.createdAt?.toMillis ? r.createdAt.toMillis() : r.createdAt instanceof Date ? +r.createdAt : 0;
+  const list = S.ledger.filter(r=>r.date && Number.isFinite(+r.amount)).map(r=>({...r, amount:+r.amount}))
+    .sort((a,b)=>a.date.localeCompare(b.date) || tsv(a)-tsv(b) || a.id.localeCompare(b.id));
+  let bal = 0; for(const r of list){ bal += r.type==="in" ? r.amount : -r.amount; r.bal = bal; }
+  return list;
+}
+const sumOf = (rows, type) => rows.filter(r=>r.type===type).reduce((a,r)=>a+r.amount, 0);
+function vLedger(){
+  if(!S.lgYM){ const t=parse(TODAY); S.lgYM={y:t.getFullYear(), m:t.getMonth()+1}; }
+  const {y, m} = S.lgYM; const all = ledgerRows(); const key = `${y}-${pad(m)}`;
+  const month = all.filter(r=>r.date.startsWith(key));
+  const inM = sumOf(month,"in"), outM = sumOf(month,"out");
+  const before = all.filter(r=>r.date < key+"-01"); const opening = before.length ? before[before.length-1].bal : 0;
+  const total = all.length ? all[all.length-1].bal : 0;
+  const q = S.lgQ.trim(); const ty = S.lgType;
+  const shown = month.filter(r=>(ty==="all"||r.type===ty) && (!q || `${r.cat} ${r.memo} ${r.who||""}`.includes(q)));
+  const edit = can("finance");
+  const cats = [...new Set([...CAT_IN, ...CAT_OUT, ...S.ledger.map(r=>r.cat).filter(Boolean)])];
+  const tile = (k, v, cls, sub) => `<div class="kpi ${cls}"><span class="k">${k}</span><span class="v tnum">${v}</span>${sub?`<span class="s">${sub}</span>`:""}</div>`;
+  const entry = edit ? `<details class="card lg-entry" ${S.ledger.length?"":"open"}><summary>${icon("plus")}<span>새 줄 입력</span><small>엑셀처럼 한 줄씩 적어요</small></summary>
+      <div class="lg-form">
+        <div class="seg mini" role="group" aria-label="구분">
+          <button type="button" data-act="lgNew" data-v="in" aria-pressed="${S.lgNew==="in"}">수입</button>
+          <button type="button" data-act="lgNew" data-v="out" aria-pressed="${S.lgNew==="out"}">지출</button></div>
+        <div class="lg-grid">
+          <label class="field"><span>날짜</span><input id="lg-date" type="date" value="${key===TODAY.slice(0,7)?TODAY:key+"-01"}"></label>
+          <label class="field"><span>항목</span><input id="lg-cat" list="dl-cat" autocomplete="off" placeholder="${S.lgNew==="in"?"회비":"식비·간식"}"></label>
+          <label class="field wide"><span>내용</span><input id="lg-memo" autocomplete="off" maxlength="80" placeholder="${S.lgNew==="in"?"11월 회비 (홍길동)":"주일 간식"}"></label>
+          <label class="field"><span>금액 (원)</span><input id="lg-amt" inputmode="numeric" autocomplete="off" placeholder="0" enterkeyhint="done"></label>
+          <label class="field"><span>담당 (선택)</span><input id="lg-who" autocomplete="off" maxlength="20" value="${esc(myName())}"></label>
+        </div>
+        <button class="btn pri block" type="button" data-act="lgAdd">${icon("plus")}장부에 추가</button>
+      </div></details>
+      <datalist id="dl-cat">${cats.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>` : "";
+  const rowsHtml = shown.map(r=>`<tr ${edit?`data-act="lgEdit" data-id="${r.id}" tabindex="0"`:""} class="${r.type}">
+      <td class="c-date tnum">${+r.date.slice(5,7)}.${pad(+r.date.slice(8,10))}</td>
+      <td class="c-cat"><span class="tag ${r.type}">${esc(r.cat||"-")}</span></td>
+      <td class="c-memo"><span class="tag ${r.type} m-only">${esc(r.cat||"-")}</span>${esc(r.memo||"")}${r.who?`<small>${esc(r.who)}</small>`:""}</td>
+      <td class="c-num in d-only">${r.type==="in"?won(r.amount):""}</td>
+      <td class="c-num out d-only">${r.type==="out"?won(r.amount):""}</td>
+      <td class="c-num amt m-only ${r.type}">${r.type==="in"?"+":"−"}${won(r.amount)}</td>
+      <td class="c-num bal ${r.bal<0?"neg":""}">${sgn(r.bal)}</td></tr>`).join("");
+  return `${head("총무부 장부", `${y}년 ${m}월`, `<button class="btn" type="button" data-act="lgCsv">${icon("dl")}엑셀로 받기</button>`, "총무부")}
+    <div class="kpis">
+      ${tile("현재 잔액", sgn(total)+"원", total<0?"neg":"bal", "전체 누적")}
+      ${tile(`${m}월 수입`, "+"+won(inM), "in", `${month.filter(r=>r.type==="in").length}건`)}
+      ${tile(`${m}월 지출`, "−"+won(outM), "out", `${month.filter(r=>r.type==="out").length}건`)}
+      ${tile(`${m}월 순액`, (inM-outM>=0?"+":"")+sgn(inM-outM), inM-outM<0?"neg":"net", `월초 ${sgn(opening)} → 월말 ${sgn(opening+inM-outM)}`)}
+    </div>
+    ${entry}
+    <section class="card sheet-card">
+      <div class="lg-bar">
+        <div class="lg-month">
+          <button class="btn icon sm" type="button" data-act="lgMove" data-v="-1" aria-label="이전 달">${icon("chev","flip")}</button>
+          <b class="tnum">${y}.${pad(m)}</b>
+          <button class="btn icon sm" type="button" data-act="lgMove" data-v="1" aria-label="다음 달">${icon("chev")}</button>
+        </div>
+        <div class="seg mini" role="group" aria-label="구분 거르기">${[["all","전체"],["in","수입"],["out","지출"]].map(([k,l])=>`<button type="button" data-act="lgType" data-v="${k}" aria-pressed="${ty===k}">${l}</button>`).join("")}</div>
+        <label class="sr-only" for="lgq">항목·내용 검색</label>
+        <input id="lgq" type="search" placeholder="검색" autocomplete="off" enterkeyhint="search" value="${esc(S.lgQ)}">
+      </div>
+      <div class="xl-wrap" role="region" aria-label="${y}년 ${m}월 장부" tabindex="0">
+        <table class="xl ledger-xl">
+          <thead><tr><th class="c-date">날짜</th><th class="c-cat">항목</th><th class="c-memo">내용</th><th class="c-num d-only">수입</th><th class="c-num d-only">지출</th><th class="c-num m-only">금액</th><th class="c-num">잔액</th></tr></thead>
+          <tbody>
+            <tr class="carry"><td class="c-date">${m}.01</td><td class="c-cat"><span class="tag">이월</span></td><td class="c-memo">전월에서 넘어온 잔액</td><td class="c-num d-only"></td><td class="c-num d-only"></td><td class="c-num m-only"></td><td class="c-num bal ${opening<0?"neg":""}">${sgn(opening)}</td></tr>
+            ${rowsHtml || `<tr class="empty-row"><td colspan="7">${q||ty!=="all"?"조건에 맞는 줄이 없어요":`${m}월 기록이 아직 없어요`}</td></tr>`}
+          </tbody>
+          <tfoot><tr><td class="c-date">합계</td><td class="c-cat"></td><td class="c-memo">${shown.length}건<span class="m-only foot-sum"><b class="in">+${won(sumOf(shown,"in"))}</b> <b class="out">−${won(sumOf(shown,"out"))}</b></span></td><td class="c-num in d-only">${won(sumOf(shown,"in"))}</td><td class="c-num out d-only">${won(sumOf(shown,"out"))}</td><td class="c-num m-only">${sgn(sumOf(shown,"in")-sumOf(shown,"out"))}</td><td class="c-num bal">${sgn(opening+inM-outM)}</td></tr></tfoot>
+        </table>
+      </div>
+      ${edit?`<p class="note lg-note">줄을 누르면 고치거나 지울 수 있어요.</p>`:""}
+    </section>`;
+}
+function vLedgerSum(){
+  const all = ledgerRows(); const ys = [...new Set(all.map(r=>+r.date.slice(0,4)))]; const ty = parse(TODAY).getFullYear();
+  if(!ys.includes(ty)) ys.push(ty); ys.sort();
+  if(!S.sumYear || !ys.includes(S.sumYear)) S.sumYear = ty;
+  const y = S.sumYear; const rows = all.filter(r=>r.date.startsWith(y+"-"));
+  const months = Array.from({length:12},(_,i)=>{ const k=`${y}-${pad(i+1)}`; const ms=rows.filter(r=>r.date.startsWith(k));
+    const upto = all.filter(r=>r.date <= k+"-31"); return {m:i+1, in:sumOf(ms,"in"), out:sumOf(ms,"out"), end: upto.length?upto[upto.length-1].bal:0, n:ms.length}; });
+  const max = Math.max(1, ...months.flatMap(x=>[x.in,x.out]));
+  const byCat = type => { const m = {}; rows.filter(r=>r.type===type).forEach(r=>m[r.cat||"-"]=(m[r.cat||"-"]||0)+r.amount); return Object.entries(m).sort((a,b)=>b[1]-a[1]); };
+  const catTable = (type, title) => { const list = byCat(type); const tot = list.reduce((a,[,v])=>a+v,0);
+    return section(`${title} <span class="cnt">${won(tot)}원</span>`, list.length ? `<div class="card cat-list">${list.map(([c,v])=>`<div class="cat-row"><span class="cat-name">${esc(c)}</span><div class="cat-track"><div class="cat-fill ${type}" style="width:${tot?v/tot*100:0}%"></div></div><span class="cat-v tnum">${won(v)}</span><span class="cat-p tnum">${tot?Math.round(v/tot*100):0}%</span></div>`).join("")}</div>` : `<div class="card"><p class="note" style="padding:16px">기록이 없어요</p></div>`); };
+  const tIn = sumOf(rows,"in"), tOut = sumOf(rows,"out");
+  return `${head("총무부 요약", `${y}년 수입 ${won(tIn)} · 지출 ${won(tOut)}`, "", "총무부")}
+    <div class="seg" role="group" aria-label="연도">${ys.map(k=>`<button type="button" data-act="sumYear" data-v="${k}" aria-pressed="${k===y}">${k}년</button>`).join("")}</div>
+    <section class="card chart-card" aria-label="${y}년 월별 수입·지출">
+      <div class="legend"><span><i class="in"></i>수입</span><span><i class="out"></i>지출</span></div>
+      <div class="mchart">${months.map(x=>`<button type="button" class="mcol" data-act="sumMonth" data-m="${x.m}" aria-label="${x.m}월 수입 ${won(x.in)}원, 지출 ${won(x.out)}원">
+        <div class="bars2"><span class="b in" style="height:${x.in/max*100}%"></span><span class="b out" style="height:${x.out/max*100}%"></span></div><span class="ml">${x.m}</span></button>`).join("")}</div>
+    </section>
+    ${section("월별 표", `<div class="card sheet-card"><div class="xl-wrap" tabindex="0" role="region" aria-label="${y}년 월별 표"><table class="xl">
+      <thead><tr><th class="c-date">월</th><th class="c-num">수입</th><th class="c-num">지출</th><th class="c-num">순액</th><th class="c-num">월말 잔액</th></tr></thead>
+      <tbody>${months.map(x=>`<tr data-act="sumMonth" data-m="${x.m}" tabindex="0" class="${x.n?"":"dim"}"><td class="c-date">${x.m}월</td><td class="c-num in">${x.in?won(x.in):""}</td><td class="c-num out">${x.out?won(x.out):""}</td><td class="c-num ${x.in-x.out<0?"neg":""}">${x.n?sgn(x.in-x.out):""}</td><td class="c-num bal ${x.end<0?"neg":""}">${sgn(x.end)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td class="c-date">합계</td><td class="c-num in">${won(tIn)}</td><td class="c-num out">${won(tOut)}</td><td class="c-num">${sgn(tIn-tOut)}</td><td class="c-num bal">${sgn(months[11].end)}</td></tr></tfoot></table></div></div>`)}
+    <div class="cols"><div>${catTable("in","항목별 수입")}</div><div>${catTable("out","항목별 지출")}</div></div>`;
+}
+function ledgerSheet(id){
+  const r = S.ledger.find(x=>x.id===id); if(!r) return;
+  const cats = [...new Set([...CAT_IN, ...CAT_OUT, ...S.ledger.map(x=>x.cat).filter(Boolean)])];
+  openSheet("장부 줄 고치기", `<div class="fields">
+    <div class="field"><span class="lab" id="lab-ty">구분</span><div class="radios" role="radiogroup" aria-labelledby="lab-ty">
+      <label><input type="radio" name="le-type" value="in" ${r.type==="in"?"checked":""}>수입</label><label><input type="radio" name="le-type" value="out" ${r.type!=="in"?"checked":""}>지출</label></div></div>
+    <div class="field-row"><label class="field"><span>날짜</span><input id="le-date" type="date" value="${esc(r.date)}"></label>
+      <label class="field"><span>금액 (원)</span><input id="le-amt" inputmode="numeric" autocomplete="off" value="${won(r.amount)}"></label></div>
+    <div class="field-row"><label class="field"><span>항목</span><input id="le-cat" list="dl-cat2" autocomplete="off" value="${esc(r.cat||"")}"></label>
+      <label class="field"><span>담당</span><input id="le-who" autocomplete="off" maxlength="20" value="${esc(r.who||"")}"></label></div>
+    <label class="field"><span>내용</span><input id="le-memo" autocomplete="off" maxlength="80" value="${esc(r.memo||"")}"></label>
+    <datalist id="dl-cat2">${cats.map(c=>`<option value="${esc(c)}">`).join("")}</datalist></div>`,
+    `<button class="btn danger" type="button" data-act="delLedger" data-id="${r.id}">삭제</button><button class="btn pri" type="button" data-act="saveLedger" data-id="${r.id}">저장</button>`);
+}
+const parseWon = v => Math.round(+String(v||"").replace(/[^\d.]/g,""));
+function ledgerCsv(){
+  const {y,m} = S.lgYM; const key = `${y}-${pad(m)}`; const all = ledgerRows(); const rows = all.filter(r=>r.date.startsWith(key));
+  const before = all.filter(r=>r.date < key+"-01"); const opening = before.length ? before[before.length-1].bal : 0;
+  const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
+  const lines = [["날짜","구분","항목","내용","담당","수입","지출","잔액"].map(q).join(","), [key+"-01","이월","이월","전월에서 넘어온 잔액","","","",opening].map(q).join(",")]
+    .concat(rows.map(r=>[r.date, r.type==="in"?"수입":"지출", r.cat||"", r.memo||"", r.who||"", r.type==="in"?r.amount:"", r.type==="out"?r.amount:"", r.bal].map(q).join(",")));
+  const blob = new Blob(["﻿"+lines.join("\r\n")], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `러너스_장부_${key}.csv`; document.body.append(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000); toast("엑셀 파일(csv)을 받았어요");
+}
+
 /* ---------- 수정 요청 ---------- */
 const REQ_CAT = { bug:["오류·불편","#C23A3F"], idea:["기능 제안","#2F78D0"], etc:["기타","#6A7A95"] };
 const REQ_ST = { open:["접수","warn"], doing:["확인 중","acc"], done:["반영 완료","ok"], hold:["보류","mute"] };
@@ -941,7 +1080,7 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, requests:vRequests};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, requests:vRequests};
 function homeRoute(){ if(!sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 function route(){ const h=location.hash.slice(1);
   if(S.approved && !sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); }
@@ -972,6 +1111,7 @@ function render(){
   // 그 화면에 필요한 데이터만 기다려요 (더보기·멤버 관리는 기다릴 것 없음)
   const need = ROUTE_DEPT[r];
   if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
+  if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
   if(r==="members" && !S.got.m){ main.innerHTML=skeleton(); return; }
   if(r==="requests" && !S.got.r){ main.innerHTML=skeleton(); return; }
   if(need==="social" && (!S.got.s || !S.got.w)){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
@@ -1056,9 +1196,9 @@ document.addEventListener("click", async e => {
     } else t.disabled=false;
   }
   if(a==="cancelConfirm"){ const f=document.querySelector(".sheet-f"); f.innerHTML=f.dataset.orig; return; }
-  if((a==="delWeek"||a==="delPerson"||a==="delBirth"||a==="delReq") && t.dataset.confirm!=="1"){
+  if((a==="delWeek"||a==="delPerson"||a==="delBirth"||a==="delReq"||a==="delLedger") && t.dataset.confirm!=="1"){
     const f=t.closest(".sheet-f"); f.dataset.orig=f.innerHTML;
-    const what = a==="delWeek" ? ["배정을 지울까요?","사회·대표기도·찬송이 비워져요. 본문은 그대로예요."] : a==="delBirth" ? ["이 생일을 삭제할까요?","되돌릴 수 없어요."] : a==="delReq" ? ["이 요청을 지울까요?","되돌릴 수 없어요."] : ["이 사람을 명단에서 삭제할까요?","되돌릴 수 없어요. 순위는 자동으로 다시 정리돼요."];
+    const what = a==="delWeek" ? ["배정을 지울까요?","사회·대표기도·찬송이 비워져요. 본문은 그대로예요."] : a==="delBirth" ? ["이 생일을 삭제할까요?","되돌릴 수 없어요."] : a==="delReq" ? ["이 요청을 지울까요?","되돌릴 수 없어요."] : a==="delLedger" ? ["이 줄을 장부에서 지울까요?","되돌릴 수 없어요. 잔액이 다시 계산돼요."] : ["이 사람을 명단에서 삭제할까요?","되돌릴 수 없어요. 순위는 자동으로 다시 정리돼요."];
     f.innerHTML = `<div class="confirm"><strong>${what[0]}</strong><span>${what[1]}</span></div><button class="btn" type="button" data-act="cancelConfirm">취소</button><button class="btn danger solid" type="button" data-act="${a}" data-confirm="1" ${a==="delWeek"?`data-date="${t.dataset.date}"`:`data-id="${t.dataset.id}"`}>${a==="delWeek"||a==="delReq"?"지우기":"삭제"}</button>`;
     f.querySelector('[data-confirm="1"]').focus(); return;
   }
@@ -1086,6 +1226,7 @@ document.addEventListener("click", async e => {
       await applyPriorities(next, S.weeks, changed && pri>0 ? ref.id : null, changed && pri>0 ? pri : null);
     } else t.disabled=false;
   }
+  if(a==="delLedger"){ if(await write(()=>S.db.doc("ledger/"+t.dataset.id).delete(),"지웠어요")) closeSheet(); }
   if(a==="delReq"){ if(await write(()=>S.db.doc("requests/"+t.dataset.id).delete(),"지웠어요")) closeSheet(); }
   if(a==="delBirth"){ if(await write(()=>S.db.doc("birthdays/"+t.dataset.id).delete(),"삭제했어요")) closeSheet(); }
   if(a==="editBirth") birthSheet(t.dataset.id||null);
@@ -1097,6 +1238,24 @@ document.addEventListener("click", async e => {
   if(a==="copyToday"){ const td=births().filter(b=>b.dd===0); copy(`🎉 오늘은 ${td.map(honor).join(", ")} 생일이에요! 다 같이 축하해 주세요 🎂`); }
   if(a==="jumpMonth"){ const el=document.getElementById("m-"+t.dataset.m); if(el){ const bar=document.querySelector(".month-bar"); const y=el.getBoundingClientRect().top+scrollY-(bar?bar.offsetHeight+70:80); scrollTo({top:y, behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}); }
     t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); return; }
+  if(a==="lgMove"){ let {y,m}=S.lgYM; m+=+t.dataset.v; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.lgYM={y,m}; render(); return; }
+  if(a==="lgType"){ S.lgType=t.dataset.v; render(); return; }
+  if(a==="lgNew"){ S.lgNew=t.dataset.v; const keep={date:val("lg-date"),cat:val("lg-cat"),memo:val("lg-memo"),amt:val("lg-amt"),who:val("lg-who")}; render();
+    document.querySelector(".lg-entry")?.setAttribute("open",""); for(const [k,v] of Object.entries(keep)){ const el=document.getElementById("lg-"+k); if(el&&v) el.value=v; } return; }
+  if(a==="lgAdd"){ const amount=parseWon(val("lg-amt")); const date=val("lg-date");
+    if(!date){ toast("날짜를 골라 주세요"); return; } if(!amount){ toast("금액을 적어 주세요"); document.getElementById("lg-amt")?.focus(); return; }
+    const body={date, type:S.lgNew, cat:val("lg-cat")||(S.lgNew==="in"?"기타 수입":"기타 지출"), memo:val("lg-memo"), amount, who:val("lg-who"), by:S.user.uid, createdAt:FB?FB.m.serverTimestamp():new Date()};
+    t.disabled=true;
+    if(await write(()=>S.db.collection("ledger").doc().set(body), `${body.type==="in"?"수입":"지출"} ${won(amount)}원을 적었어요`)){
+      const [yy,mm]=date.split("-").map(Number); S.lgYM={y:yy,m:mm}; ["lg-memo","lg-amt"].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=""; }); document.getElementById("lg-memo")?.focus(); }
+    t.disabled=false; return; }
+  if(a==="lgEdit"){ ledgerSheet(t.dataset.id); return; }
+  if(a==="saveLedger"){ const amount=parseWon(val("le-amt")); const date=val("le-date"); if(!date||!amount){ toast("날짜와 금액을 확인해 주세요"); return; }
+    const type=document.querySelector('input[name="le-type"]:checked')?.value||"out";
+    if(await write(()=>S.db.doc("ledger/"+t.dataset.id).update({date, type, amount, cat:val("le-cat"), memo:val("le-memo"), who:val("le-who")}), "고쳤어요")) closeSheet(); return; }
+  if(a==="lgCsv"){ ledgerCsv(); return; }
+  if(a==="sumYear"){ S.sumYear=+t.dataset.v; render(); return; }
+  if(a==="sumMonth"){ S.lgYM={y:S.sumYear, m:+t.dataset.m}; location.hash="#ledger"; return; }
   if(a==="calMove"){ let {y,m}=S.calYM; m+=+t.dataset.v; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.calYM={y,m}; render(); return; }
   if(a==="calToday"){ S.calYM=null; render(); return; }
   if(a==="calDay"){ const rows=[...document.querySelectorAll(`.row.bday[data-bkey="${t.dataset.key}"]`)]; if(!rows.length) return;
@@ -1134,13 +1293,17 @@ document.addEventListener("input", e => {
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
   if(e.target.name==="m-role"){ syncDeptPick(); return; }
+  if(id==="lgq"){ S.lgQ=e.target.value; render(); return; }
+  if(id==="lg-amt"||id==="le-amt"){ const n=parseWon(e.target.value); e.target.value = n ? won(n) : ""; return; }
   if(id==="bq"){ S.birthQ=e.target.value; render(); return; }
   if(id==="pq"){ S.peopleQ=e.target.value; render(); return; }
   if(id==="w-kind"){ const k=e.target.value; document.getElementById("w-other-wrap").hidden = k!=="__other"; document.getElementById("w-roles").hidden = !!k; return; }
   const map={"s-prayer":"prayer","s-honor":"honor","s-book":"book","s-ch":"ch","s-v1":"v1","s-v2":"v2","s-hymn":"hymn","s-mukdo":"mukdo","s-offering":"offering"};
   if(map[id]) S.script[map[id]]=e.target.value;
 });
-document.addEventListener("keydown", e => { if(e.key==="Escape"){ if(sheetOpen) closeSheet(); else closeDrawer(); } });
+document.addEventListener("keydown", e => {
+  if(e.key==="Enter" && (e.target.id==="lg-amt"||e.target.id==="lg-memo") && !e.isComposing){ e.preventDefault(); document.querySelector('[data-act="lgAdd"]')?.click(); return; }
+  if((e.key==="Enter"||e.key===" ") && e.target.matches?.('tr[data-act]')){ e.preventDefault(); e.target.click(); return; } if(e.key==="Escape"){ if(sheetOpen) closeSheet(); else closeDrawer(); } });
 
 /* ---------- 시작 ---------- */
 async function login(){
@@ -1199,7 +1362,7 @@ async function startFirebase(){
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
   const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
-    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
+    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.ledger=[]; S.got.l=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
     if(started) return; started = true;
@@ -1208,6 +1371,7 @@ async function startFirebase(){
       S.weeks = s.docs.map(d=>({...d.data(), date:d.data().date||d.id})); S.got.w=true;
       if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
     }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); }));
+    if(sees("finance")) unsubs.push(onSnapshot(collection(fs,"ledger"), s=>{ S.ledger=s.docs.map(d=>({id:d.id,...d.data()})); S.got.l=true; render(); }, ()=>{ S.got.l=true; render(); }));
     if(sees("care")) unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
     if(can("social")){
       unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
