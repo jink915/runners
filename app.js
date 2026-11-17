@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-26";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-27";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -997,14 +997,14 @@ function savePray(el){
     S.db.doc("teamWeeks/"+twKey(d, team)).merge(patch).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"));
   }, 700);
 }
-// 복사 형식:  ✅ 이름 (출석·온라인이면 이모티콘, 아니면 이름만)  /  - 기도제목 한 줄씩
+// 복사 형식:  🌱 이름 (출석·온라인이면 이모티콘, 아니면 이름만)  /  - 기도제목 한 줄씩
 const bullets = txt => String(txt||"").split(/\n+/).map(x=>x.replace(/^\s*([-·•*]|\d+[.)])\s*/,"").trim()).filter(Boolean).map(x=>`- ${x}`);
 function teamPrayerLines(d, t){
   const w = tw(d, t.id); const pr = w.prayers||{}, att = w.att||{}; const out = [];
   if(w.teamPrayer?.trim()) out.push("🙏 팀 기도제목", ...bullets(w.teamPrayer), "");
   for(const m of teamMembers(t.id)){
     const lines = bullets(pr[m]); const came = att[m]==="o" || att[m]==="on";
-    out.push(`${came?"✅ ":""}${m}`, ...lines, "");
+    out.push(`${came?"🌱 ":""}${m}`, ...lines, "");
   }
   while(out.length && out[out.length-1]==="") out.pop();
   return out;
