@@ -1,9 +1,10 @@
 {
   "name": "러너스 예배",
   "short_name": "러너스",
-  "description": "러너스 주일 예배 사회·대표기도 배정과 사회 원고",
+  "description": "러너스 주일 예배 준비와 챙김부 생일 챙기기",
   "lang": "ko",
-  "start_url": "./#dash",
+  "id": "./",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#F4FAFF",

@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-17";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-18";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -99,6 +99,9 @@ const ICON = {
   cake:'<path d="M4 20.5h16M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M5 15.5c1.2 1 2.4 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5v-3M12 5.6c.8-.6 1-1.5 0-2.6-1 1.1-.8 2 0 2.6z"/>',
   menu:'<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
   grid:'<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01"/>',
+  download:'<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
+  share:'<path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M7 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-1"/>',
+  plusSq:'<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/>',
   bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
   upload:'<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
@@ -513,7 +516,8 @@ function vMore(){
     <div class="card"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(u?.email||"")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.member?.role==="member"?"mute":"acc"}">${ROLE_NAME[S.member?.role]||"멤버"}</span>`}</div></div>
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
-      ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", ios?"Safari 아래쪽 공유 버튼 → 홈 화면에 추가":"Chrome 오른쪽 위 ⋮ 메뉴 → 앱 설치", S.installEvt?`<button class="btn sm pri" type="button" data-act="install">설치</button>`:"")}
+      ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", S.installEvt?"오른쪽 버튼을 누르면 바로 설치돼요":ios?"오른쪽 버튼을 누르면 설치 방법을 알려 드려요":"오른쪽 버튼을 누르면 설치하거나 방법을 알려 드려요",
+        `<button class="btn icon install-btn" type="button" data-act="install" aria-label="앱 설치">${icon("download")}</button>`)}
       ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?(ALERTS.filter(a=>S.push.prefs[a.k].on && alertVisible(a)).map(a=>a.t).join(" · ")||"모든 종류 꺼짐"):"전체 알림 꺼짐"):"예배 준비·생일 소식을 이 휴대폰으로 알려 드려요", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
       ${S.isAdmin?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
       ${setRow("#14A3A0","edit","수정 요청", S.isAdmin ? (openReqCount()?`새로 온 요청 <b>${openReqCount()}건</b>`:"멤버들이 보낸 요청 확인") : "불편한 점이나 바라는 기능을 관리자에게 보내요",
@@ -671,6 +675,16 @@ async function refreshPush(){
   try{ const { token } = await pushToken(); await saveToken(token, S.push.prefs);
     if(token!==S.push.token){ try{ await FB.m.deleteDoc(FB.m.doc(FB.fs,"pushTokens",S.push.token)); }catch{} keepPush(token, S.push.prefs); }
   }catch{}
+}
+function installGuide(){
+  const ios = isIOS(); const inApp = /KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent);
+  const step = (ic, t, d) => `<li class="ig-step"><span class="set-ic" style="--c:#2F9E6B">${icon(ic)}</span><div><b>${t}</b>${d?`<small>${d}</small>`:""}</div></li>`;
+  const body = inApp ? `<ol class="ig">${step("share","먼저 기본 브라우저로 열어 주세요","카톡·인스타 같은 앱 안의 브라우저에서는 설치가 안 돼요. 오른쪽 위(또는 아래) 메뉴 → '다른 브라우저로 열기'를 눌러 주세요.")}${step("download", ios?"Safari에서 다시 이 버튼":"Chrome에서 다시 이 버튼", "열린 화면에서 더보기 → 앱 설치 버튼을 다시 눌러 주세요.")}</ol>`
+    : ios ? `<p class="note" style="margin:0 18px 8px">아이폰은 애플 정책상 버튼 한 번으로 설치할 수 없어서, 아래 3단계로 추가해요. (Safari에서만 돼요)</p>
+      <ol class="ig">${step("share","아래쪽 가운데 공유 버튼을 눌러요","네모에서 화살표가 위로 나온 모양이에요")}${step("plusSq","'홈 화면에 추가'를 눌러요","목록을 조금 내리면 있어요")}${step("check","오른쪽 위 '추가'를 누르면 끝","바탕화면의 러너스 양 아이콘으로 열어 주세요")}</ol>`
+    : `<ol class="ig">${step("menu","Chrome 오른쪽 위 ⋮ 메뉴를 눌러요","")}${step("download","'앱 설치' 또는 '홈 화면에 추가'를 눌러요","")}${step("check","'설치'를 누르면 바탕화면에 생겨요","")}</ol>
+      <p class="hint" style="margin:0 18px 8px">한 번 둘러본 뒤 다시 누르면 바로 설치 창이 뜨기도 해요.</p>`;
+  openSheet("휴대폰에 앱 설치", body, `<button class="btn pri block" type="button" data-act="closeSheet">알겠어요</button>`);
 }
 function topicsSheet(){
   if(S.canEdit) openSheet("기도제목", `<div class="fields"><label class="field"><span class="sr-only">기도제목</span><textarea id="t-topics" name="topics" rows="16">${esc(S.topics||DEFAULT_TOPICS)}</textarea></label></div>`,
@@ -1047,7 +1061,9 @@ document.addEventListener("click", async e => {
   if(a==="saveTopics"){ const v=document.getElementById("t-topics").value; if(await write(()=>S.db.doc("config/topics").set({text:v}),"기도제목을 저장했어요")) closeSheet(); }
   if(a==="login") login();
   if(a==="logout"){ await AUTH.signOut(); location.hash="#dash"; toast("로그아웃했어요"); }
-  if(a==="install" && S.installEvt){ S.installEvt.prompt(); S.installEvt=null; render(); }
+  if(a==="install"){
+    if(S.installEvt){ const ev=S.installEvt; S.installEvt=null; ev.prompt(); try{ const r=await ev.userChoice; if(r.outcome==="accepted") toast("설치하고 있어요. 바탕화면을 확인해 주세요"); }catch{} render(); }
+    else installGuide(); }
 });
 document.addEventListener("change", async e => {
   if(e.target.id==="s-date"){ syncScript(e.target.value); render(); return; }
@@ -1087,6 +1103,7 @@ async function login(){
   }
 }
 window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); S.installEvt=e; if(route()==="more") render(); });
+window.addEventListener("appinstalled", ()=>{ S.installEvt=null; toast("러너스 앱을 설치했어요"); if(route()==="more") render(); });
 if("serviceWorker" in navigator){
   // 새 버전이 설치되면 한 번 자동으로 새로고침 (처음 설치 때는 제외)
   const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
