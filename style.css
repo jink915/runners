@@ -328,3 +328,6 @@ body.gate main{padding:0;max-width:none}
   .scrim{transition:opacity 150ms ease!important}
 }
 .row .t .chip{padding:1px 8px;font-size:11.5px;line-height:1.5;vertical-align:2px;margin-left:4px}
+/* 일정: 연도 선택을 헤더 아래에 고정 */
+.year-bar{position:sticky;top:calc(var(--header-h) + env(safe-area-inset-top,0px));z-index:4;margin:0 -18px;padding:8px 18px 10px;background:var(--bg);box-shadow:0 1px 0 var(--line)}
+.person{padding-left:10px}

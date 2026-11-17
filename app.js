@@ -211,7 +211,7 @@ const head = (title, sub="", right="", eyebrow="") => `<div class="page-head"><d
 const section = (title, body, link="") => `<section class="section"><div class="section-h"><h2>${title}</h2>${link}</div>${body}</section>`;
 const empty = (title, text, k="wave", action="") => `<div class="empty">${sheep(k)}<strong>${title}</strong><p>${text}</p>${action}</div>`;
 const datebox = d => `<span class="datebox"><span class="m">${parse(d).getMonth()+1}월</span><span class="d">${parse(d).getDate()}</span></span>`;
-const person = (role, name) => name ? `<span class="person">${av(name,"sm")}<span><span class="role">${role}</span> ${esc(name)}</span></span>` : `<span class="person none">${role} 미정</span>`;
+const person = (role, name) => name ? `<span class="person"><span><span class="role">${role}</span> ${esc(name)}</span></span>` : `<span class="person none">${role} 미정</span>`;
 
 function weekRow(w, nx, opts={}){
   const past = w.date < TODAY, next = nx && w.date===nx.date;
@@ -284,7 +284,7 @@ function vSchedule(){
   const svc=ws.filter(isService); const filled=svc.filter(w=>w.mc&&w.prayer).length;
   const byMonth = {}; ws.forEach(w=>{ const m=+w.date.slice(5,7); (byMonth[m] ||= []).push(w); });
   return `${head("주일 일정", `${y}년 예배 ${svc.length}번 중 ${filled}번 배정을 마쳤어요`)}
-    <div class="seg" role="group" aria-label="연도">${years.map(k=>`<button type="button" data-act="schedYear" data-v="${k}" aria-pressed="${y===k}">${k}</button>`).join("")}</div>
+    <div class="year-bar"><div class="seg" role="group" aria-label="연도">${years.map(k=>`<button type="button" data-act="schedYear" data-v="${k}" aria-pressed="${y===k}">${k}년</button>`).join("")}</div></div>
     <div class="section" style="gap:0">${Object.entries(byMonth).map(([m,list])=>`
       <div class="month-h"><span>${m}월</span></div>
       <div class="card list">${list.map(w=>weekRow(w,nx,{id:nx&&w.date===nx.date?"next-row":""})).join("")}</div>`).join("")}</div>`;
