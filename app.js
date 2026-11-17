@@ -33,7 +33,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 - 예배 말씀 섬기시는 이창무 목자님, 성령으로 함께하시길
 - 참석하는 모든 이들에게 집중력과 들을 귀를 허락하셔서 말씀의 은혜가 풍성하게 있을 수 있길`;
 
-const APP_VERSION = "11.17-14";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-15";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -864,9 +864,11 @@ function render(){
   const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(myName()||S.user.email,"");
   syncThemeButtons();
   S.all = mergedWeeks();
-  const care = ROUTE_DEPT[r]==="care";
-  if(care && !S.got.b){ main.innerHTML=skeleton(); return; }
-  if(!care && (!S.got.s || !S.got.w)){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
+  // 그 화면에 필요한 데이터만 기다려요 (더보기·멤버 관리는 기다릴 것 없음)
+  const need = ROUTE_DEPT[r];
+  if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
+  if(r==="members" && !S.got.m){ main.innerHTML=skeleton(); return; }
+  if(need==="social" && (!S.got.s || !S.got.w)){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
   if(r==="people" && !S.got.p){ main.innerHTML=skeleton(); return; }
   const ae=document.activeElement; const aid=ae?.id && main.contains(ae) ? ae.id : null; const sel=aid&&"selectionStart" in ae?[ae.selectionStart,ae.selectionEnd]:null;
   main.innerHTML = (S.mode==="slow"?`<div class="banner">연결이 느려서 최신 내용이 아닐 수 있어요.</div>`:"") + ROUTES[r]();
