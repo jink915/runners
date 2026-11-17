@@ -1,0 +1,16 @@
+{
+  "name": "러너스 예배",
+  "short_name": "러너스",
+  "description": "러너스 주일 예배 사회·대표기도 배정과 사회 원고",
+  "lang": "ko",
+  "start_url": "./#dash",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF5FB",
+  "theme_color": "#A9DCF7",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

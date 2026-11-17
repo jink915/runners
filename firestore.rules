@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 운영자(편집 가능) 이메일 — 여기에 추가·삭제
+    function adminEmails() {
+      return ['jink021124@gmail.com'];
+    }
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in adminEmails();
+    }
+
+    // 앱이 "내가 운영자인가"를 확인하는 용도
+    match /admins/{email} {
+      allow read: if isAdmin() && request.auth.token.email == email;
+      allow write: if false;
+    }
+    // 주일 배정(사회·대표기도·찬송): 누구나 보기, 운영자만 수정
+    match /weeks/{date} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    // 대표기도 명단(메모·사유 포함)과 기도제목: 운영자만
+    match /people/{id} {
+      allow read, write: if isAdmin();
+    }
+    match /config/{id} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
