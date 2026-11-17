@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-19";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-20";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -213,7 +213,10 @@ function opsOf(w, patch={}){
 function planPriorities(people, weeks, pinId=null, pinRank=null){
   const st = stats(people, weeks);
   const elig = p => status(p)==="ok" && !st[p.name].next;
-  let holders = people.filter(p => (p.priority||0)>0 && elig(p) && p.id!==pinId).sort((a,b)=>a.priority-b.priority);
+  // 순위에 있던 사람이 배정되면 원래 순위(heldRank)를 기억해 두고, 배정이 취소되면 그 자리로 돌려놔요
+  const back = p => (p.heldRank||0)>0 && p.heldFor && p.heldFor>=TODAY && elig(p) && p.id!==pinId;
+  let holders = people.filter(p => (p.priority||0)>0 && elig(p) && p.id!==pinId && !back(p)).sort((a,b)=>a.priority-b.priority);
+  for(const r of people.filter(back).sort((a,b)=>a.heldRank-b.heldRank)) holders.splice(Math.min(r.heldRank-1, holders.length), 0, r);
   const pin = pinId ? people.find(p=>p.id===pinId) : null;
   if(pin && pinRank>0 && elig(pin)) holders.splice(Math.min(pinRank-1, holders.length), 0, pin);
   holders = holders.slice(0,3);
@@ -224,10 +227,18 @@ function planPriorities(people, weeks, pinId=null, pinRank=null){
     holders.push(c.p); taken.add(c.p.id);
   }
   const want = new Map(holders.map((p,i)=>[p.id,i+1]));
-  return people.filter(p=>(p.priority||0)!==(want.get(p.id)||0)).map(p=>({id:p.id, priority:want.get(p.id)||0}));
+  const out = [];
+  for(const p of people){
+    const patch = {}; const now = p.priority||0, next = want.get(p.id)||0;
+    if(now!==next) patch.priority = next;
+    if(now>0 && status(p)==="ok" && st[p.name].next){ patch.heldRank = now; patch.heldFor = st[p.name].next; }      // 배정돼서 순위에서 빠짐 → 기억
+    else if((p.heldRank||0)>0 && (elig(p) || !p.heldFor || p.heldFor<TODAY)){ patch.heldRank = 0; patch.heldFor = ""; } // 돌아왔거나 이미 기도함 → 지움
+    if(Object.keys(patch).length) out.push({id:p.id, ...patch});
+  }
+  return out;
 }
 async function applyPriorities(people, weeks, pinId, pinRank){
-  for(const u of planPriorities(people, weeks, pinId, pinRank)){ try{ await S.db.doc("people/"+u.id).update({priority:u.priority}); }catch{} }
+  for(const {id, ...patch} of planPriorities(people, weeks, pinId, pinRank)){ try{ await S.db.doc("people/"+id).update(patch); }catch{} }
 }
 async function assign(name, date){
   const body = opsOf(weekAt(date), {prayer:name});
