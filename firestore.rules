@@ -51,6 +51,15 @@ service cloud.firestore {
       allow read: if isMember();
       allow write: if isAdmin();
     }
+    // 챙김부: 러너스 생일 — 승인된 멤버만 보기, 관리자만 수정
+    match /birthdays/{id} {
+      allow read: if isMember();
+      allow write: if isAdmin()
+        && (request.resource == null
+            || (okName(request.resource.data.name)
+                && request.resource.data.month is int && request.resource.data.month >= 1 && request.resource.data.month <= 12
+                && request.resource.data.day is int && request.resource.data.day >= 1 && request.resource.data.day <= 31));
+    }
     // 대표기도 명단(메모·사유 포함)과 기도제목: 관리자만
     match /people/{id} {
       allow read, write: if isAdmin();

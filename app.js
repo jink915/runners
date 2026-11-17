@@ -60,9 +60,10 @@ function loadPrefs(){ try{ return normPrefs(JSON.parse(store.get("runners-push-p
 const S = {
   approved:false, isOwner:false,
   push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
-  member:null, memberReady:false, members:[],
+  member:null, memberReady:false, members:[], births:[], birthQ:"",
+  dept: store.get("runners-dept")==="care" ? "care" : "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false},
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false},
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -96,6 +97,9 @@ const ICON = {
   phone:'<rect x="6.5" y="2.5" width="11" height="19" rx="3"/><path d="M11 18.5h2"/>',
   users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.6 6.5-5.6s5.7 2 6.5 5.6M15.5 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20c-.5-2.5-1.8-4.1-3.6-4.9"/>',
   check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  cake:'<path d="M4 20.5h16M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M5 15.5c1.2 1 2.4 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5v-3M12 5.6c.8-.6 1-1.5 0-2.6-1 1.1-.8 2 0 2.6z"/>',
+  menu:'<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+  grid:'<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01"/>',
   bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
   upload:'<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
@@ -496,7 +500,7 @@ function vMore(){
       ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?(ALERTS.filter(a=>S.push.prefs[a.k].on && (!a.admin||S.canEdit)).map(a=>a.t).join(" · ")||"모든 종류 꺼짐"):"전체 알림 꺼짐"):"대표기도·찬송·기도문 준비가 비어 있으면 이 휴대폰으로 알려 드려요", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
       ${S.canEdit?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
       ${setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"')}
-      ${S.canEdit?setRow("#2F78D0","upload","데이터 가져오기","처음 한 번, 받은 json 파일로 명단과 배정을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
+      ${S.canEdit?setRow("#2F78D0","upload","데이터 가져오기","받은 json 파일로 명단·배정·생일을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
     <div class="card list">${setRow("#C23A3F","logout",`<span style="color:var(--bad)">로그아웃</span>`,"","",'data-act="logout"')}</div>`;
 }
@@ -651,16 +655,160 @@ async function refreshPush(){
 function topicsSheet(){
   if(S.canEdit) openSheet("기도제목", `<div class="fields"><label class="field"><span class="sr-only">기도제목</span><textarea id="t-topics" name="topics" rows="16">${esc(S.topics||DEFAULT_TOPICS)}</textarea></label></div>`,
     `<button class="btn" type="button" data-act="copyTopics">${icon("copy")}복사</button><button class="btn pri" type="button" data-act="saveTopics">저장</button>`);
-  else openSheet("기도제목", `<div class="plain">${esc(S.topics||DEFAULT_TOPICS)}</div>`, `<button class="btn pri" type="button" data-act="copyTopics">${icon("copy")}복사</button>`);
+  else openSheet("기도제목", `<div class="plain-text">${esc(S.topics||DEFAULT_TOPICS)}</div>`, `<button class="btn pri" type="button" data-act="copyTopics">${icon("copy")}복사</button>`);
 }
 function importSheet(){
-  openSheet("데이터 가져오기", `<div class="fields"><label class="field"><span>'러너스_데이터_가져오기.json' 파일 고르기</span><input id="imp-file" type="file" accept=".json,application/json"><span class="hint">같은 날짜·사람은 파일 내용으로 덮어써요. 처음 한 번만 하면 돼요.</span></label></div>`);
+  openSheet("데이터 가져오기", `<div class="fields"><label class="field"><span>받은 json 파일 고르기 (데이터·생일 파일)</span><input id="imp-file" type="file" accept=".json,application/json"><span class="hint">같은 날짜·사람은 파일 내용으로 덮어써요. 처음 한 번만 하면 돼요.</span></label></div>`);
 }
 const val = id => document.getElementById(id)?.value.trim() ?? "";
 
+/* ---------- 부서 · 탭 · 메뉴 ---------- */
+const TAB_ICON = {
+  dash:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>',
+  schedule:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  people:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle class="fillable" cx="9" cy="8" r="3.5"/><path class="fillable" d="M2.5 20c.8-3.6 3.4-5.6 6.5-5.6s5.7 2 6.5 5.6z"/><path d="M15.5 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20c-.5-2.5-1.8-4.1-3.6-4.9"/></svg>',
+  script:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M6 3h8.5L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h5"/></svg>',
+  more:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle class="fillable" cx="12" cy="12" r="8.5"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg>',
+  birth:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7z"/><path d="M4 20.5h16M5 15.5c1.2 1 2.4 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5v-3M12 5.6c.8-.6 1-1.5 0-2.6-1 1.1-.8 2 0 2.6z"/></svg>',
+  births:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01"/></svg>',
+};
+const DEPTS = {
+  social: { name:"사회부", desc:"예배 사회·대표기도·원고", icon:"mic", color:"#2F78D0", home:"dash",
+            tabs:[["dash","홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
+  care:   { name:"챙김부", desc:"러너스 생일 챙기기", icon:"cake", color:"#E0663E", home:"birth",
+            tabs:[["birth","생일"],["births","전체"],["more","더보기"]] },
+};
+const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care" };
+function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
+function renderTabs(r){
+  const nav=document.getElementById("tabs"); const cur = r==="members" ? "more" : r;
+  const key = S.dept+"|"+S.canEdit;
+  if(nav.dataset.key!==key){
+    nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}">${TAB_ICON[k]}<span>${l}</span></a>`).join("");
+    nav.dataset.key = key;
+  }
+  nav.querySelectorAll("a").forEach(a=>{ a.getAttribute("href")==="#"+cur ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"); });
+  const dl=document.getElementById("dept"); if(dl) dl.textContent = DEPTS[S.dept].name;
+}
+let drawerOpen=false, drawerReturn=null;
+function openDrawer(){
+  drawerReturn=document.activeElement; const root=document.getElementById("drawer-root");
+  const item = (k) => { const d=DEPTS[k]; const on=S.dept===k;
+    return `<a class="dept-item ${on?"on":""}" href="#${d.home}" data-act="goDept" data-dept="${k}" ${on?'aria-current="true"':""}>
+      <span class="set-ic" style="--c:${d.color}">${icon(d.icon)}</span><span class="main"><span class="t">${d.name}</span><span class="s">${d.desc}</span></span>${on?icon("check","ck"):""}</a>`; };
+  root.innerHTML = `<div class="scrim" data-act="closeDrawer"></div>
+    <nav class="drawer" id="drawer" aria-label="부서 메뉴">
+      <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스</span>
+        <button class="btn icon sm" type="button" data-act="closeDrawer" aria-label="메뉴 닫기">${icon("x")}</button></div>
+      <p class="drawer-label">부서</p>
+      ${item("social")}${item("care")}
+      <div class="drawer-sep"></div>
+      <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span><span class="s">알림, 화면 모드${S.canEdit?", 멤버 관리":""}</span></span></a>
+      <div class="drawer-foot">${av(myName()||S.user?.email||"?","sm")}<span>${esc(myName()||"")}</span></div>
+    </nav>`;
+  drawerOpen=true; document.body.style.overflow="hidden";
+  document.querySelector(".menu-btn")?.setAttribute("aria-expanded","true");
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ root.className="open"; root.querySelector(".dept-item.on, .dept-item")?.focus({preventScroll:true}); }));
+}
+function closeDrawer(){
+  if(!drawerOpen) return; drawerOpen=false; const root=document.getElementById("drawer-root");
+  root.className="open closing"; document.body.style.overflow="";
+  document.querySelector(".menu-btn")?.setAttribute("aria-expanded","false");
+  setTimeout(()=>{ if(!drawerOpen){ root.innerHTML=""; root.className=""; } }, 260);
+  if(drawerReturn && document.contains(drawerReturn)) drawerReturn.focus({preventScroll:true});
+}
+
+/* ---------- 챙김부: 생일 ---------- */
+const HONOR = { "목자":"목자님", "형제":"형제님", "자매":"자매님" };
+const honor = b => `${b.name} ${HONOR[b.role]||"님"}`.replace(/ 님$/,"님");
+function nextBday(b){
+  const t=parse(TODAY); let y=t.getFullYear();
+  const mk = y => { const last=new Date(y, b.month, 0).getDate(); return new Date(y, b.month-1, Math.min(b.day,last)); };
+  let d=mk(y); if(d<t) d=mk(y+1);
+  return d;
+}
+function births(){
+  return S.births.filter(b=>b.month&&b.day&&b.name).map(b=>{ const n=nextBday(b); return {...b, next:n, dd:Math.round((n-parse(TODAY))/864e5)}; });
+}
+const ddChip = dd => dd===0 ? `<span class="chip warm plain">오늘</span>` : dd<=7 ? `<span class="chip acc plain tnum">D-${dd}</span>` : dd<=30 ? `<span class="chip mute plain tnum">D-${dd}</span>` : "";
+const roleChip2 = r => r ? `<span class="chip plain role-${r==="목자"?"mok":r==="형제"?"bro":"sis"}">${esc(r)}</span>` : "";
+const bdBox = b => `<span class="datebox"><span class="m">${b.month}월</span><span class="d">${b.day}</span></span>`;
+function birthRow(b, opts={}){
+  const tag = S.canEdit ? "button" : "div";
+  return `<${tag} ${tag==="button"?`type="button" data-act="editBirth" data-id="${b.id}"`:""} class="row bday ${b.dd===0?"is-today":""} ${opts.past?"past":""}" aria-label="${b.month}월 ${b.day}일 ${esc(honor(b))}">
+    ${bdBox(b)}<span class="main"><span class="t">${esc(b.name)} ${roleChip2(b.role)}</span>${opts.sub?`<span class="s">${opts.sub}</span>`:""}</span>${opts.chip??ddChip(b.dd)}${tag==="button"?icon("chev","chev"):""}</${tag}>`;
+}
+function monthText(m){
+  const list = births().filter(b=>b.month===m).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
+  return `🎂 ${m}월 러너스 생일 (${list.length}명)\n` + list.map(b=>`${pad(b.month)}.${pad(b.day)} ${honor(b)}`).join("\n");
+}
+function vBirth(){
+  const all = births(); const m = parse(TODAY).getMonth()+1; const nm = m%12+1;
+  if(!all.length) return `${head("러너스 생일","","", "챙김부")}<div class="card">${empty("아직 생일 정보가 없어요", S.canEdit?"더보기 → 데이터 가져오기에서 생일 파일을 올리거나, 전체 탭에서 한 명씩 추가해 주세요.":"관리자가 생일 정보를 올리면 여기에 보여요.","wave", S.canEdit?`<a class="btn pri" href="#births">전체 탭으로</a>`:"")}</div>`;
+  const today = all.filter(b=>b.dd===0);
+  const soon = all.filter(b=>b.dd>0 && b.dd<=14).sort((a,b)=>a.dd-b.dd||a.name.localeCompare(b.name,"ko"));
+  const nextDd = Math.min(...all.map(b=>b.dd).filter(d=>d>0));
+  const nextGroup = all.filter(b=>b.dd===nextDd);
+  const heroNames = list => `<div class="bd-names">${list.map(b=>`<span class="bd-name">${av(b.name,"sm")}${esc(b.name)}<small>${esc(HONOR[b.role]?b.role:"")}</small></span>`).join("")}</div>`;
+  const hero = today.length ? `
+    <section class="hero care" aria-label="오늘 생일">
+      ${SPARK("50%","18px",22)}${SPARK("40%","80px",12)}${SPARK("14px","calc(100% - 70px)",14,.8)}
+      <div class="hero-top"><div class="eyebrow">오늘은</div><div class="date">생일이에요!</div>
+        <div class="meta"><span>${fmtKo(TODAY)}</span><span>${today.length}명</span></div>${sheep("heart","hero-sheep")}</div>
+      ${heroNames(today)}
+      <div class="hero-actions"><button class="btn pri" type="button" data-act="copyToday">${icon("copy")}축하 메시지 복사</button></div>
+    </section>` : `
+    <section class="hero care" aria-label="다음 생일">
+      ${SPARK("50%","18px",20)}${SPARK("42%","78px",11)}
+      <div class="hero-top"><div class="eyebrow">다음 생일</div><div class="date">${nextGroup[0].month}월 ${nextGroup[0].day}일</div>
+        <div class="meta"><span>D-${nextDd}</span><span>${["일","월","화","수","목","금","토"][nextGroup[0].next.getDay()]}요일</span></div>${sheep("heart","hero-sheep")}</div>
+      ${heroNames(nextGroup)}
+    </section>`;
+  const monthList = all.filter(b=>b.month===m).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
+  const nextList = all.filter(b=>b.month===nm).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
+  const copyBtn = mm => `<button class="link" type="button" data-act="copyMonth" data-m="${mm}">${icon("copy")}복사</button>`;
+  return `${head("러너스 생일", `전체 ${all.length}명`, "", "챙김부")}${hero}
+    <div class="cols"><div>
+      ${section("2주 안에 다가오는 생일", soon.length?`<div class="card list">${soon.map(b=>birthRow(b,{sub:`${b.next.getMonth()+1}월 ${b.next.getDate()}일 ${["일","월","화","수","목","금","토"][b.next.getDay()]}요일`})).join("")}</div>`:`<div class="card"><p class="note" style="padding:16px">2주 안에는 생일이 없어요</p></div>`)}
+    </div><div>
+      ${section(`${m}월 생일 <span class="cnt">${monthList.length}</span>`, `<div class="card list">${monthList.map(b=>birthRow(b,{past:b.dd>300, chip:b.dd>300?`<span class="chip mute plain">지남</span>`:undefined})).join("")||`<p class="note" style="padding:16px">이번 달은 생일이 없어요</p>`}</div>`, copyBtn(m))}
+      ${section(`${nm}월 생일 <span class="cnt">${nextList.length}</span>`, `<div class="card list">${nextList.map(b=>birthRow(b)).join("")||`<p class="note" style="padding:16px">생일이 없어요</p>`}</div>`, copyBtn(nm))}
+    </div></div>`;
+}
+function vBirths(){
+  const q = S.birthQ.trim(); const all = births();
+  const cm = parse(TODAY).getMonth()+1;
+  const list = all.filter(b=>!q || b.name.includes(q));
+  const months = Array.from({length:12},(_,i)=>i+1);
+  return `${head("전체 생일", `${all.length}명 · 목자 ${all.filter(b=>b.role==="목자").length} · 형제 ${all.filter(b=>b.role==="형제").length} · 자매 ${all.filter(b=>b.role==="자매").length}`,
+      S.canEdit?`<button class="btn pri" type="button" data-act="editBirth">${icon("plus")}추가</button>`:"")}
+    <div class="year-bar month-bar">
+      <label class="sr-only" for="bq">이름 검색</label>
+      <input id="bq" type="search" placeholder="이름으로 찾기…" autocomplete="off" autocapitalize="none" autocorrect="off" enterkeyhint="search" spellcheck="false" value="${esc(S.birthQ)}">
+      ${q?"":`<div class="seg mini months" role="group" aria-label="월로 이동">${months.map(mm=>`<button type="button" data-act="jumpMonth" data-m="${mm}" aria-pressed="${mm===cm}">${mm}월</button>`).join("")}</div>`}
+    </div>
+    <div class="section" style="gap:0">${months.map(mm=>{ const ms=list.filter(b=>b.month===mm).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
+      if(!ms.length && q) return "";
+      return `<div class="month-h" id="m-${mm}"><span>${mm}월 · ${ms.length}명</span></div>
+        <div class="card list">${ms.map(b=>birthRow(b)).join("")||`<p class="note" style="padding:16px">생일이 없어요</p>`}</div>`; }).join("") || `<div class="card">${empty("찾는 사람이 없어요","이름을 다시 확인해 주세요.","wave",`<button class="btn" type="button" data-act="clearBirthQ">검색 지우기</button>`)}</div>`}</div>`;
+}
+function birthSheet(id){
+  const b = S.births.find(x=>x.id===id) || {name:"",role:"형제",month:parse(TODAY).getMonth()+1,day:1};
+  openSheet(id?esc(b.name):"생일 추가", `<div class="fields">
+    <div class="field-row">
+      <label class="field"><span>이름</span><input id="b-name" maxlength="20" autocomplete="off" spellcheck="false" value="${esc(b.name)}"></label>
+      <label class="field"><span>구분</span><select id="b-role">${["목자","형제","자매",""].map(r=>`<option value="${r}" ${b.role===r?"selected":""}>${r||"없음"}</option>`).join("")}</select></label>
+    </div>
+    <div class="field-row">
+      <label class="field"><span>월</span><select id="b-month">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${+b.month===m?"selected":""}>${m}월</option>`).join("")}</select></label>
+      <label class="field"><span>일</span><select id="b-day">${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}" ${+b.day===d?"selected":""}>${d}일</option>`).join("")}</select></label>
+    </div></div>`,
+    `${id?`<button class="btn danger" type="button" data-act="delBirth" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="saveBirth" data-id="${id||""}">저장</button>`);
+}
+
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers};
-function route(){ const h=location.hash.slice(1); if((h==="people"||h==="members") && !S.canEdit) return "dash"; return ROUTES[h]?h:"dash"; }
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths};
+function route(){ const h=location.hash.slice(1); if((h==="people"||h==="members") && !S.canEdit) return "dash"; if(ROUTES[h]){ if(ROUTE_DEPT[h]) setDept(ROUTE_DEPT[h]); return h; } return DEPTS[S.dept].home; }
 function skeleton(){
   return `<div aria-busy="true" aria-label="불러오는 중…" style="display:flex;flex-direction:column;gap:24px;padding-top:12px">
     <div class="sk" style="width:140px;height:36px"></div><div class="sk" style="height:360px;border-radius:32px"></div>
@@ -677,19 +825,20 @@ function render(){
   if(!S.memberReady){ document.body.classList.add("gate"); main.innerHTML=""; return; }
   if(!S.approved){ document.body.classList.add("gate"); const ae=document.activeElement?.id; main.innerHTML = vPending(); syncThemeButtons(); if(ae) document.getElementById(ae)?.focus({preventScroll:true}); return; }
   const r=route();
-  document.querySelectorAll("#tabs a").forEach(a=>{ const on=a.getAttribute("href")==="#"+(r==="members"?"more":r); on?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"); });
-  document.querySelectorAll("[data-admin]").forEach(el=>el.hidden=!S.canEdit);
+  renderTabs(r);
   const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(myName()||S.user.email,"");
   syncThemeButtons();
   S.all = mergedWeeks();
-  if(!S.got.s || !S.got.w){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
+  const care = ROUTE_DEPT[r]==="care";
+  if(care && !S.got.b){ main.innerHTML=skeleton(); return; }
+  if(!care && (!S.got.s || !S.got.w)){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
   if(r==="people" && !S.got.p){ main.innerHTML=skeleton(); return; }
   const ae=document.activeElement; const aid=ae?.id && main.contains(ae) ? ae.id : null; const sel=aid&&"selectionStart" in ae?[ae.selectionStart,ae.selectionEnd]:null;
   main.innerHTML = (S.mode==="slow"?`<div class="banner">연결이 느려서 최신 내용이 아닐 수 있어요.</div>`:"") + ROUTES[r]();
   if(aid){ const el=document.getElementById(aid); if(el){ el.focus({preventScroll:true}); if(sel) try{el.setSelectionRange(...sel);}catch{} } }
   if(r==="schedule" && !S.schedScrolled){ S.schedScrolled=true; document.getElementById("next-row")?.scrollIntoView({block:"center"}); }
 }
-window.addEventListener("hashchange", ()=>{ closeSheet(); window.scrollTo(0,0); if(route()==="schedule") S.schedScrolled=false; render(); });
+window.addEventListener("hashchange", ()=>{ closeSheet(); closeDrawer(); window.scrollTo(0,0); if(route()==="schedule") S.schedScrolled=false; render(); });
 window.addEventListener("scroll", ()=>document.getElementById("top").classList.toggle("scrolled", scrollY>4), {passive:true});
 
 /* ---------- 이벤트 ---------- */
@@ -697,6 +846,9 @@ document.addEventListener("click", async e => {
   const t = e.target.closest("[data-act]"); if(!t) return;
   const a = t.dataset.act;
   if(a==="closeSheet"){ closeSheet(); return; }
+  if(a==="menu"){ drawerOpen?closeDrawer():openDrawer(); return; }
+  if(a==="closeDrawer"){ closeDrawer(); return; }
+  if(a==="goDept"){ setDept(t.dataset.dept); closeDrawer(); if(location.hash==="#"+DEPTS[S.dept].home) render(); return; }
   if(a==="theme"){ setTheme(!isDark()); if(route()==="more"&&!document.body.classList.contains("gate")) render(); return; }
   if(a==="themeSet"){ setTheme(t.dataset.v==="dark"); render(); return; }
   if(a==="openScript"){ syncScript(t.dataset.date); S.scriptTab="script"; if(route()==="script") render(); else location.hash="#script"; return; }
@@ -747,9 +899,9 @@ document.addEventListener("click", async e => {
     } else t.disabled=false;
   }
   if(a==="cancelConfirm"){ const f=document.querySelector(".sheet-f"); f.innerHTML=f.dataset.orig; return; }
-  if((a==="delWeek"||a==="delPerson") && t.dataset.confirm!=="1"){
+  if((a==="delWeek"||a==="delPerson"||a==="delBirth") && t.dataset.confirm!=="1"){
     const f=t.closest(".sheet-f"); f.dataset.orig=f.innerHTML;
-    const what = a==="delWeek" ? ["배정을 지울까요?","사회·대표기도·찬송이 비워져요. 본문은 그대로예요."] : ["이 사람을 명단에서 삭제할까요?","되돌릴 수 없어요. 순위는 자동으로 다시 정리돼요."];
+    const what = a==="delWeek" ? ["배정을 지울까요?","사회·대표기도·찬송이 비워져요. 본문은 그대로예요."] : a==="delBirth" ? ["이 생일을 삭제할까요?","되돌릴 수 없어요."] : ["이 사람을 명단에서 삭제할까요?","되돌릴 수 없어요. 순위는 자동으로 다시 정리돼요."];
     f.innerHTML = `<div class="confirm"><strong>${what[0]}</strong><span>${what[1]}</span></div><button class="btn" type="button" data-act="cancelConfirm">취소</button><button class="btn danger solid" type="button" data-act="${a}" data-confirm="1" ${a==="delWeek"?`data-date="${t.dataset.date}"`:`data-id="${t.dataset.id}"`}>${a==="delWeek"?"지우기":"삭제"}</button>`;
     f.querySelector('[data-confirm="1"]').focus(); return;
   }
@@ -775,6 +927,17 @@ document.addEventListener("click", async e => {
       await applyPriorities(next, S.weeks, ref.id, body.priority!==prevRank || body.priority ? body.priority : null);
     } else t.disabled=false;
   }
+  if(a==="delBirth"){ if(await write(()=>S.db.doc("birthdays/"+t.dataset.id).delete(),"삭제했어요")) closeSheet(); }
+  if(a==="editBirth") birthSheet(t.dataset.id||null);
+  if(a==="saveBirth"){ const name=val("b-name"); if(!name){ toast("이름을 적어 주세요"); return; }
+    const body={name, role:val("b-role"), month:+val("b-month"), day:+val("b-day")};
+    const ref = t.dataset.id ? S.db.doc("birthdays/"+t.dataset.id) : S.db.collection("birthdays").doc();
+    t.disabled=true; if(await write(()=>ref.set(body),"저장했어요")) closeSheet(); else t.disabled=false; }
+  if(a==="copyMonth") copy(monthText(+t.dataset.m));
+  if(a==="copyToday"){ const td=births().filter(b=>b.dd===0); copy(`🎉 오늘은 ${td.map(honor).join(", ")} 생일이에요! 다 같이 축하해 주세요 🎂`); }
+  if(a==="jumpMonth"){ const el=document.getElementById("m-"+t.dataset.m); if(el){ const bar=document.querySelector(".month-bar"); const y=el.getBoundingClientRect().top+scrollY-(bar?bar.offsetHeight+70:80); scrollTo({top:y, behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}); }
+    t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); return; }
+  if(a==="clearBirthQ"){ S.birthQ=""; render(); }
   if(a==="delPerson"){
     const did=t.dataset.id;
     if(await write(()=>S.db.doc("people/"+did).delete(),"삭제했어요")){ closeSheet(); await applyPriorities(S.people.filter(x=>x.id!==did), S.weeks); }
@@ -793,9 +956,9 @@ document.addEventListener("change", async e => {
   if(e.target.id!=="imp-file" || !e.target.files[0]) return;
   try{
     const data = JSON.parse(await e.target.files[0].text());
-    if(!Array.isArray(data.people) || !Array.isArray(data.weeks)) throw new Error("bad");
+    if(!["people","weeks","birthdays"].some(k=>Array.isArray(data[k]))) throw new Error("bad");
     await IMPORT(data); closeSheet();
-    toast(`가져왔어요: 사람 ${data.people.length}명, 주일 ${data.weeks.length}주`);
+    toast("가져왔어요: " + [data.people&&`사람 ${data.people.length}명`, data.weeks&&`주일 ${data.weeks.length}주`, data.birthdays&&`생일 ${data.birthdays.length}명`].filter(Boolean).join(", "));
   }catch(err){ toast(err?.message==="bad"?"이 파일은 러너스 데이터 파일이 아니에요":"가져오지 못했어요. 운영자로 로그인했는지 확인해 주세요"); }
   e.target.value="";
 });
@@ -803,12 +966,13 @@ document.addEventListener("input", e => {
   const id=e.target.id;
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
+  if(id==="bq"){ S.birthQ=e.target.value; render(); return; }
   if(id==="pq"){ S.peopleQ=e.target.value; render(); return; }
   if(id==="w-kind"){ const k=e.target.value; document.getElementById("w-other-wrap").hidden = k!=="__other"; document.getElementById("w-roles").hidden = !!k; return; }
   const map={"s-prayer":"prayer","s-honor":"honor","s-book":"book","s-ch":"ch","s-v1":"v1","s-v2":"v2","s-hymn":"hymn","s-mukdo":"mukdo","s-offering":"offering"};
   if(map[id]) S.script[map[id]]=e.target.value;
 });
-document.addEventListener("keydown", e => { if(e.key==="Escape") closeSheet(); });
+document.addEventListener("keydown", e => { if(e.key==="Escape"){ if(sheetOpen) closeSheet(); else closeDrawer(); } });
 
 /* ---------- 시작 ---------- */
 async function login(){
@@ -848,15 +1012,16 @@ async function startFirebase(){
   AUTH = { signOut: ()=>authM.signOut(auth) };
   IMPORT = async (data) => {
     const ops = [
-      ...data.people.map(p=>{ const {id,...rest}=p; return [doc(fs,"people",id), rest]; }),
-      ...data.weeks.map(w=>[doc(fs,"weeks",w.date), w]),
+      ...(data.people||[]).map(p=>{ const {id,...rest}=p; return [doc(fs,"people",id), rest]; }),
+      ...(data.weeks||[]).map(w=>[doc(fs,"weeks",w.date), w]),
+      ...(data.birthdays||[]).map(b=>{ const {id,...rest}=b; return [doc(fs,"birthdays",id), rest]; }),
     ];
     if(data.topics) ops.push([doc(fs,"config","topics"), {text:data.topics}]);
     for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>b.set(r,d)); await b.commit(); }
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
   const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
-    S.people=[]; S.weeks=[]; S.members=[]; S.got.p=false; S.got.w=false; S.got.m=false; S.topics=null; };
+    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
     if(started) return; started = true;
@@ -865,6 +1030,7 @@ async function startFirebase(){
       S.weeks = s.docs.map(d=>({...d.data(), date:d.data().date||d.id})); S.got.w=true;
       if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
     }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); }));
+    unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
     if(S.canEdit){
       unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
       unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
