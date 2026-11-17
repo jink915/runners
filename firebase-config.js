@@ -7,3 +7,6 @@ export const firebaseConfig = {
   messagingSenderId: "246485244918",
   appId: "1:246485244918:web:1050889a713bf8e18085d7"
 };
+
+// Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 푸시 인증서의 "키 쌍" (공개 키). 비어 있으면 알림 기능이 꺼져 있어요.
+export const vapidKey = "";

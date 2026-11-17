@@ -29,5 +29,16 @@ service cloud.firestore {
     match /config/{id} {
       allow read, write: if isAdmin();
     }
+    // 사회자 알림을 받을 기기 등록: 로그인한 사람이 자기 기기만 등록·해제, 목록은 운영자만
+    match /pushTokens/{token} {
+      allow create, update: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.token == token
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 20;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow read: if isAdmin();
+    }
   }
 }

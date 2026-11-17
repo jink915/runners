@@ -1,0 +1,25 @@
+name: 대표기도 알림
+on:
+  schedule:
+    - cron: "0 3 * * 3,4"   # 매주 수·목 낮 12시 (한국 시간)
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "운영자에게 테스트 알림 보내기"
+        type: boolean
+        default: true
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save --no-audit --no-fund firebase-admin@12
+        working-directory: scripts
+      - run: node remind.mjs
+        working-directory: scripts
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.test }}

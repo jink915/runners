@@ -1,4 +1,4 @@
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig, vapidKey } from "./firebase-config.js";
 
 const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
 let FB = null;
@@ -33,7 +33,9 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 - 예배 말씀 섬기시는 이창무 목자님, 성령으로 함께하시길
 - 참석하는 모든 이들에게 집중력과 들을 귀를 허락하셔서 말씀의 은혜가 풍성하게 있을 수 있길`;
 
+const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 const S = {
+  push:{ name: store.get("runners-push-name")||"", token: store.get("runners-push-token")||"", busy:false },
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
   sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false},
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
@@ -65,6 +67,7 @@ const ICON = {
   music:'<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
   logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/>',
   phone:'<rect x="6.5" y="2.5" width="11" height="19" rx="3"/><path d="M11 18.5h2"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
   upload:'<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
   moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
@@ -410,6 +413,7 @@ function vMore(){
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
       ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", ios?"Safari 아래쪽 공유 버튼 → 홈 화면에 추가":"Chrome 오른쪽 위 ⋮ 메뉴 → 앱 설치", S.installEvt?`<button class="btn sm pri" type="button" data-act="install">설치</button>`:"")}
+      ${setRow("#F0A020","bell","사회자 알림", S.push.token?`<b>${esc(S.push.name)}</b>님이 사회인 주에 수·목 낮 12시까지 대표기도가 비어 있으면 알려 드려요`:"사회 맡은 주에 대표기도가 비어 있으면 이 휴대폰으로 알려 드려요", S.push.token?`<span class="chip ok">켜짐</span>`:icon("chev","chev"),'data-act="notify"')}
       ${setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"')}
       ${S.canEdit?setRow("#2F78D0","upload","데이터 가져오기","처음 한 번, 받은 json 파일로 명단과 배정을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
@@ -494,6 +498,59 @@ function personSheet(id){
     </div>`,
     `${id?`<button class="btn danger" type="button" data-act="delPerson" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="savePerson" data-id="${id||""}">저장</button>`);
 }
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
+function pushSupportNote(){
+  if(!vapidKey) return "알림 기능을 준비하는 중이에요. 운영자가 설정을 마치면 켤 수 있어요.";
+  if(isIOS() && !isStandalone()) return "아이폰은 홈 화면에 추가한 러너스 앱에서만 알림을 켤 수 있어요. Safari 아래 공유 버튼 → '홈 화면에 추가' 후 그 앱으로 열어 주세요.";
+  if(!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) return "이 브라우저는 알림을 지원하지 않아요. 휴대폰 Chrome이나 홈 화면에 추가한 앱에서 열어 주세요.";
+  if(Notification.permission==="denied") return "이 기기에서 러너스 알림이 차단돼 있어요. 휴대폰 설정 → 알림에서 러너스(또는 브라우저)를 허용해 주세요.";
+  return "";
+}
+function notifySheet(){
+  const note = pushSupportNote(); const on = !!S.push.token;
+  const guess = S.push.name || mcPool().find(n=>n===(S.user?.displayName||"").replace(/\s/g,"")) || "";
+  openSheet("사회자 알림", `<div class="fields">
+      <p class="note" style="margin:0 4px">사회를 맡은 주에 <b>수요일·목요일 낮 12시</b>까지 대표기도가 정해지지 않으면 이 기기로 알림을 보내 드려요.</p>
+      <label class="field"><span>내 이름 (일정에 적힌 사회자 이름과 똑같이)</span><input id="n-name" name="name" list="dl-mcn" autocomplete="off" spellcheck="false" value="${esc(guess)}" ${on?"disabled":""}></label>
+      ${note?`<p class="hint" role="alert" style="color:var(--warn);margin:0 4px">${note}</p>`:""}
+      ${on?`<p class="hint" style="margin:0 4px">이 기기에서 <b>${esc(S.push.name)}</b> 이름으로 알림을 받고 있어요.</p>`:""}
+    </div><datalist id="dl-mcn">${mcPool().map(n=>`<option value="${esc(n)}">`).join("")}</datalist>`,
+    on ? `<button class="btn danger" type="button" data-act="pushOff">알림 끄기</button>`
+       : `<button class="btn pri" type="button" data-act="pushOn" ${note?"disabled":""}>알림 켜기</button>`);
+}
+async function pushToken(){
+  const m = await import(SDK+"firebase-messaging.js");
+  if(!(await m.isSupported())) throw new Error("unsupported");
+  const reg = await navigator.serviceWorker.ready;
+  return { m, messaging: m.getMessaging(FB.app), token: await m.getToken(m.getMessaging(FB.app), { vapidKey, serviceWorkerRegistration: reg }) };
+}
+async function saveToken(token, name){
+  const { doc, setDoc, serverTimestamp } = FB.m;
+  await setDoc(doc(FB.fs,"pushTokens",token), { token, name, email:S.user?.email||"", uid:S.user.uid, updatedAt: serverTimestamp(), ua: navigator.userAgent.slice(0,120) });
+}
+async function pushOn(name){
+  if(!FB || !S.user) return;
+  if(await Notification.requestPermission()!=="granted"){ toast("알림 권한을 허용해야 받을 수 있어요"); return; }
+  const { token } = await pushToken();
+  await saveToken(token, name);
+  S.push = { name, token, busy:false }; store.set("runners-push-name", name); store.set("runners-push-token", token);
+  toast("알림을 켰어요");
+}
+async function pushOff(){
+  const old = S.push.token;
+  try{ const { m, messaging } = await pushToken(); await m.deleteToken(messaging); }catch{}
+  try{ await FB.m.deleteDoc(FB.m.doc(FB.fs,"pushTokens",old)); }catch{}
+  S.push = { name:S.push.name, token:"", busy:false }; store.set("runners-push-token", null);
+  toast("알림을 껐어요");
+}
+// 로그인할 때마다 토큰을 새로 확인해 저장 (토큰은 가끔 바뀌어요)
+async function refreshPush(){
+  if(!S.push.token || !vapidKey || !("Notification" in window) || Notification.permission!=="granted") return;
+  try{ const { token } = await pushToken(); await saveToken(token, S.push.name);
+    if(token!==S.push.token){ try{ await FB.m.deleteDoc(FB.m.doc(FB.fs,"pushTokens",S.push.token)); }catch{} S.push.token=token; store.set("runners-push-token", token); }
+  }catch{}
+}
 function topicsSheet(){
   if(S.canEdit) openSheet("기도제목", `<div class="fields"><label class="field"><span class="sr-only">기도제목</span><textarea id="t-topics" name="topics" rows="16">${esc(S.topics||DEFAULT_TOPICS)}</textarea></label></div>`,
     `<button class="btn" type="button" data-act="copyTopics">${icon("copy")}복사</button><button class="btn pri" type="button" data-act="saveTopics">저장</button>`);
@@ -549,6 +606,13 @@ document.addEventListener("click", async e => {
   if(a==="resetPeople"){ S.peopleFilter="all"; S.peopleQ=""; render(); }
   if(a==="scriptTab"){ S.scriptTab=t.dataset.v; render(); }
   if(a==="topics") topicsSheet();
+  if(a==="notify") notifySheet();
+  if(a==="pushOn"){ const name=val("n-name"); if(!name){ toast("이름을 적어 주세요"); return; }
+    t.disabled=true; t.textContent="켜는 중…";
+    try{ await pushOn(name); closeSheet(); render(); }
+    catch(err){ t.disabled=false; t.textContent="알림 켜기"; toast(err?.message==="unsupported"?"이 기기는 알림을 지원하지 않아요":"알림을 켜지 못했어요. 잠시 후 다시 시도해 주세요"); }
+  }
+  if(a==="pushOff"){ t.disabled=true; await pushOff(); closeSheet(); render(); }
   if(a==="importSheet") importSheet();
   if(a==="assign"){ t.disabled=true; await assign(t.dataset.name, t.dataset.date); }
   if(a==="editWeek") weekSheet(t.dataset.date);
@@ -681,6 +745,7 @@ async function startFirebase(){
         if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
       }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); });
       if(u.email){ try{ await getDoc(doc(fs,"admins",u.email)); S.canEdit = true; }catch{ S.canEdit = false; } }
+      refreshPush();
       if(S.canEdit){
         unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
         unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
