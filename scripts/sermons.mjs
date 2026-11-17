@@ -27,7 +27,7 @@ async function get(url) {
 }
 
 // 성경본문 나누기: "로마서 15:14-33" / "출애굽기 22:21-23:33" / "이사야 8:6" / "열왕기상 9장" / "빌레몬1:1-25"
-const BOOK_FIX = { "빌레몬": "빌레몬서" };
+const BOOK_FIX = { "빌레몬": "빌레몬서", "예례미야": "예레미야" };   // 게시판 표기 보정
 function parseRef(raw) {
   const s = raw.replace(/[–~∼－]/g, "-").replace(/\s+/g, " ").trim();
   const m = s.match(/^([가-힣]+(?:\s?[가-힣]+)?)\s*(\d+)\s*(?:장|:\s*(\d+)(?:\s*-\s*(\d+)(?:\s*:\s*(\d+))?)?)?/);
@@ -86,7 +86,9 @@ const data = JSON.parse(readFileSync(FILE, "utf8"));
 const KEYS = ["book", "ch", "v1", "v2", "title", "lecture"];
 let added = 0, changed = 0;
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const since = new Date(Date.now() + 9 * 3600e3 - 120 * 864e5).toISOString().slice(0, 10);   // 넉 달 전부터만
 for (const [date, r] of [...found].sort()) {
+  if (date < since && !data[date]) continue;
   const cur = data[date] || {};
   const next = { ...cur };
   for (const k of KEYS) if (r[k] !== undefined && (r[k] !== "" || !cur[k])) next[k] = r[k];
