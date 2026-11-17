@@ -241,7 +241,7 @@ function vSchedule(){
   return `${head("일정", `${y}년 예배 ${svc.length}회 중 ${filled}회 배정 완료`)}
     <div class="seg" role="group" aria-label="연도">${years.map(k=>`<button type="button" data-act="schedYear" data-v="${k}" aria-pressed="${y===k}">${k}</button>`).join("")}</div>
     <div class="section" style="gap:0">${Object.entries(byMonth).map(([m,list])=>`
-      <div class="month-h">${m}월</div>
+      <div class="month-h"><span>${m}월</span></div>
       <div class="card list">${list.map(w=>weekRow(w,nx,{id:nx&&w.date===nx.date?"next-row":""})).join("")}</div>`).join("")}</div>`;
 }
 
