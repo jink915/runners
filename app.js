@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-3";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-4";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -762,6 +762,50 @@ function renderTabs(r){
   const dl=document.getElementById("dept"); if(dl) dl.textContent = DEPTS[S.dept].name;
 }
 let drawerOpen=false, drawerReturn=null;
+// 메뉴의 부서 순서 (이 기기에 저장)
+function deptOrder(){ let saved=[]; try{ saved = JSON.parse(store.get("runners-dept-order")||"[]"); }catch{} saved = Array.isArray(saved) ? saved.filter(d=>ALL_DEPTS.includes(d)) : [];
+  return [...saved, ...ALL_DEPTS.filter(d=>!saved.includes(d))]; }
+// 꾹 누르면(0.4초) 들려서 위아래로만 끌어 순서를 바꿔요
+function bindDeptSort(list){
+  if(!list) return;
+  let timer=null, drag=null, sy=0, justDragged=false;
+  const items = () => [...list.querySelectorAll(".dept-item")];
+  const start = (it, pid) => {
+    const all = items(); const gap = 4;
+    drag = { it, all, idx: all.indexOf(it), to: all.indexOf(it), h: it.offsetHeight + gap, pid };
+    try{ it.setPointerCapture(pid); }catch{}
+    it.classList.add("lifting"); list.classList.add("sorting"); try{ navigator.vibrate?.(12); }catch{}
+  };
+  list.addEventListener("pointerdown", e => {
+    const it = e.target.closest(".dept-item"); if(!it || (e.pointerType==="mouse" && e.button!==0)) return;
+    sy = e.clientY; clearTimeout(timer); const pid = e.pointerId;
+    timer = setTimeout(() => start(it, pid), 400);
+  });
+  list.addEventListener("pointermove", e => {
+    if(!drag){ if(Math.abs(e.clientY - sy) > 8) clearTimeout(timer); return; }
+    const dy = e.clientY - sy; const {it, all, idx, h} = drag;
+    const min = -idx*h, max = (all.length-1-idx)*h; const y = Math.max(min-12, Math.min(max+12, dy));
+    it.style.transform = `translateY(${y}px) scale(1.03)`;
+    const to = Math.max(0, Math.min(all.length-1, Math.round(idx + y/h))); drag.to = to;
+    all.forEach((el, i) => { if(el===it) return; const shift = (to>idx && i>idx && i<=to) ? -h : (to<idx && i<idx && i>=to) ? h : 0; el.style.transform = shift ? `translateY(${shift}px)` : ""; });
+  });
+  const end = () => {
+    clearTimeout(timer); if(!drag) return;
+    const {it, all, idx, to} = drag; drag = null; justDragged = true; setTimeout(()=>justDragged=false, 350);
+    const order = all.map(el=>el.dataset.dept); order.splice(to, 0, order.splice(idx, 1)[0]);
+    all.forEach(el => { el.style.transition="none"; el.style.transform=""; });
+    order.forEach(d => list.append(list.querySelector(`[data-dept="${d}"]`)));
+    requestAnimationFrame(()=>all.forEach(el=>el.style.transition=""));
+    it.classList.remove("lifting"); list.classList.remove("sorting");
+    if(to!==idx){ const full = [...order, ...deptOrder().filter(d=>!order.includes(d))]; store.set("runners-dept-order", JSON.stringify(full)); toast("메뉴 순서를 바꿨어요"); }
+  };
+  list.addEventListener("pointerup", end); list.addEventListener("pointercancel", end);
+  list.addEventListener("touchmove", e => { if(drag) e.preventDefault(); }, {passive:false});
+  list.addEventListener("contextmenu", e => e.preventDefault());
+  list.addEventListener("dragstart", e => e.preventDefault());   // 링크를 끌어 옮기는 브라우저 기본 동작 끄기
+  items().forEach(el => el.setAttribute("draggable", "false"));
+  list.addEventListener("click", e => { if(justDragged){ e.preventDefault(); e.stopPropagation(); } }, true);
+}
 function openDrawer(){
   drawerReturn=document.activeElement; const root=document.getElementById("drawer-root");
   const item = (k) => { const d=DEPTS[k]; const on=S.dept===k;
@@ -771,12 +815,13 @@ function openDrawer(){
     <nav class="drawer" id="drawer" aria-label="부서 메뉴">
       <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스</span>
         <button class="btn icon sm" type="button" data-act="closeDrawer" aria-label="메뉴 닫기">${icon("x")}</button></div>
-      <p class="drawer-label">부서</p>
-      ${ALL_DEPTS.filter(sees).map(item).join("")}
+      <p class="drawer-label">부서 <span>꾹 눌러서 순서 바꾸기</span></p>
+      <div class="dept-list">${deptOrder().filter(sees).map(item).join("")}</div>
       <div class="drawer-sep"></div>
       <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span><span class="s">알림, 화면 모드${S.isAdmin?", 멤버 관리":""}</span></span></a>
       <div class="drawer-foot">${av(myName()||S.user?.email||"?","sm")}<span>${esc(myName()||"")}</span></div>
     </nav>`;
+  bindDeptSort(root.querySelector(".dept-list"));
   drawerOpen=true; document.body.style.overflow="hidden";
   document.querySelector(".menu-btn")?.setAttribute("aria-expanded","true");
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ root.className="open"; root.querySelector(".dept-item.on, .dept-item")?.focus({preventScroll:true}); }));

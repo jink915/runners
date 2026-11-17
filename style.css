@@ -634,3 +634,13 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 .mv-roles{display:flex;gap:8px;flex-wrap:wrap}
 .readout .team-dot{vertical-align:0}
 @media (max-width:380px){ .tm-more{width:30px;height:30px} }
+
+/* 메뉴: 꾹 눌러 부서 순서 바꾸기 */
+.drawer-label{display:flex;align-items:baseline;justify-content:space-between}
+.drawer-label span{font-weight:500;font-size:11.5px;color:var(--faint)}
+.dept-list{display:flex;flex-direction:column;gap:4px;position:relative}
+.dept-item{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-y;transition:transform 200ms cubic-bezier(.2,0,0,1),background-color 120ms ease,box-shadow 160ms ease}
+.dept-list.sorting .dept-item{transition:transform 200ms cubic-bezier(.2,0,0,1)}
+.dept-item.lifting{position:relative;z-index:2;transition:none!important;background:var(--surface);box-shadow:0 10px 30px rgb(10 20 40 / .22),0 0 0 1.5px var(--accent);cursor:grabbing}
+@media (prefers-reduced-motion:reduce){ .dept-item,.dept-list.sorting .dept-item{transition:none} }
+.dept-item{-webkit-user-drag:none}
