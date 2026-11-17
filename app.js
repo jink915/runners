@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-20";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-21";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -189,7 +189,7 @@ function candidates(people=S.people, weeks=S.weeks){
   return people.filter(p => status(p)==="ok" && !st[p.name].next)
     .map(p => ({p, last: st[p.name].last}))
     .sort((a,b)=>{
-      const pa=a.p.priority||9, pb=b.p.priority||9; if(pa!==pb) return pa-pb;
+      const pa=(a.p.pinned&&a.p.priority)||9, pb=(b.p.pinned&&b.p.priority)||9; if(pa!==pb) return pa-pb;   // 직접 고정한 순위만 우선
       if(!a.last && b.last) return -1; if(a.last && !b.last) return 1;
       return a.last.localeCompare(b.last) || a.p.name.localeCompare(b.p.name,"ko");
     });
@@ -210,29 +210,41 @@ function opsOf(w, patch={}){
   if(fsw?.mukdo) o.mukdo=fsw.mukdo; if(fsw?.offering) o.offering=fsw.offering;
   return {...o, ...patch};
 }
+// 대표기도 1~3순위 정하기
+//  · 기본: 가능한 사람 중 대표기도를 가장 오래 안 한 사람(기록 없는 사람 먼저)이 위로 — 매번 다시 계산
+//  · 관리자가 직접 고정한 순위(pinned)는 그 자리 유지
+//  · 순위에 있던 사람이 배정되면 순위를 기억(heldRank)했다가, 배정이 취소되면 그 자리로 복귀(고정)
+//  · 'X'로 순위에서 뺀 사람(rankSkip)은 다음에 배정될 때까지 자동 순위에서 제외
 function planPriorities(people, weeks, pinId=null, pinRank=null){
   const st = stats(people, weeks);
-  const elig = p => status(p)==="ok" && !st[p.name].next;
-  // 순위에 있던 사람이 배정되면 원래 순위(heldRank)를 기억해 두고, 배정이 취소되면 그 자리로 돌려놔요
+  const free = p => status(p)==="ok" && !st[p.name].next;
+  const elig = p => free(p) && !p.rankSkip;
   const back = p => (p.heldRank||0)>0 && p.heldFor && p.heldFor>=TODAY && elig(p) && p.id!==pinId;
-  let holders = people.filter(p => (p.priority||0)>0 && elig(p) && p.id!==pinId && !back(p)).sort((a,b)=>a.priority-b.priority);
-  for(const r of people.filter(back).sort((a,b)=>a.heldRank-b.heldRank)) holders.splice(Math.min(r.heldRank-1, holders.length), 0, r);
+  const slots = [null,null,null], fixed = new Set();
+  const put = (p, r) => {   // r번째 자리에 넣고, 원래 있던 고정 순위는 다음 빈자리로
+    let cur = p, at = Math.min(Math.max(r,1),3)-1;
+    while(cur && at<3){ const prev = slots[at]; slots[at] = cur; fixed.add(cur.id); cur = prev; at++; }
+  };
+  people.filter(p => p.pinned && (p.priority||0)>0 && elig(p) && p.id!==pinId && !back(p))
+    .sort((a,b)=>a.priority-b.priority).slice(0,3).forEach((p,i) => { slots[i]=p; fixed.add(p.id); });   // 고정 순위는 순서를 지키며 위로 당김
+  people.filter(back).sort((a,b)=>a.heldRank-b.heldRank).forEach(p => put(p, p.heldRank));
   const pin = pinId ? people.find(p=>p.id===pinId) : null;
-  if(pin && pinRank>0 && elig(pin)) holders.splice(Math.min(pinRank-1, holders.length), 0, pin);
-  holders = holders.slice(0,3);
-  const taken = new Set(holders.map(h=>h.id));
-  for(const c of candidates(people, weeks)){
-    if(holders.length>=3) break;
-    if(taken.has(c.p.id) || (pinId===c.p.id && pinRank===0)) continue;
-    holders.push(c.p); taken.add(c.p.id);
-  }
-  const want = new Map(holders.map((p,i)=>[p.id,i+1]));
+  if(pin && pinRank>0 && free(pin)) put(pin, pinRank);
+  const taken = new Set(slots.filter(Boolean).map(p=>p.id));
+  const natural = people.filter(p => elig(p) && !taken.has(p.id) && !(pinId===p.id && !(pinRank>0)))
+    .map(p => ({p, last: st[p.name].last}))
+    .sort((a,b)=> (!a.last && b.last) ? -1 : (a.last && !b.last) ? 1 : a.last.localeCompare(b.last) || a.p.name.localeCompare(b.p.name,"ko"));
+  for(let i=0, k=0; i<3; i++) if(!slots[i] && k<natural.length) slots[i] = natural[k++].p;
+  const want = new Map(slots.map((p,i)=>p&&[p.id,i+1]).filter(Boolean));
   const out = [];
   for(const p of people){
     const patch = {}; const now = p.priority||0, next = want.get(p.id)||0;
+    const pinned = next>0 && fixed.has(p.id);
     if(now!==next) patch.priority = next;
-    if(now>0 && status(p)==="ok" && st[p.name].next){ patch.heldRank = now; patch.heldFor = st[p.name].next; }      // 배정돼서 순위에서 빠짐 → 기억
-    else if((p.heldRank||0)>0 && (elig(p) || !p.heldFor || p.heldFor<TODAY)){ patch.heldRank = 0; patch.heldFor = ""; } // 돌아왔거나 이미 기도함 → 지움
+    if(!!p.pinned !== pinned) patch.pinned = pinned;
+    if(now>0 && status(p)==="ok" && st[p.name].next){ patch.heldRank = now; patch.heldFor = st[p.name].next; }   // 순위에 있다가 배정됨 → 몇 순위였는지 기억
+    else if((p.heldRank||0)>0 && (free(p) || !p.heldFor || p.heldFor<TODAY)){ patch.heldRank = 0; patch.heldFor = ""; }   // 돌아왔거나 이미 기도함
+    if(p.rankSkip && (st[p.name].next || (pinId===p.id && pinRank>0))) patch.rankSkip = false;   // 배정되거나 다시 순위를 주면 제외 해제
     if(Object.keys(patch).length) out.push({id:p.id, ...patch});
   }
   return out;
@@ -246,8 +258,8 @@ async function assign(name, date){
     await applyPriorities(S.people, [...S.weeks.filter(w=>w.date!==date), body]);
 }
 async function clearRank(id){
-  if(await write(()=>S.db.doc("people/"+id).update({priority:0}),"순위에서 뺐어요"))
-    await applyPriorities(S.people.map(p=>p.id===id?{...p,priority:0}:p), S.weeks, id, 0);
+  if(await write(()=>S.db.doc("people/"+id).update({priority:0, pinned:false, rankSkip:true}),"순위에서 뺐어요. 다음에 배정되면 다시 순위에 들어와요"))
+    await applyPriorities(S.people.map(p=>p.id===id?{...p,priority:0,pinned:false,rankSkip:true}:p), S.weeks);
 }
 async function moveRank(id, dir){
   const p=S.people.find(x=>x.id===id); if(!p||!S.canEdit) return;
@@ -417,13 +429,13 @@ function rankBoard(){
         ${S.canEdit&&gaps&&i===ranked.findIndex(x=>!x)?`<button class="btn sm" type="button" data-act="rankFill">채우기</button>`:""}</div>`;
       const last=st[p.name].last;
       return `<div class="row"><span class="medal ${r===1?"first":""}">${av(p.name)}<b>${r}</b></span>
-        <span class="main"><span class="t">${esc(p.name)}</span><span class="s">${last?`마지막 ${fmtFull(last)}`:"아직 기록 없음"}</span></span>
+        <span class="main"><span class="t">${esc(p.name)}${p.pinned?` <span class="chip acc plain">고정</span>`:""}</span><span class="s">${last?`마지막 ${fmtFull(last)}`:"아직 기록 없음"}</span></span>
         ${S.canEdit?`<span class="acts">
           ${r===1&&slot?`<button class="btn sm pri" type="button" data-act="assign" data-name="${esc(p.name)}" data-date="${slot.date}">${fmtShort(slot.date)} 배정</button>`:""}
           ${r>1?`<button class="btn icon sm" type="button" data-act="rankUp" data-id="${p.id}" aria-label="${esc(p.name)} 순위 올리기">${icon("up")}</button>`:""}
           <button class="btn icon sm" type="button" data-act="rankClear" data-id="${p.id}" aria-label="${esc(p.name)} 순위에서 빼기">${icon("x")}</button></span>`:""}
       </div>`;}).join("")}</div>
-    ${slot?`<p class="note">1순위는 가장 가까운 빈 주일(${fmtKo(slot.date)})에 바로 배정할 수 있어요</p>`:""}`;
+    <p class="note">대표기도를 가장 오래 안 한 사람이 자동으로 위에 와요. ↑로 올리면 그 자리에 고정되고, ✕로 빼면 다음 배정 때까지 빠져요.${slot?` 1순위는 가장 가까운 빈 주일(${fmtKo(slot.date)})에 바로 배정할 수 있어요.`:""}</p>`;
 }
 function vPeople(){
   const st=stats(); const f=S.peopleFilter; const q=S.peopleQ.trim();
@@ -610,7 +622,7 @@ function personSheet(id){
     <div class="fields">
       <div class="field-row">
         <label class="field"><span>이름</span><input id="p-name" name="name" autocomplete="off" spellcheck="false" value="${esc(p.name)}"></label>
-        <label class="field"><span>추천 순위</span><select id="p-pri" name="priority">${[0,1,2,3].map(n=>`<option value="${n}" ${+p.priority===n?"selected":""}>${n?n+"순위":"지정 안 함"}</option>`).join("")}</select></label>
+        <label class="field"><span>추천 순위</span><select id="p-pri" name="priority">${[0,1,2,3].map(n=>`<option value="${n}" ${+p.priority===n?"selected":""}>${n?n+"순위"+(p.pinned&&+p.priority===n?" (고정)":""):"자동"}</option>`).join("")}</select></label>
       </div>
       <div class="field"><span class="lab" id="lab-st">상태</span><div class="radios" role="radiogroup" aria-labelledby="lab-st">${[["ok","가능"],["hold","보류"],["excluded","제외"]].map(([k,l])=>`<label><input type="radio" name="p-st" value="${k}" ${s===k?"checked":""}>${l}</label>`).join("")}</div></div>
       <label class="field"><span>메모 · 사유</span><input id="p-note" name="note" placeholder="군대, 사회 담당 등" autocomplete="off" value="${esc(p.note)}"></label>
@@ -1061,14 +1073,16 @@ document.addEventListener("click", async e => {
     const name=val("p-name"); if(!name){ toast("이름을 적어 주세요"); return; }
     const id=t.dataset.id; if(S.people.some(p=>p.name===name && p.id!==id)){ toast("같은 이름이 이미 있어요"); return; }
     const st=document.querySelector('input[name="p-st"]:checked')?.value||"ok";
-    const body={name, last:val("p-last"), note:val("p-note"), priority:+val("p-pri")||0, hold:st==="hold", excluded:st==="excluded"};
+    const prev = (id && S.people.find(x=>x.id===id)) || {}; const prevRank = prev.priority||0;
+    const pri = +val("p-pri")||0; const changed = pri!==prevRank;
+    const body={name, last:val("p-last"), note:val("p-note"), priority:pri, hold:st==="hold", excluded:st==="excluded",
+      pinned: changed ? pri>0 : !!prev.pinned, rankSkip: changed ? false : !!prev.rankSkip, heldRank: prev.heldRank||0, heldFor: prev.heldFor||""};
     const ref = id ? S.db.doc("people/"+id) : S.db.collection("people").doc();
-    const prevRank = id ? (S.people.find(x=>x.id===id)?.priority||0) : 0;
     t.disabled=true;
     if(await write(()=>ref.set(body),"저장했어요")){
       closeSheet();
       const next = id ? S.people.map(x=>x.id===id?{...x,...body}:x) : [...S.people,{id:ref.id,...body}];
-      await applyPriorities(next, S.weeks, ref.id, body.priority!==prevRank || body.priority ? body.priority : null);
+      await applyPriorities(next, S.weeks, changed && pri>0 ? ref.id : null, changed && pri>0 ? pri : null);
     } else t.disabled=false;
   }
   if(a==="delReq"){ if(await write(()=>S.db.doc("requests/"+t.dataset.id).delete(),"지웠어요")) closeSheet(); }
