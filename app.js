@@ -33,7 +33,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 - 예배 말씀 섬기시는 이창무 목자님, 성령으로 함께하시길
 - 참석하는 모든 이들에게 집중력과 들을 귀를 허락하셔서 말씀의 은혜가 풍성하게 있을 수 있길`;
 
-const APP_VERSION = "11.17-15";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-16";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -45,6 +45,8 @@ const ALERTS = [
   {k:"fallback", dept:"social", t:"사회자 대신 받기",   d:"사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받아요", days:[3,4], hour:12, edit:true},
   {k:"bdToday",  dept:"care",   t:"오늘 생일",         d:"고른 요일에 그날 생일인 사람이 있으면",              days:[0,1,2,3,4,5,6], hour:9},
   {k:"bdWeek",   dept:"care",   t:"이번 주 생일 미리보기", d:"앞으로 7일 안의 생일을 한 번에 알려 드려요",       days:[1], hour:9},
+  {k:"join",     admin:true,    t:"가입 신청 도착",     d:"누가 가입을 신청하면 고른 요일·시각 이후에 알려 드려요", days:[0,1,2,3,4,5,6], hour:9},
+  {k:"request",  admin:true,    t:"수정 요청 도착",     d:"멤버가 수정 요청을 보내면 고른 요일·시각 이후에 알려 드려요", days:[0,1,2,3,4,5,6], hour:9},
 ];
 const DAYS = ["일","월","화","수","목","금","토"];
 const DAY_ORDER = [1,2,3,4,5,6,0];
@@ -63,10 +65,10 @@ function loadPrefs(){ try{ return normPrefs(JSON.parse(store.get("runners-push-p
 const S = {
   approved:false, isOwner:false,
   push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
-  member:null, memberReady:false, members:[], births:[], birthQ:"",
+  member:null, memberReady:false, members:[], births:[], birthQ:"", requests:[], reqTab:"inbox", reqCat:"bug",
   dept: store.get("runners-dept")==="care" ? "care" : "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false},
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false},
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -89,7 +91,7 @@ const ROLE_NAME = { admin:"관리자", operator:"운영자", member:"멤버" };
 const deptsOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : Array.isArray(m.depts) ? m.depts.filter(d=>ALL_DEPTS.includes(d)) : [...ALL_DEPTS];
 const sees = d => S.isAdmin || (S.approved && deptsOf(S.member).includes(d));
 const can = d => S.isAdmin || (S.approved && S.member?.role==="operator" && deptsOf(S.member).includes(d));
-const alertVisible = a => sees(a.dept) && (!a.edit || can(a.dept));
+const alertVisible = a => a.admin ? S.isAdmin : sees(a.dept) && (!a.edit || can(a.dept));
 const myName = () => (S.member?.name || S.user?.displayName || "").trim();
 const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n; };
 
@@ -527,6 +529,8 @@ function vMore(){
       ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", ios?"Safari 아래쪽 공유 버튼 → 홈 화면에 추가":"Chrome 오른쪽 위 ⋮ 메뉴 → 앱 설치", S.installEvt?`<button class="btn sm pri" type="button" data-act="install">설치</button>`:"")}
       ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?(ALERTS.filter(a=>S.push.prefs[a.k].on && alertVisible(a)).map(a=>a.t).join(" · ")||"모든 종류 꺼짐"):"전체 알림 꺼짐"):"예배 준비·생일 소식을 이 휴대폰으로 알려 드려요", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
       ${S.isAdmin?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
+      ${setRow("#14A3A0","edit","수정 요청", S.isAdmin ? (openReqCount()?`새로 온 요청 <b>${openReqCount()}건</b>`:"멤버들이 보낸 요청 확인") : "불편한 점이나 바라는 기능을 관리자에게 보내요",
+        S.isAdmin && openReqCount() ? `<span class="chip warn plain">${openReqCount()}</span>` : icon("chev","chev"), 'data-act="goRequests"')}
       ${sees("social")?setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"'):""}
       ${S.isAdmin?setRow("#2F78D0","upload","데이터 가져오기","받은 json 파일로 명단·배정·생일을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
@@ -710,7 +714,7 @@ const DEPTS = {
 const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
-  const nav=document.getElementById("tabs"); const cur = r==="members" ? "more" : r;
+  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r;
   const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin;
   if(nav.dataset.key!==key){
     nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}">${TAB_ICON[k]}<span>${l}</span></a>`).join("");
@@ -835,8 +839,62 @@ function birthSheet(id){
     `${id?`<button class="btn danger" type="button" data-act="delBirth" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="saveBirth" data-id="${id||""}">저장</button>`);
 }
 
+/* ---------- 수정 요청 ---------- */
+const REQ_CAT = { bug:["오류·불편","#C23A3F"], idea:["기능 제안","#2F78D0"], etc:["기타","#6A7A95"] };
+const REQ_ST = { open:["접수","warn"], doing:["확인 중","acc"], done:["반영 완료","ok"], hold:["보류","mute"] };
+const openReqCount = () => S.requests.filter(r=>r.status==="open").length;
+const tsOf = r => r.createdAt?.toDate ? r.createdAt.toDate() : r.createdAt instanceof Date ? r.createdAt : null;
+function ago(d){ if(!d) return "방금"; const m=Math.round((Date.now()-d)/6e4); if(m<1) return "방금"; if(m<60) return `${m}분 전`; const h=Math.round(m/60); if(h<24) return `${h}시간 전`; const dd=Math.round(h/24); if(dd<7) return `${dd}일 전`; return `${d.getMonth()+1}.${pad(d.getDate())}`; }
+const stChip = r => { const [t,c]=REQ_ST[r.status]||REQ_ST.open; return `<span class="chip ${c} plain">${t}</span>`; };
+const catChip = r => { const [t]=REQ_CAT[r.cat]||REQ_CAT.etc; return `<span class="chip mute plain">${t}</span>`; };
+function reqRow(r, admin){
+  const first = (r.text||"").split("\n")[0];
+  return `<button type="button" class="row req" data-act="openReq" data-id="${r.id}">
+    ${admin?av(r.name||r.email):`<span class="set-ic" style="--c:${(REQ_CAT[r.cat]||REQ_CAT.etc)[1]}">${icon("edit")}</span>`}
+    <span class="main"><span class="t">${admin?esc(r.name||"(이름 없음)"):esc(first)} ${stChip(r)}</span>
+      <span class="s">${admin?`${esc(first)}`:`${catChip(r).replace(/<[^>]+>/g,"")} · ${ago(tsOf(r))}${r.reply?" · 답변 있음":""}`}</span>
+      ${admin?`<span class="s">${(REQ_CAT[r.cat]||REQ_CAT.etc)[0]} · ${r.where?esc(r.where)+" · ":""}${ago(tsOf(r))}${r.reply?" · 답변함":""}</span>`:""}</span>${icon("chev","chev")}</button>`;
+}
+function vRequests(){
+  const admin = S.isAdmin; const tab = admin ? S.reqTab : "write";
+  const mine = S.requests.filter(r=>r.uid===S.user?.uid);
+  const sorted = list => [...list].sort((a,b)=>(tsOf(b)||new Date())-(tsOf(a)||new Date()));
+  const compose = `<div class="card fields">
+      <div class="field"><span class="lab" id="lab-cat">종류</span><div class="seg" role="group" aria-labelledby="lab-cat">${Object.entries(REQ_CAT).map(([k,[t]])=>`<button type="button" data-act="reqCat" data-v="${k}" aria-pressed="${S.reqCat===k}">${t}</button>`).join("")}</div></div>
+      <label class="field"><span>어떤 화면에서요? (선택)</span><input id="rq-where" maxlength="40" autocomplete="off" placeholder="예: 챙김부 · 전체 생일"></label>
+      <label class="field"><span>내용</span><textarea id="rq-text" rows="6" maxlength="2000" placeholder="불편했던 점, 고쳐 줬으면 하는 점, 있었으면 하는 기능을 자유롭게 적어 주세요"></textarea></label>
+      <div class="field"><button class="btn pri block" type="button" data-act="sendReq">${icon("upload")}관리자에게 보내기</button><span class="hint">관리자(진규님 포함)만 볼 수 있어요. 답변이 달리면 아래 '내가 보낸 요청'에서 볼 수 있어요.</span></div>
+    </div>`;
+  const myList = section("내가 보낸 요청", mine.length?`<div class="card list">${sorted(mine).map(r=>reqRow(r,false)).join("")}</div>`:`<div class="card"><p class="note" style="padding:16px">아직 보낸 요청이 없어요</p></div>`);
+  if(!admin) return `${head("수정 요청","불편한 점이나 바라는 기능을 관리자에게 보내요")}${compose}${myList}`;
+  const groups = [["open","새로 온 요청"],["doing","확인 중"],["hold","보류"],["done","반영 완료"]];
+  const inbox = S.requests.length ? groups.map(([st,t])=>{ const l=sorted(S.requests.filter(r=>(r.status||"open")===st)); return l.length?section(`${t} <span class="cnt">${l.length}</span>`, `<div class="card list">${l.map(r=>reqRow(r,true)).join("")}</div>`):""; }).join("")
+    : `<div class="card">${empty("아직 받은 요청이 없어요","멤버들이 더보기 → 수정 요청에서 보내면 여기에 모여요.","wave")}</div>`;
+  return `${head("수정 요청", openReqCount()?`새로 온 요청 ${openReqCount()}건`:"받은 요청을 확인하고 답해 주세요")}
+    <div class="seg" role="group" aria-label="보기">
+      <button type="button" data-act="reqTab" data-v="inbox" aria-pressed="${tab==="inbox"}">받은 요청${openReqCount()?` ${openReqCount()}`:""}</button>
+      <button type="button" data-act="reqTab" data-v="write" aria-pressed="${tab==="write"}">요청 보내기</button>
+    </div>
+    ${tab==="inbox"?inbox:compose+myList}`;
+}
+function reqSheet(id){
+  const r = S.requests.find(x=>x.id===id); if(!r) return;
+  const admin = S.isAdmin; const own = r.uid===S.user?.uid;
+  const d = tsOf(r);
+  openSheet(admin&&!own?`${esc(r.name||"")}님의 요청`:"내 요청", `<div class="fields">
+    <div class="field"><span>${(REQ_CAT[r.cat]||REQ_CAT.etc)[0]}${r.where?` · ${esc(r.where)}`:""} · ${d?`${d.getMonth()+1}월 ${d.getDate()}일 ${pad(d.getHours())}:${pad(d.getMinutes())}`:"방금"}</span>
+      <div class="req-text">${esc(r.text)}</div>${admin?`<span class="hint">${esc(r.email||"")}</span>`:""}</div>
+    ${admin?`<div class="field"><span class="lab" id="lab-st">처리 상태</span><div class="seg" role="radiogroup" aria-labelledby="lab-st">${Object.entries(REQ_ST).map(([k,[t]])=>`<button type="button" role="radio" data-act="reqSt" data-v="${k}" aria-pressed="${(r.status||"open")===k}" aria-checked="${(r.status||"open")===k}">${t}</button>`).join("")}</div></div>
+      <label class="field"><span>답변 (요청한 사람에게 보여요)</span><textarea id="rq-reply" rows="4" maxlength="2000" placeholder="예: 다음 업데이트에 반영할게요!">${esc(r.reply||"")}</textarea></label>`
+    :`<div class="field"><span>처리 상태</span><span class="readout">${(REQ_ST[r.status]||REQ_ST.open)[0]}</span></div>
+      <div class="field"><span>관리자 답변</span><div class="req-text ${r.reply?"":"muted"}">${r.reply?esc(r.reply):"아직 답변이 없어요"}</div></div>`}
+    </div>`,
+    admin ? `<button class="btn danger" type="button" data-act="delReq" data-id="${r.id}">삭제</button><button class="btn pri" type="button" data-act="saveReq" data-id="${r.id}">저장</button>`
+    : (r.status||"open")==="open" ? `<button class="btn danger block" type="button" data-act="delReq" data-id="${r.id}">요청 취소</button>` : "");
+}
+
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, requests:vRequests};
 function homeRoute(){ if(!sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 function route(){ const h=location.hash.slice(1);
   if(S.approved && !sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); }
@@ -868,6 +926,7 @@ function render(){
   const need = ROUTE_DEPT[r];
   if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
   if(r==="members" && !S.got.m){ main.innerHTML=skeleton(); return; }
+  if(r==="requests" && !S.got.r){ main.innerHTML=skeleton(); return; }
   if(need==="social" && (!S.got.s || !S.got.w)){ main.innerHTML = S.mode==="slow" ? `<div class="card" style="margin-top:24px">${empty("아직 연결 중이에요","인터넷 연결을 확인해 주세요. 한 번 열어 본 내용은 오프라인에서도 보여요.","pray")}</div>` : skeleton(); return; }
   if(r==="people" && !S.got.p){ main.innerHTML=skeleton(); return; }
   const ae=document.activeElement; const aid=ae?.id && main.contains(ae) ? ae.id : null; const sel=aid&&"selectionStart" in ae?[ae.selectionStart,ae.selectionEnd]:null;
@@ -907,6 +966,18 @@ document.addEventListener("click", async e => {
     if(on && t.parentElement.querySelectorAll('[aria-pressed="true"]').length===1){ toast("요일을 하나 이상 골라 주세요"); return; }
     t.setAttribute("aria-pressed", String(!on)); return; }
   if(a==="goMembers") location.hash="#members";
+  if(a==="goRequests") location.hash="#requests";
+  if(a==="reqTab"){ S.reqTab=t.dataset.v; render(); }
+  if(a==="reqCat"){ S.reqCat=t.dataset.v; t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); return; }
+  if(a==="reqSt"){ t.parentElement.querySelectorAll("button").forEach(b=>{ b.setAttribute("aria-pressed", String(b===t)); b.setAttribute("aria-checked", String(b===t)); }); return; }
+  if(a==="openReq") reqSheet(t.dataset.id);
+  if(a==="sendReq"){ const text=document.getElementById("rq-text")?.value.trim(); if(!text){ toast("내용을 적어 주세요"); return; }
+    const ref = S.db.collection("requests").doc(); t.disabled=true;
+    const body = { uid:S.user.uid, name:myName(), email:S.user.email||"", cat:S.reqCat, where:val("rq-where"), text, status:"open", reply:"", notified:false, createdAt:FB.m.serverTimestamp() };
+    if(await write(()=>ref.set(body), "보냈어요. 고마워요!")){ document.getElementById("rq-text").value=""; document.getElementById("rq-where").value=""; }
+    t.disabled=false; }
+  if(a==="saveReq"){ const st=document.querySelector('[data-act="reqSt"][aria-pressed="true"]')?.dataset.v||"open";
+    if(await write(()=>S.db.doc("requests/"+t.dataset.id).update({status:st, reply:val("rq-reply"), updatedAt:FB.m.serverTimestamp()}), "저장했어요")) closeSheet(); }
   if(a==="editMember") memberSheet(t.dataset.id);
 
   if(a==="rejectMember"){ const m=S.members.find(x=>x.id===t.dataset.id); const label = m?.status==="pending"?"거절":"내보내기";
@@ -938,10 +1009,10 @@ document.addEventListener("click", async e => {
     } else t.disabled=false;
   }
   if(a==="cancelConfirm"){ const f=document.querySelector(".sheet-f"); f.innerHTML=f.dataset.orig; return; }
-  if((a==="delWeek"||a==="delPerson"||a==="delBirth") && t.dataset.confirm!=="1"){
+  if((a==="delWeek"||a==="delPerson"||a==="delBirth"||a==="delReq") && t.dataset.confirm!=="1"){
     const f=t.closest(".sheet-f"); f.dataset.orig=f.innerHTML;
-    const what = a==="delWeek" ? ["배정을 지울까요?","사회·대표기도·찬송이 비워져요. 본문은 그대로예요."] : a==="delBirth" ? ["이 생일을 삭제할까요?","되돌릴 수 없어요."] : ["이 사람을 명단에서 삭제할까요?","되돌릴 수 없어요. 순위는 자동으로 다시 정리돼요."];
-    f.innerHTML = `<div class="confirm"><strong>${what[0]}</strong><span>${what[1]}</span></div><button class="btn" type="button" data-act="cancelConfirm">취소</button><button class="btn danger solid" type="button" data-act="${a}" data-confirm="1" ${a==="delWeek"?`data-date="${t.dataset.date}"`:`data-id="${t.dataset.id}"`}>${a==="delWeek"?"지우기":"삭제"}</button>`;
+    const what = a==="delWeek" ? ["배정을 지울까요?","사회·대표기도·찬송이 비워져요. 본문은 그대로예요."] : a==="delBirth" ? ["이 생일을 삭제할까요?","되돌릴 수 없어요."] : a==="delReq" ? ["이 요청을 지울까요?","되돌릴 수 없어요."] : ["이 사람을 명단에서 삭제할까요?","되돌릴 수 없어요. 순위는 자동으로 다시 정리돼요."];
+    f.innerHTML = `<div class="confirm"><strong>${what[0]}</strong><span>${what[1]}</span></div><button class="btn" type="button" data-act="cancelConfirm">취소</button><button class="btn danger solid" type="button" data-act="${a}" data-confirm="1" ${a==="delWeek"?`data-date="${t.dataset.date}"`:`data-id="${t.dataset.id}"`}>${a==="delWeek"||a==="delReq"?"지우기":"삭제"}</button>`;
     f.querySelector('[data-confirm="1"]').focus(); return;
   }
   if(a==="delWeek"){
@@ -966,6 +1037,7 @@ document.addEventListener("click", async e => {
       await applyPriorities(next, S.weeks, ref.id, body.priority!==prevRank || body.priority ? body.priority : null);
     } else t.disabled=false;
   }
+  if(a==="delReq"){ if(await write(()=>S.db.doc("requests/"+t.dataset.id).delete(),"지웠어요")) closeSheet(); }
   if(a==="delBirth"){ if(await write(()=>S.db.doc("birthdays/"+t.dataset.id).delete(),"삭제했어요")) closeSheet(); }
   if(a==="editBirth") birthSheet(t.dataset.id||null);
   if(a==="saveBirth"){ const name=val("b-name"); if(!name){ toast("이름을 적어 주세요"); return; }
@@ -1069,7 +1141,7 @@ async function startFirebase(){
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
   const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
-    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.topics=null; };
+    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
     if(started) return; started = true;
@@ -1083,6 +1155,9 @@ async function startFirebase(){
       unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
     }
     if(sees("social")) unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
+    // 수정 요청: 관리자는 전부, 나머지는 내가 보낸 것만
+    const reqQ = S.isAdmin ? collection(fs,"requests") : fsM.query(collection(fs,"requests"), fsM.where("uid","==",S.user.uid));
+    unsubs.push(onSnapshot(reqQ, s=>{ S.requests=s.docs.map(d=>({id:d.id,...d.data()})); S.got.r=true; render(); }, ()=>{ S.got.r=true; render(); }));
     if(S.isAdmin) unsubs.push(onSnapshot(collection(fs,"members"), s=>{ S.members=s.docs.map(d=>({id:d.id,...d.data()})); S.got.m=true; render(); }, ()=>{ S.got.m=true; render(); }));
     refreshPush();
   };

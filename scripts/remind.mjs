@@ -13,6 +13,7 @@ const DEFAULTS = {   // 앱의 ALERTS 기본값과 같게
   prayer: { days: [3, 4], hour: 12 }, hymn: { days: [3, 4], hour: 12 }, script: { days: [3, 4], hour: 12 },
   mcDay: { days: [6], hour: 20 }, prayDay: { days: [6], hour: 20 }, fallback: { days: [3, 4], hour: 12 },
   bdToday: { days: [0, 1, 2, 3, 4, 5, 6], hour: 9 }, bdWeek: { days: [1], hour: 9 },
+  join: { days: [0, 1, 2, 3, 4, 5, 6], hour: 9 }, request: { days: [0, 1, 2, 3, 4, 5, 6], hour: 9 },
 };
 const ALL_DEPTS = ["social", "care"];
 const HONOR = { "목자": "목자님", "형제": "형제님", "자매": "자매님" };
@@ -61,6 +62,9 @@ const care = devices.filter(d => d.depts.includes("care"));
 const byName = n => n ? social.filter(d => d.name === n) : [];
 
 const out = new Map();   // token → { lines[], keys[] }
+const flags = new Map(); // token → Set("join"|"request")  관리자 알림을 실제로 받은 기기
+const flag = (d, k) => { const f = flags.get(d.token) || new Set(); f.add(k); flags.set(d.token, f); };
+let inbox = { joins: [], reqs: [] };
 const add = (d, key, line) => { const o = out.get(d.token) || { lines: [], keys: [] }; o.lines.push(line); o.keys.push(key); out.set(d.token, o); };
 
 if (TEST) {
@@ -100,14 +104,30 @@ if (TEST) {
   const keyOf = (d, k) => `${today}_${k}_${d.token.slice(-48).replace(/[^A-Za-z0-9_-]/g, "")}`;
   const sent = await Promise.all(due.map(([d, k]) => db.doc(`sentAlerts/${keyOf(d, k)}`).get()));
   due.forEach(([d, k, line], i) => { if (!sent[i].exists) add(d, keyOf(d, k), line); });
+
+  // 관리자: 새 가입 신청·수정 요청 (한 번 알리면 notified 표시)
+  const admins = devices.filter(d => d.admin);
+  const newJoins = Object.entries(members).filter(([, m]) => m.status === "pending" && !m.notified);
+  const newReqs = (await db.collection("requests").where("notified", "==", false).get()).docs;
+  const CAT = { bug: "오류·불편", idea: "기능 제안", etc: "기타" };
+  for (const d of admins) {
+    if (newJoins.length && dueNow(d, "join"))
+      add(d, null, `가입 신청 ${newJoins.length}명: ${newJoins.map(([, m]) => m.name || m.email).join(", ")} — 더보기 → 멤버 관리에서 승인해 주세요.`), flag(d, "join");
+    if (newReqs.length && dueNow(d, "request"))
+      add(d, null, `새 수정 요청 ${newReqs.length}건: ` + newReqs.slice(0, 3).map(x => { const r = x.data(); return `${r.name || "멤버"}(${CAT[r.cat] || "기타"}) ${String(r.text || "").split("\n")[0].slice(0, 30)}`; }).join(" / ") + (newReqs.length > 3 ? " 외" : "")), flag(d, "request");
+  }
+  inbox = { joins: newJoins.map(([id]) => id), reqs: newReqs.map(x => x.id) };
 }
 
 if (!out.size) { console.log("지금 보낼 알림이 없어요"); }
 else {
   const tokens = [...out.keys()];
+  const kind = k => k === null ? "admin" : /_bd(Today|Week)_/.test(k) ? "birth" : "social";
+  const titleOf = keys => { const ks = new Set(keys.map(kind)); if (ks.size > 1) return "러너스 알림";
+    return ks.has("admin") ? "러너스 관리자 알림" : ks.has("birth") ? "러너스 생일 알림" : `주일 준비 알림 · ${label}`; };
   const res = await fcm.sendEach(tokens.map(token => {
     const o = out.get(token);
-    return { token, data: { title: TEST ? "[테스트] 러너스 알림" : o.keys.every(k => /_bd(Today|Week)_/.test(k)) ? "러너스 생일 알림" : `주일 준비 알림 · ${label}`, body: o.lines.join("\n"), link: APP + (o.keys.every(k => /_bd(Today|Week)_/.test(k)) ? "#birth" : "#dash"), tag: `runners-${today}-${hour}` },
+    return { token, data: { title: TEST ? "[테스트] 러너스 알림" : titleOf(o.keys), body: o.lines.join("\n"), link: APP + (flags.has(token) && o.keys.every(k => k === null) ? (flags.get(token).has("join") ? "#members" : "#requests") : o.keys.every(k => /_bd(Today|Week)_/.test(k)) ? "#birth" : "#dash"), tag: `runners-${today}-${hour}` },
       webpush: { headers: { Urgency: "high", TTL: "21600" } } };
   }));
   console.log(`보냄: 성공 ${res.successCount} / 실패 ${res.failureCount}`);
@@ -115,7 +135,12 @@ else {
   const batch = db.batch();
   res.responses.forEach((r, i) => {
     const o = out.get(tokens[i]);
-    if (r.success) { for (const k of o.keys) if (k) batch.set(db.doc(`sentAlerts/${k}`), { day: today, at: new Date() }); }
+    if (r.success) {
+      for (const k of o.keys) if (k) batch.set(db.doc(`sentAlerts/${k}`), { day: today, at: new Date() });
+      const f = flags.get(tokens[i]);
+      if (f?.has("join")) for (const id of inbox.joins) batch.update(db.doc(`members/${id}`), { notified: true });
+      if (f?.has("request")) for (const id of inbox.reqs) batch.update(db.doc(`requests/${id}`), { notified: true });
+    }
     else { console.log("실패:", r.error?.code); if (dead.includes(r.error?.code)) batch.delete(db.doc(`pushTokens/${tokens[i]}`)); }
   });
   await batch.commit();

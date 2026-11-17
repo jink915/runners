@@ -76,6 +76,21 @@ service cloud.firestore {
       allow read: if sees('social');
       allow write: if canEdit('social');
     }
+    // 수정 요청: 승인된 멤버가 보내고 자기 것만 보기·(접수 상태일 때) 취소, 관리자는 전부 보기·처리·답변
+    match /requests/{id} {
+      allow create: if isMember() && hasMe()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+        && request.resource.data.status == 'open'
+        && request.resource.data.reply == ''
+        && request.resource.data.notified == false;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reply', 'updatedAt'])
+        && request.resource.data.status in ['open', 'doing', 'done', 'hold']
+        && request.resource.data.reply is string && request.resource.data.reply.size() <= 2000;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'open');
+    }
     // 알림 받을 기기: 승인된 멤버가 자기 기기만, 자기 멤버 이름으로만 등록. 목록은 관리자만
     match /pushTokens/{token} {
       allow create, update: if isMember() && hasMe()
