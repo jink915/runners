@@ -853,7 +853,7 @@ async function startFirebase(){
         const owner = S.isOwner;
         try{ await setDoc(ref, { name:(u.displayName||"").replace(/\s+/g,"").slice(0,20) || (u.email||"").split("@")[0].slice(0,20), email:u.email||"", photo:u.photoURL||"",
           status: owner?"approved":"pending", role: owner?"admin":"member", owner, createdAt: fsM.serverTimestamp() }); }
-        catch{ S.memberReady=true; S.member={status:"pending"}; render(); toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); }
+        catch{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.canEdit=true; startData(); } else toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); render(); }
         return;
       }
       const m = snap.data(); const wasAdmin = S.canEdit;
@@ -863,7 +863,7 @@ async function startFirebase(){
       if(!S.approved || wasAdmin!==S.canEdit) stopData();
       if(S.approved) startData();
       render();
-    }, ()=>{ S.memberReady=true; S.member={status:"pending"}; render(); });
+    }, ()=>{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.canEdit=true; startData(); } render(); });
   });
 }
 
