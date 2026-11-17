@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.17-21";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.17-22";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -32,8 +32,8 @@ const ALERTS = [
   {k:"fallback", dept:"social", t:"사회자 대신 받기",   d:"사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받아요", days:[3,4], hour:12, edit:true},
   {k:"bdToday",  dept:"care",   t:"오늘 생일",         d:"고른 요일에 그날 생일인 사람이 있으면",              days:[0,1,2,3,4,5,6], hour:9},
   {k:"bdWeek",   dept:"care",   t:"이번 주 생일 미리보기", d:"앞으로 7일 안의 생일을 한 번에 알려 드려요",       days:[1], hour:9},
-  {k:"join",     admin:true,    t:"가입 신청 도착",     d:"누가 가입을 신청하면 고른 요일·시각 이후에 알려 드려요", days:[0,1,2,3,4,5,6], hour:9},
-  {k:"request",  admin:true,    t:"수정 요청 도착",     d:"멤버가 수정 요청을 보내면 고른 요일·시각 이후에 알려 드려요", days:[0,1,2,3,4,5,6], hour:9},
+  {k:"join",     admin:true, instant:true, t:"가입 신청 도착", d:"누가 가입을 신청하면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"request",  admin:true, instant:true, t:"수정 요청 도착", d:"멤버가 수정 요청을 보내면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
 ];
 const DAYS = ["일","월","화","수","목","금","토"];
 const DAY_ORDER = [1,2,3,4,5,6,0];
@@ -652,10 +652,10 @@ function notifySheet(){
         <div class="alert" data-alert="${a.k}">
           <label class="row toggle"><span class="main"><span class="t">${a.t}</span><span class="s">${a.d}</span></span>
             <input type="checkbox" role="switch" class="switch" data-pref="${a.k}" ${v.on?"checked":""}></label>
-          <div class="alert-cfg" ${v.on?"":"hidden"}>
+          ${a.instant?"":`<div class="alert-cfg" ${v.on?"":"hidden"}>
             <div class="days" role="group" aria-label="${a.t} 요일">${DAY_ORDER.map(d=>`<button type="button" class="day ${d===0?"sun":""}" data-act="day" data-day="${d}" aria-pressed="${v.days.includes(d)}">${DAYS[d]}</button>`).join("")}</div>
             <div class="select-wrap hour"><select data-hour aria-label="${a.t} 시각">${HOURS.map(h=>`<option value="${h}" ${h===v.hour?"selected":""}>${fmtHour(h)}</option>`).join("")}</select>${icon("down")}</div>
-          </div>
+          </div>`}
         </div>`; }).join("")}</div>
       <p class="hint" style="margin:4px 18px 8px">알림은 <b>${esc(myName()||"(이름 없음)")}</b> 이름으로 와요. 일정에 적힌 이름과 다르면 관리자에게 고쳐 달라고 해 주세요. 시각은 1시간 단위이고, 몇 분 늦게 올 수 있어요. 사회부 알림의 요일은 그 주 주일(일요일) 기준이에요.</p>
     </div>`,
@@ -665,7 +665,8 @@ function notifySheet(){
 function readPrefs(){
   const p = { all: document.getElementById("pref-all")?.checked ?? S.push.prefs.all };
   for(const a of ALERTS){ const el = document.querySelector(`[data-alert="${a.k}"]`);
-    p[a.k] = el ? { on: el.querySelector("[data-pref]").checked, days: [...el.querySelectorAll('.day[aria-pressed="true"]')].map(b=>+b.dataset.day), hour: +el.querySelector("[data-hour]").value } : S.push.prefs[a.k]; }
+    p[a.k] = !el ? S.push.prefs[a.k] : a.instant ? { on: el.querySelector("[data-pref]").checked, days: a.days, hour: a.hour }
+      : { on: el.querySelector("[data-pref]").checked, days: [...el.querySelectorAll('.day[aria-pressed="true"]')].map(b=>+b.dataset.day), hour: +el.querySelector("[data-hour]").value }; }
   return normPrefs(p);
 }
 async function pushToken(){

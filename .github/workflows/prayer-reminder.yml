@@ -1,23 +1,29 @@
 name: 대표기도 알림
 on:
   schedule:
-    # 한국 시간 오전 6시 ~ 밤 11시, 매시 7분에 실행 → 각자 고른 요일·시각의 알림만 보내요
-    - cron: "7 21-23,0-14 * * *"
+    # 5분마다 확인 → 가입 신청·수정 요청은 바로, 나머지는 각자 고른 요일·시각에 (하루 한 번씩만)
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       test:
         description: "관리자에게 테스트 알림 보내기"
         type: boolean
         default: true
+concurrency:
+  group: remind
+  cancel-in-progress: false
 jobs:
   remind:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install --no-save --no-audit --no-fund firebase-admin@12
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - run: npm ci --no-audit --no-fund
         working-directory: scripts
       - run: node remind.mjs
         working-directory: scripts
