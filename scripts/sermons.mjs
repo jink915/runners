@@ -76,7 +76,8 @@ for (let p = 1; p <= PAGES; p++) {
 }
 if (!found.size) {
   console.log("게시판에서 주일 행을 하나도 찾지 못했어요. 페이지 구조를 확인해야 해요. 앞부분:");
-  console.log(firstHtml.replace(/\s+/g, " ").slice(0, 4000));
+  const flat = firstHtml.replace(/\s+/g, " "); const at = flat.search(/\d{4}\/\d{1,2}\/\d{1,2}/);
+  console.log(at < 0 ? "날짜를 찾지 못함\n" + flat.slice(-6000) : flat.slice(Math.max(0, at - 5000), at + 1500));
   process.exit(1);
 }
 
