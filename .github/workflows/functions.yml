@@ -1,0 +1,29 @@
+name: 알림 함수 배포 (Cloud Functions)
+on:
+  push:
+    branches: [main]
+    paths: ["functions/**", "firebase.json", ".github/workflows/functions.yml"]
+  workflow_dispatch:
+concurrency: { group: functions-deploy, cancel-in-progress: false }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: functions/package-lock.json }
+      - name: 서비스 계정 준비
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+        env: { SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" }
+      - run: npm ci
+        working-directory: functions
+      - name: Firestore 위치에 맞춰 함수 지역 정하기
+        run: node region.mjs
+        working-directory: functions
+      - name: 배포
+        run: npx --yes firebase-tools@13 deploy --only functions --project runners-prepare --non-interactive --force
+      - name: 정리
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
