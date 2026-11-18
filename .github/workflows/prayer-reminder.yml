@@ -1,8 +1,9 @@
 name: 대표기도 알림
 on:
   schedule:
-    # 5분마다 확인 → 가입 신청·수정 요청은 바로, 나머지는 각자 고른 요일·시각에 (하루 한 번씩만)
-    - cron: "*/5 * * * *"
+    # 알림은 이제 Firebase Cloud Functions가 정각·즉시 보내요. 이건 혹시 놓친 알림을 위한 예비 (6시간마다)
+    #  · 이미 보낸 알림은 기록(sentAlerts·notified)이 있어서 두 번 가지 않아요
+    - cron: "17 */6 * * *"
   workflow_dispatch:
     inputs:
       test:
