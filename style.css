@@ -875,3 +875,28 @@ nav.tabs a .tab-ic{position:relative;display:inline-flex}
 .leave-lead,.leave-keep{padding:0 18px}
 .leave-list{padding-left:38px;padding-right:18px}
 .privacy{padding:0 18px 6px}
+
+/* 챙김부: 군입대 */
+.seg.wrap{flex-wrap:wrap;height:auto}
+.seg.wrap button{flex:1 1 30%;flex-direction:column;gap:0;line-height:1.25;padding-top:8px;padding-bottom:8px}
+.seg.wrap button small{font-size:11px;font-weight:600;opacity:.7}
+.army-list{display:flex;flex-direction:column;gap:10px}
+.card.army{display:block;width:100%;text-align:left;padding:16px 18px;font:inherit;color:inherit;border:0;cursor:default}
+button.card.army{cursor:pointer}
+.army-top{display:flex;align-items:center;gap:12px}
+.army-who{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.army-who b{font-size:17px}
+.army-dd{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.army-dd b{font-size:24px;font-weight:800;color:var(--accent);letter-spacing:-.01em}
+.army-dd small{font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+.army-bar{height:10px;border-radius:999px;background:var(--sunken);overflow:hidden;margin:14px 0 8px}
+.army-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#6FA8E8,var(--accent))}
+.army-num{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.army-num b{color:var(--ink);font-weight:800}
+.army-dates{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.army-note{margin:8px 0 0;font-size:13px;color:var(--muted);word-break:keep-all}
+.card.army.done{opacity:.75}
+.so-calc{margin:-4px 2px 0;font-size:13px;font-weight:700;color:var(--accent);min-height:1em}
+.tnum{font-variant-numeric:tabular-nums}
+.seg.wrap button{display:flex;align-items:center;justify-content:center}
+.so-calc{margin:-4px 18px 0}

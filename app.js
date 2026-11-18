@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-22";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-23";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -58,7 +58,7 @@ const S = {
   member:null, memberReady:false, members:[], births:[], birthQ:"", posts:[], postSel:null, comments:[], myWeekKey:"", profiles:{}, profByName:{}, profDraft:null, teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
   dept: store.get("runners-dept") || "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false,o:false,e:false}, expenses:[], expSel:null, expFiles:[], expDraft:null,
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false,o:false,e:false,a:false}, soldiers:[], expenses:[], expSel:null, expFiles:[], expDraft:null,
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -811,6 +811,7 @@ const val = id => document.getElementById(id)?.value.trim() ?? "";
 
 /* ---------- 부서 · 탭 · 메뉴 ---------- */
 const TAB_ICON = {
+  army:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M12 3.5 5 6v5.5c0 4.3 3 7.7 7 9 4-1.3 7-4.7 7-9V6z"/><path d="m12 8.2 1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z"/></svg>',
   get expReview(){ return this.expenses; },
   expenses:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M6 3.5h12a1 1 0 0 1 1 1V21l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V4.5a1 1 0 0 1 1-1z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg>',
   dash:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>',
@@ -834,14 +835,14 @@ const DEPTS = {
             tabs:[["mhome","홈"],["board","게시판"],["myteam","우리 팀"],["expenses","지출결의"],["more","더보기"]] },
   social: { name:"사회부", desc:"예배 사회·대표기도·원고", icon:"mic", color:"#2F78D0", home:"dash",
             tabs:[["dash","홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
-  care:   { name:"챙김부", desc:"러너스 생일 챙기기", icon:"cake", color:"#E0663E", home:"birth",
-            tabs:[["birth","생일"],["births","전체"],["more","더보기"]] },
+  care:   { name:"챙김부", desc:"생일·군입대 챙기기", icon:"cake", color:"#E0663E", home:"birth",
+            tabs:[["birth","생일"],["births","전체"],["army","군입대"],["more","더보기"]] },
   finance:{ name:"총무부", desc:"장부·지출결의서 검토", icon:"wallet", color:"#1F9D6B", home:"ledger",
             tabs:[["ledger","장부"],["expReview","결의서"],["ledgerSum","요약"],["more","더보기"]] },
   leaders:{ name:"리더단", desc:"팀별 출석·기도제목", icon:"users", color:"#7A5CE0", home:"lead",
             tabs:[["lead","이번 주"],["leadHist","출석부"],["more","더보기"]] },
 };
-const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", expenses:"home", expense:"home", expReview:"finance", expCheck:"finance", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
+const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", expenses:"home", expense:"home", expReview:"finance", expCheck:"finance", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", army:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
   const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r==="expense" ? "expenses" : r==="expCheck" ? "expReview" : r;
@@ -1035,6 +1036,58 @@ function birthSheet(id){
       <label class="field"><span>일</span><select id="b-day">${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}" ${+b.day===d?"selected":""}>${d}일</option>`).join("")}</select></label>
     </div></div>`,
     `${id?`<button class="btn danger" type="button" data-act="delBirth" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="saveBirth" data-id="${id||""}">저장</button>`);
+}
+
+/* ---------- 챙김부: 군입대 ---------- */
+// 복무기간(2026년 기준). 전역일 = 입대일 + 복무 개월 − 1일
+const BRANCH = { army:["육군",18], marine:["해병대",18], navy:["해군",20], air:["공군",21], social:["사회복무요원",21] };
+const dayDiff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
+function dischargeOf(s){
+  if(s.end) return s.end;
+  const [y,m,d] = s.start.split("-").map(Number); const months = BRANCH[s.branch]?.[1] || 18;
+  const e = new Date(y, m-1+months, d); e.setDate(e.getDate()-1); return iso(e);
+}
+function armyStat(s){
+  const end = dischargeOf(s); const total = dayDiff(s.start, end) + 1;
+  const served = Math.max(0, Math.min(total, dayDiff(s.start, TODAY) + 1)); const left = dayDiff(TODAY, end);
+  return { end, total, served, left, pct: Math.max(0, Math.min(100, Math.round(served / total * 1000) / 10)), done: left < 0, before: TODAY < s.start };
+}
+const dotDate = d => `${d.slice(0,4)}.${+d.slice(5,7)}.${+d.slice(8,10)}`;
+function armyCard(s){
+  const st = armyStat(s); const edit = can("care"); const tag = edit ? "button" : "div";
+  return `<${tag} ${edit?`type="button" data-act="editSoldier" data-id="${s.id}"`:""} class="card army ${st.done?"done":""}">
+    <div class="army-top">${av(s.name)}<div class="army-who"><b>${esc(s.name)}</b><span class="chip mute plain">${esc(BRANCH[s.branch]?.[0]||"군 복무")}</span></div>
+      <div class="army-dd">${st.done?`<span class="chip ok plain">전역</span>`:st.before?`<span class="chip warn plain">입대 D-${dayDiff(TODAY,s.start)}</span>`:`<b class="tnum">D-${st.left}</b><small>전역까지</small>`}</div></div>
+    ${st.done||st.before?"":`<div class="army-bar" role="progressbar" aria-valuenow="${st.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="복무 ${st.pct}%"><i style="width:${st.pct}%"></i></div>
+    <div class="army-num tnum"><span>복무 <b>${st.served}</b>일째</span><span>남은 <b>${st.left}</b>일</span><span><b>${st.pct}</b>%</span></div>`}
+    <div class="army-dates tnum"><span>입대 ${dotDate(s.start)}</span><span>${st.done?"전역":"전역 예정"} ${dotDate(st.end)}</span></div>
+    ${s.note?`<p class="army-note">${esc(s.note)}</p>`:""}</${tag}>`;
+}
+function vArmy(){
+  const list = [...S.soldiers].filter(s=>s.start).map(s=>({s, st:armyStat(s)}));
+  const now = list.filter(x=>!x.st.done).sort((a,b)=>a.st.left-b.st.left), past = list.filter(x=>x.st.done).sort((a,b)=>b.st.end.localeCompare(a.st.end));
+  const add = can("care") ? `<button class="btn pri" type="button" data-act="editSoldier">${icon("plus")}추가</button>` : "";
+  return `${head("군입대", now.length?`복무 중 ${now.length}명`:"", add, "챙김부")}
+    ${now.length ? `<div class="army-list">${now.map(x=>armyCard(x.s)).join("")}</div>` : `<div class="card">${empty("복무 중인 러너스가 없어요","","wave", add)}</div>`}
+    ${past.length ? section("전역", `<div class="army-list">${past.map(x=>armyCard(x.s)).join("")}</div>`) : ""}`;
+}
+function soldierSheet(id){
+  const s = id ? S.soldiers.find(x=>x.id===id) : null; const br = s?.branch || "army";
+  openSheet(s?esc(s.name):"군입대 추가", `<div class="fields">
+    <label class="field"><span>이름</span><input id="so-name" maxlength="20" autocomplete="off" value="${esc(s?.name||"")}"></label>
+    <div class="field"><span class="lab" id="lab-br">복무</span><div class="seg wrap" role="radiogroup" aria-labelledby="lab-br">${Object.entries(BRANCH).map(([k,[n,m]])=>`<button type="button" role="radio" data-act="soBranch" data-v="${k}" aria-pressed="${br===k}" aria-checked="${br===k}">${n}<small>${m}개월</small></button>`).join("")}</div></div>
+    <label class="field"><span>입대일</span><input type="date" id="so-start" value="${s?.start||""}"></label>
+    <label class="field"><span>전역일 (조기 전역·연장일 때만 직접 적기)</span><input type="date" id="so-end" value="${s?.end||""}"></label>
+    <p class="so-calc" id="so-calc"></p>
+    <label class="field"><span>메모</span><input id="so-note" maxlength="100" autocomplete="off" placeholder="예: 부대·편지 주소" value="${esc(s?.note||"")}"></label>
+  </div>`, `${s?`<button class="btn danger" type="button" data-act="delSoldier" data-id="${s.id}">삭제</button>`:""}<button class="btn pri ${s?"":"block"}" type="button" data-act="saveSoldier" data-id="${s?.id||""}">저장</button>`);
+  syncSoldierCalc();
+}
+function soldierForm(){ return { name:val("so-name"), branch:document.querySelector('[data-act="soBranch"][aria-pressed="true"]')?.dataset.v||"army", start:val("so-start"), end:val("so-end"), note:val("so-note") }; }
+function syncSoldierCalc(){
+  const el = document.getElementById("so-calc"); if(!el) return; const f = soldierForm();
+  if(!f.start){ el.textContent=""; return; } const st = armyStat(f);
+  el.textContent = `전역 ${f.end?"":"예정 "}${dotDate(st.end)} · 총 ${st.total}일` + (st.done ? " · 전역했어요" : st.before ? ` · 입대까지 ${dayDiff(TODAY,f.start)}일` : ` · 복무 ${st.served}일째, 남은 ${st.left}일`);
 }
 
 /* ---------- 멤버 홈 (러너스) ---------- */
@@ -1635,7 +1688,7 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 function route(){ const h=location.hash.slice(1);
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
@@ -1669,6 +1722,7 @@ function render(){
   // 그 화면에 필요한 데이터만 기다려요 (더보기·멤버 관리는 기다릴 것 없음)
   const need = ROUTE_DEPT[r];
   if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
+  if(r==="army" && !S.got.a){ main.innerHTML=skeleton(); return; }
   if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
   if(need==="home" && (!S.got.o || !S.got.t)){ main.innerHTML=skeleton(); return; }
   if(["expenses","expense","expReview","expCheck"].includes(r) && !S.got.e){ main.innerHTML=skeleton(); return; }
@@ -1768,6 +1822,15 @@ document.addEventListener("click", async e => {
     if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="장부 기록도 지워요. 한 번 더"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="승인 취소"; t.classList.remove("solid"); } }, 3000); return; }
     await write(async()=>{ if(e.ledgerId) await S.db.doc("ledger/"+e.ledgerId).delete(); await S.db.doc("expenses/"+e.id).update({status:"submitted", ledgerId:"", reviewedBy:"", reviewedAt:FB?FB.m.serverTimestamp():new Date()}); }, "승인을 취소했어요"); return; }
   if(a==="goLedgerOf"){ const [yy,mm]=(t.dataset.date||TODAY).split("-").map(Number); S.lgYM={y:yy,m:mm}; return; }
+  if(a==="editSoldier"){ if(!can("care")) return; soldierSheet(t.dataset.id); return; }
+  if(a==="soBranch"){ t.parentElement.querySelectorAll("button").forEach(b=>{ b.setAttribute("aria-pressed", String(b===t)); b.setAttribute("aria-checked", String(b===t)); }); syncSoldierCalc(); return; }
+  if(a==="saveSoldier"){ const f=soldierForm(); if(!f.name){ toast("이름을 적어 주세요"); return; } if(!f.start){ toast("입대일을 골라 주세요"); return; }
+    if(f.end && f.end<f.start){ toast("전역일이 입대일보다 빨라요"); return; }
+    const id=t.dataset.id; t.disabled=true;
+    const ok = await write(()=> id ? S.db.doc("soldiers/"+id).set(f) : S.db.collection("soldiers").doc().set(f), id?"고쳤어요":`${f.name}님을 추가했어요`);
+    if(ok){ closeSheet(); if(!FB){ id ? Object.assign(S.soldiers.find(x=>x.id===id), f) : S.soldiers.push({id:"s"+Date.now(), ...f}); render(); } } else t.disabled=false; return; }
+  if(a==="delSoldier"){ if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 삭제할까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="삭제"; t.classList.remove("solid"); } }, 3000); return; }
+    if(await write(()=>S.db.doc("soldiers/"+t.dataset.id).delete(), "삭제했어요")){ closeSheet(); if(!FB){ S.soldiers=S.soldiers.filter(x=>x.id!==t.dataset.id); render(); } } return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="goRequests") location.hash="#requests";
   if(a==="reqTab"){ S.reqTab=t.dataset.v; render(); }
@@ -1971,6 +2034,7 @@ document.addEventListener("change", async e => {
 document.addEventListener("input", e => {
   if(e.target.tagName==="TEXTAREA") grow(e.target);
   const id=e.target.id;
+  if(id==="so-start"||id==="so-end"){ syncSoldierCalc(); return; }
   if(id==="ex-amt"){ const n=parseWon(e.target.value); const ko=document.getElementById("ex-ko"); if(ko) ko.textContent = n ? wonLine(n) : ""; return; }
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
@@ -2051,7 +2115,7 @@ async function startFirebase(){
     for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>r.parent.id==="weeks" ? b.set(r,d,{merge:true}) : b.set(r,d)); await b.commit(); }
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
-  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false; myWeekUnsub?.(); myWeekUnsub=null; S.myWeekKey=""; postUnsub?.(); postUnsub=null; expUnsub?.(); expUnsub=null; S.expenses=[]; S.got.e=false; S.expFiles=[];
+  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false; myWeekUnsub?.(); myWeekUnsub=null; S.myWeekKey=""; postUnsub?.(); postUnsub=null; expUnsub?.(); expUnsub=null; S.expenses=[]; S.got.e=false; S.expFiles=[]; S.soldiers=[]; S.got.a=false;
     S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.posts=[]; S.got.o=false; S.profiles={}; S.profByName={}; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
@@ -2072,6 +2136,7 @@ async function startFirebase(){
       unsubs.push(onSnapshot(collection(fs,"teamWeeks"), s=>{ S.tweeks=Object.fromEntries(s.docs.map(d=>[d.id,d.data()])); b=true; done(); }, ()=>{ b=true; done(); }));
     }
     if(sees("finance")) unsubs.push(onSnapshot(collection(fs,"ledger"), s=>{ S.ledger=s.docs.map(d=>({id:d.id,...d.data()})); S.got.l=true; render(); }, ()=>{ S.got.l=true; render(); }));
+    if(sees("care")) unsubs.push(onSnapshot(collection(fs,"soldiers"), s=>{ S.soldiers=s.docs.map(d=>({id:d.id,...d.data()})); S.got.a=true; render(); }, ()=>{ S.got.a=true; render(); }));
     if(sees("care") || sees("social")) unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
     if(can("social")){
       unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
