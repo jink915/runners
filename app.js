@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-7";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-8";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -52,10 +52,10 @@ function loadPrefs(){ try{ return normPrefs(JSON.parse(store.get("runners-push-p
 const S = {
   approved:false, isOwner:false,
   push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
-  member:null, memberReady:false, members:[], births:[], birthQ:"", profiles:{}, profByName:{}, profDraft:null, teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
-  dept: store.get("runners-dept")==="care" ? "care" : "social",
+  member:null, memberReady:false, members:[], births:[], birthQ:"", posts:[], postSel:null, comments:[], myWeekKey:"", profiles:{}, profByName:{}, profDraft:null, teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
+  dept: store.get("runners-dept") || "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false},
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false,o:false},
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -77,9 +77,11 @@ const ALL_DEPTS = ["social","care","finance","leaders"];
 const LEGACY_DEPTS = ["social","care"];   // 부서를 정하기 전에 승인된 예전 멤버 (총무부는 따로 열어 줘야 보여요)
 const ROLE_NAME = { admin:"관리자", operator:"운영자", member:"멤버" };
 const deptsOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : Array.isArray(m.depts) ? m.depts.filter(d=>ALL_DEPTS.includes(d)) : [...LEGACY_DEPTS];
-const sees = d => S.isAdmin || (S.approved && deptsOf(S.member).includes(d));
+// 멤버(일반)는 멤버 홈('러너스')만, 운영자는 맡은 부서 + 멤버 홈, 관리자는 전부
+const isPlainMember = () => S.approved && !S.isAdmin && S.member?.role!=="operator";
+const sees = d => d==="home" ? S.approved : (S.isAdmin || (S.approved && S.member?.role==="operator" && deptsOf(S.member).includes(d)));
 const can = d => S.isAdmin || (S.approved && S.member?.role==="operator" && deptsOf(S.member).includes(d));
-const alertVisible = a => a.admin ? S.isAdmin : sees(a.dept) && (!a.edit || can(a.dept));
+const alertVisible = a => a.admin ? S.isAdmin : a.edit ? can(a.dept) : S.approved;
 const myName = () => (S.member?.name || S.user?.displayName || "").trim();
 const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n; };
 
@@ -376,7 +378,7 @@ function memberSheet(id){
 function syncDeptPick(){
   const role = document.querySelector('input[name="m-role"]:checked')?.value;
   const wrap = document.getElementById("m-depts-wrap"); if(!wrap) return;
-  wrap.classList.toggle("dim", role==="admin");
+  wrap.classList.toggle("dim", role==="admin" || role==="member");
   const h=document.getElementById("m-dept-hint"); if(h) h.hidden = role!=="admin";
 }
 
@@ -772,9 +774,15 @@ const TAB_ICON = {
   ledgerSum:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="4" y="12" width="4" height="8" rx="1"/><rect class="fillable" x="10" y="7" width="4" height="13" rx="1"/><rect class="fillable" x="16" y="3.5" width="4" height="16.5" rx="1"/></svg>',
   lead:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle class="fillable" cx="12" cy="7.5" r="3.2"/><circle class="fillable" cx="5.5" cy="10" r="2.4"/><circle class="fillable" cx="18.5" cy="10" r="2.4"/><path d="M6.5 20c.6-3.4 2.7-5.3 5.5-5.3s4.9 1.9 5.5 5.3M1.8 18.5c.4-2.1 1.6-3.3 3.4-3.5M22.2 18.5c-.4-2.1-1.6-3.3-3.4-3.5"/></svg>',
   leadHist:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="m8 9 1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H17M14.5 15.5H17"/></svg>',
+  mhome:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/></svg>',
+  board:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M5 4h14a1.5 1.5 0 0 1 1.5 1.5v10A1.5 1.5 0 0 1 19 17H10l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-10A1.5 1.5 0 0 1 5 4z"/><path d="M8 9h8M8 12.5h5"/></svg>',
+  myteam:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle class="fillable" cx="12" cy="7.5" r="3.2"/><circle class="fillable" cx="5.5" cy="10" r="2.4"/><circle class="fillable" cx="18.5" cy="10" r="2.4"/><path d="M6.5 20c.6-3.4 2.7-5.3 5.5-5.3s4.9 1.9 5.5 5.3M1.8 18.5c.4-2.1 1.6-3.3 3.4-3.5M22.2 18.5c-.4-2.1-1.6-3.3-3.4-3.5"/></svg>',
   births:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01"/></svg>',
 };
+const MENU_DEPTS = ["home","social","care","finance","leaders"];
 const DEPTS = {
+  home:   { name:"러너스", desc:"게시판·생일·우리 팀", icon:"heart", color:"#E85D8A", home:"mhome",
+            tabs:[["mhome","홈"],["board","게시판"],["myteam","우리 팀"],["more","더보기"]] },
   social: { name:"사회부", desc:"예배 사회·대표기도·원고", icon:"mic", color:"#2F78D0", home:"dash",
             tabs:[["dash","홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
   care:   { name:"챙김부", desc:"러너스 생일 챙기기", icon:"cake", color:"#E0663E", home:"birth",
@@ -784,10 +792,10 @@ const DEPTS = {
   leaders:{ name:"리더단", desc:"팀별 출석·기도제목", icon:"users", color:"#7A5CE0", home:"lead",
             tabs:[["lead","이번 주"],["leadHist","출석부"],["more","더보기"]] },
 };
-const ROUTE_DEPT = { dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
+const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
-  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r;
+  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r;
   const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin;
   if(nav.dataset.key!==key){
     nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}">${TAB_ICON[k]}<span>${l}</span></a>`).join("");
@@ -798,8 +806,8 @@ function renderTabs(r){
 }
 let drawerOpen=false, drawerReturn=null;
 // 메뉴의 부서 순서 (이 기기에 저장)
-function deptOrder(){ let saved=[]; try{ saved = JSON.parse(store.get("runners-dept-order")||"[]"); }catch{} saved = Array.isArray(saved) ? saved.filter(d=>ALL_DEPTS.includes(d)) : [];
-  return [...saved, ...ALL_DEPTS.filter(d=>!saved.includes(d))]; }
+function deptOrder(){ let saved=[]; try{ saved = JSON.parse(store.get("runners-dept-order")||"[]"); }catch{} saved = Array.isArray(saved) ? saved.filter(d=>MENU_DEPTS.includes(d)) : [];
+  return [...saved, ...MENU_DEPTS.filter(d=>!saved.includes(d))]; }
 // 꾹 누르면(0.4초) 들려서 위아래로만 끌어 순서를 바꿔요
 function bindDeptSort(list){
   if(!list) return;
@@ -977,6 +985,117 @@ function birthSheet(id){
       <label class="field"><span>일</span><select id="b-day">${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}" ${+b.day===d?"selected":""}>${d}일</option>`).join("")}</select></label>
     </div></div>`,
     `${id?`<button class="btn danger" type="button" data-act="delBirth" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="saveBirth" data-id="${id||""}">저장</button>`);
+}
+
+/* ---------- 멤버 홈 (러너스) ---------- */
+const myTeamId = () => myTeam()?.id || null;
+function myTurns(){
+  const me = myName(); if(!me) return [];
+  return sortedWeeks().filter(w => w.date>=TODAY && dday(w.date)<=28 && !w.event && (w.mc===me || w.prayer===me))
+    .map(w => ({date:w.date, what: w.mc===me && w.prayer===me ? "사회·대표기도" : w.mc===me ? "사회" : "대표기도"}));
+}
+function postRow(p){
+  const d = tsOf(p); const fresh = d && Date.now()-d < 2*864e5;
+  return `<button type="button" class="row post-row" data-act="openPost" data-id="${p.id}">
+    ${av(p.name)}<span class="main"><span class="t">${p.pinned?`<span class="chip acc plain">공지</span> `:""}${esc(p.title)}${fresh?` <span class="new-dot" aria-label="새 글">N</span>`:""}</span>
+    <span class="s">${esc(p.name||"")} · ${ago(d)}${p.commentCount?` · 댓글 ${p.commentCount}`:""}</span></span>${icon("chev","chev")}</button>`;
+}
+const sortedPosts = () => [...S.posts].sort((a,b)=> (b.pinned?1:0)-(a.pinned?1:0) || (tsOf(b)||new Date())-(tsOf(a)||new Date()));
+function vMHome(){
+  const name = firstName(myName()); const nx = nextService(); const turns = myTurns();
+  const all = births(); const m = parse(TODAY).getMonth()+1;
+  const weekEnd = addDays(sundayOn(TODAY), 6);
+  const thisWeek = all.filter(b=>b.dd<=6 && iso(b.next)<=weekEnd).sort((a,b)=>a.dd-b.dd);
+  const thisMonth = all.filter(b=>b.month===m).sort((a,b)=>a.day-b.day);
+  const t = myTeam(); const wk = t ? tw(sundayOn(TODAY), t.id) : {}; const pr = wk.prayers||{};
+  const tlines = t ? teamMembers(t.id).filter(x=>pr[x]?.trim()) : [];
+  const worship = nx ? `<section class="card m-worship">
+      <div class="mw-top"><span class="eyebrow">다음 주일 예배</span><b>${fmtKo(nx.date)}</b><span class="chip acc plain">${dday(nx.date)===0?"오늘":`D-${dday(nx.date)}`}</span></div>
+      ${nx.book?`<div class="mw-verse">${icon("book")}<span>${esc(verseText(nx))}${nx.title?` · ${esc(nx.title)}`:""}</span></div>`:""}
+      <div class="mw-people">${person("사회",nx.mc)}${person("기도",nx.prayer)}</div></section>` : "";
+  return `${head("러너스", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}
+    ${turns.map(x=>`<div class="banner turn">${icon("bell")}<span><b>${fmtKo(x.date)}</b> ${x.what} 차례예요</span></div>`).join("")}
+    ${worship}
+    <div class="cols"><div>
+      ${section("게시판", `<div class="card list">${sortedPosts().slice(0,4).map(postRow).join("") || `<p class="note" style="padding:16px">아직 글이 없어요</p>`}</div>`, `<a class="link" href="#board">전체${icon("chev")}</a>`)}
+      ${section(t?`${t.name} 기도제목`:"우리 팀", t ? `<div class="card m-pray">${tlines.length ? tlines.map(x=>`<div class="mp-row">${av(x,"sm")}<div><b>${esc(x)}</b>${bullets(pr[x]).map(l=>`<span>${esc(l)}</span>`).join("")}</div></div>`).join("") : `<p class="note" style="padding:16px">이번 주 기도제목이 아직 없어요</p>`}</div>` : `<div class="card"><p class="note" style="padding:16px">아직 팀이 정해지지 않았어요</p></div>`, `<a class="link" href="#myteam">${t?"내 기도제목 적기":"우리 팀"}${icon("chev")}</a>`)}
+    </div><div>
+      ${section("생일자", `<div class="card list">
+        ${thisWeek.length?`<div class="m-sub">이번 주</div>${thisWeek.map(b=>birthRowPlain(b)).join("")}`:""}
+        <div class="m-sub">${m}월</div>${thisMonth.map(b=>birthRowPlain(b, true)).join("") || `<p class="note" style="padding:12px 16px">이번 달은 생일이 없어요</p>`}</div>`)}
+    </div></div>`;
+}
+function birthRowPlain(b, month){
+  return `<div class="row bday ${b.dd===0?"is-today":""} ${month&&b.dd>300?"past":""}">${bdBox(b)}<span class="main"><span class="t">${av(b.name,"sm")} ${esc(b.name)} ${roleChip2(b.role)}</span></span>${b.dd>300?`<span class="chip mute plain">지남</span>`:ddChip(b.dd)}</div>`;
+}
+function vBoard(){
+  return `${head("게시판", `${S.posts.length}개의 글`, `<button class="btn pri" type="button" data-act="newPost">${icon("edit")}글쓰기</button>`)}
+    <div class="card list">${sortedPosts().map(postRow).join("") || `<div style="padding:8px">${empty("첫 글을 남겨 주세요","","wave",`<button class="btn pri" type="button" data-act="newPost">글쓰기</button>`)}</div>`}</div>`;
+}
+function vPost(){
+  const p = S.posts.find(x=>x.id===S.postSel);
+  if(!p) return `${head("게시판")}<div class="card">${empty("지워졌거나 없는 글이에요","","pray",`<a class="btn" href="#board">게시판으로</a>`)}</div>`;
+  const mine = p.uid===S.user?.uid; const d = tsOf(p);
+  return `<div class="page-head"><div><p class="eyebrow"><a href="#board" class="back-link">${icon("chev","flip")}게시판</a></p><h1 class="post-title">${esc(p.title)}</h1></div></div>
+    <article class="card post-card">
+      <div class="post-meta">${av(p.name)}<div><b>${esc(p.name||"")}</b><span>${d?`${d.getMonth()+1}월 ${d.getDate()}일 ${pad(d.getHours())}:${pad(d.getMinutes())}`:"방금"}${p.updatedAt?" · 수정됨":""}</span></div>
+        <div class="post-acts">${S.isAdmin?`<button class="btn sm" type="button" data-act="pinPost" data-id="${p.id}">${p.pinned?"공지 해제":"공지로"}</button>`:""}
+        ${mine?`<button class="btn sm" type="button" data-act="editPost" data-id="${p.id}">고치기</button>`:""}
+        ${mine||S.isAdmin?`<button class="btn sm danger" type="button" data-act="delPost" data-id="${p.id}">지우기</button>`:""}</div></div>
+      <div class="post-body">${esc(p.body||"").replace(/\n/g,"<br>")}</div>
+    </article>
+    <section class="section"><div class="section-h"><h2>댓글 <span class="cnt">${S.comments.length}</span></h2></div>
+      <div class="card list">${S.comments.map(c=>`<div class="row cmt">${av(c.name,"sm")}<span class="main"><span class="t">${esc(c.name||"")} <small>${ago(tsOf(c))}</small></span><span class="s cmt-text">${esc(c.text)}</span></span>
+        ${c.uid===S.user?.uid||S.isAdmin?`<button class="btn icon sm" type="button" data-act="delCmt" data-id="${c.id}" aria-label="댓글 지우기">${icon("x")}</button>`:""}</div>`).join("")}
+        <div class="cmt-add"><label class="sr-only" for="cmt-new">댓글</label><textarea id="cmt-new" class="keep-val" rows="1" maxlength="1000" placeholder="댓글 달기"></textarea><button class="btn sm pri" type="button" data-act="addCmt">등록</button></div></div>
+    </section>`;
+}
+function postSheet(id){
+  const p = id ? S.posts.find(x=>x.id===id) : null;
+  openSheet(p?"글 고치기":"글쓰기", `<div class="fields">
+    <label class="field"><span>제목</span><input id="po-title" maxlength="80" autocomplete="off" value="${esc(p?.title||"")}"></label>
+    <label class="field"><span>내용</span><textarea id="po-body" rows="8" maxlength="5000">${esc(p?.body||"")}</textarea></label></div>`,
+    `<button class="btn pri block" type="button" data-act="savePost" data-id="${id||""}">${p?"저장":"올리기"}</button>`);
+}
+function vMyTeam(){
+  if(!S.ldSun) S.ldSun = sundayOn(TODAY);
+  const t = myTeam();
+  if(!t) return `${head("우리 팀")}<div class="card">${empty("아직 팀이 정해지지 않았어요","","wave")}</div>`;
+  const d = S.ldSun; const w = tw(d, t.id); const pr = w.prayers||{}, att = w.att||{}; const me = myName();
+  const leader = S.teams[t.id]?.leader||"", mentor = S.teams[t.id]?.mentor||"";
+  const row = (m) => `<div class="tm-row ${m===me?"is-me":""}" style="--tc:${t.c}">
+      <div class="tm-head">${av(m,"sm")}<b>${esc(m)}</b>${leader===m?`<span class="chip acc plain">리더</span>`:""}${mentor===m?`<span class="chip ok plain">멘토</span>`:""}${att[m]==="o"||att[m]==="on"?`<span class="att-mark">🌱</span>`:""}</div>
+      ${m===me ? `<textarea class="tm-pray keep-val" id="my-pray" rows="2" maxlength="500" placeholder="이번 주 내 기도제목">${esc(pr[m]||"")}</textarea>`
+        : (pr[m]?.trim() ? `<div class="mp-lines">${bullets(pr[m]).map(l=>`<span>${esc(l)}</span>`).join("")}</div>` : "")}
+    </div>`;
+  return `<div class="page-head"><div><h1 style="--tc:${t.c}" class="team-h"><span class="team-dot"></span>${t.name}</h1><p class="sub">팀원 ${teamMembers(t.id).length}명</p></div>
+      <div class="head-acts"><button class="btn" type="button" data-act="copyTeamPrayers" data-id="${t.id}">${icon("copy")}기도제목 복사</button></div></div>
+    ${ldWeekNav()}
+    <section class="card tm-list">${teamMembers(t.id).map(row).join("")}</section>
+    ${w.teamPrayer?.trim()?section("팀 전체 기도제목", `<div class="card m-pray"><div class="mp-lines">${bullets(w.teamPrayer).map(l=>`<span>${esc(l)}</span>`).join("")}</div></div>`):""}`;
+}
+// 멤버는 우리 팀의 그 주 기록 한 개만 따로 받아요 (다른 팀 기록은 못 봐요)
+let myWeekUnsub = null;
+function watchMyWeek(){
+  if(sees("leaders") || !FB || !S.approved) return;
+  const t = myTeam(); const d = S.ldSun || sundayOn(TODAY); const key = t ? twKey(d, t.id) : "";
+  if(key === S.myWeekKey) return; S.myWeekKey = key; myWeekUnsub?.(); myWeekUnsub = null;
+  if(!key) return;
+  myWeekUnsub = FB.m.onSnapshot(FB.m.doc(FB.fs,"teamWeeks",key), s=>{ if(s.exists()) S.tweeks[key]=s.data(); else delete S.tweeks[key]; render(); }, ()=>{});
+}
+let myPrayTimer = null;
+function saveMyPray(el){
+  const t = myTeam(); if(!t) return; const d = S.ldSun || sundayOn(TODAY); clearTimeout(myPrayTimer);
+  myPrayTimer = setTimeout(()=>{
+    const key = twKey(d, t.id); const me = myName();
+    S.tweeks[key] = {...(S.tweeks[key]||{}), prayers:{...((S.tweeks[key]||{}).prayers||{}), [me]:el.value}};
+    S.db.doc("teamWeeks/"+key).merge({date:d, team:t.id, prayers:{[me]:el.value}, updatedBy:me, updatedAt: FB?FB.m.serverTimestamp():new Date()}).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"));
+  }, 700);
+}
+let postUnsub = null;
+function watchComments(id){
+  postUnsub?.(); postUnsub=null; S.comments=[]; if(!FB || !id) return;
+  postUnsub = FB.m.onSnapshot(FB.m.collection(FB.fs,"posts",id,"comments"), s=>{ S.comments=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(tsOf(a)||new Date())-(tsOf(b)||new Date())); render(); }, ()=>{});
 }
 
 /* ---------- 리더단: 팀별 출석·기도제목 ---------- */
@@ -1309,10 +1428,10 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests};
-function homeRoute(){ if(!sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests};
+function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 function route(){ const h=location.hash.slice(1);
-  if(S.approved && !sees(S.dept)){ const d=ALL_DEPTS.find(sees); if(d) setDept(d); }
+  if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
   if(h==="members" && !S.isAdmin) return homeRoute();
   if(h==="people" && !can("social")) return homeRoute();
   if(ROUTE_DEPT[h] && !sees(ROUTE_DEPT[h])) return homeRoute();
@@ -1344,6 +1463,8 @@ function render(){
   const need = ROUTE_DEPT[r];
   if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
   if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
+  if(need==="home" && (!S.got.o || !S.got.t)){ main.innerHTML=skeleton(); return; }
+  if(need==="home") watchMyWeek();
   if(need==="leaders" && !S.got.t){ main.innerHTML=skeleton(); return; }
   if(r==="members" && !S.got.m){ main.innerHTML=skeleton(); return; }
   if(r==="requests" && !S.got.r){ main.innerHTML=skeleton(); return; }
@@ -1485,6 +1606,21 @@ document.addEventListener("click", async e => {
   if(a==="jumpMonth"){ const el=document.getElementById("m-"+t.dataset.m); if(el){ const bar=document.querySelector(".month-bar"); const y=el.getBoundingClientRect().top+scrollY-(bar?bar.offsetHeight+70:80); scrollTo({top:y, behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}); }
     t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); return; }
   if(a==="ldMove"){ S.ldSun = addDays(S.ldSun, +t.dataset.v); render(); return; }
+  if(a==="openPost"){ S.postSel=t.dataset.id; watchComments(S.postSel); location.hash="#post"; return; }
+  if(a==="newPost"){ postSheet(null); return; }
+  if(a==="editPost"){ postSheet(t.dataset.id); return; }
+  if(a==="savePost"){ const title=val("po-title"), body=document.getElementById("po-body").value.trim(); if(!title){ toast("제목을 적어 주세요"); return; }
+    const id=t.dataset.id; t.disabled=true;
+    const ok = id ? await write(()=>S.db.doc("posts/"+id).update({title, body, updatedAt:FB.m.serverTimestamp()}), "고쳤어요")
+      : await write(async()=>{ const ref=S.db.collection("posts").doc(); await ref.set({uid:S.user.uid, name:myName(), title, body, pinned:false, commentCount:0, createdAt:FB.m.serverTimestamp()}); S.postSel=ref.id; }, "글을 올렸어요");
+    if(ok){ closeSheet(); if(!id){ watchComments(S.postSel); location.hash="#post"; } else render(); } else t.disabled=false; return; }
+  if(a==="pinPost"){ const p=S.posts.find(x=>x.id===t.dataset.id); await write(()=>S.db.doc("posts/"+p.id).update({pinned:!p.pinned}), p.pinned?"공지를 해제했어요":"공지로 올렸어요"); return; }
+  if(a==="delPost"){ if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 지울까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="지우기"; t.classList.remove("solid"); } },3000); return; }
+    if(await write(()=>S.db.doc("posts/"+t.dataset.id).delete(), "글을 지웠어요")){ watchComments(null); location.hash="#board"; } return; }
+  if(a==="addCmt"){ const el=document.getElementById("cmt-new"); const text=(el?.value||"").trim(); if(!text){ el?.focus(); return; } const pid=S.postSel; t.disabled=true;
+    const ok = await write(async()=>{ await FB.m.addDoc(FB.m.collection(FB.fs,"posts",pid,"comments"), {uid:S.user.uid, name:myName(), text, createdAt:FB.m.serverTimestamp()}); await FB.m.updateDoc(FB.m.doc(FB.fs,"posts",pid), {commentCount:FB.m.increment(1)}).catch(()=>{}); });
+    t.disabled=false; if(ok){ const e2=document.getElementById("cmt-new"); if(e2){ e2.value=""; grow(e2); } } return; }
+  if(a==="delCmt"){ const pid=S.postSel; if(await write(async()=>{ await FB.m.deleteDoc(FB.m.doc(FB.fs,"posts",pid,"comments",t.dataset.id)); await FB.m.updateDoc(FB.m.doc(FB.fs,"posts",pid), {commentCount:FB.m.increment(-1)}).catch(()=>{}); }, "댓글을 지웠어요")) {} return; }
   if(a==="openTeam"){ S.teamSel=t.dataset.id; location.hash="#team"; return; }
   if(a==="att"){ const m=t.dataset.m, v=t.dataset.v; const cur=(tw(S.ldSun,S.teamSel).att||{})[m]; const nv = cur===v ? "" : v;
     const key=twKey(S.ldSun,S.teamSel); S.tweeks[key] = {...(S.tweeks[key]||{}), att:{...((S.tweeks[key]||{}).att||{}), [m]:nv}}; render();
@@ -1572,6 +1708,7 @@ document.addEventListener("input", e => {
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
   if(e.target.name==="m-role"){ syncDeptPick(); return; }
+  if(id==="my-pray"){ saveMyPray(e.target); return; }
   if(e.target.dataset?.pray || e.target.dataset?.prayTeam || e.target.dataset?.why){ savePray(e.target); return; }
   if(id==="lgq"){ S.lgQ=e.target.value; render(); return; }
   if(id==="lg-amt"||id==="le-amt"){ const n=parseWon(e.target.value); e.target.value = n ? won(n) : ""; return; }
@@ -1647,13 +1784,18 @@ async function startFirebase(){
     for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>r.parent.id==="weeks" ? b.set(r,d,{merge:true}) : b.set(r,d)); await b.commit(); }
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
-  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
-    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.profiles={}; S.profByName={}; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
+  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false; myWeekUnsub?.(); myWeekUnsub=null; S.myWeekKey=""; postUnsub?.(); postUnsub=null;
+    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.posts=[]; S.got.o=false; S.profiles={}; S.profByName={}; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
     if(started) return; started = true;
     slow = setTimeout(()=>{ if(!S.got.w && sees("social")){ S.mode="slow"; render(); } }, 10000);
-    if(sees("social")) unsubs.push(onSnapshot(collection(fs,"weeks"), s=>{
+    // 멤버 홈: 게시판, 팀 명단, (멤버는) 이번·다음 달 생일만
+    unsubs.push(onSnapshot(collection(fs,"posts"), s=>{ S.posts=s.docs.map(d=>({id:d.id,...d.data()})); S.got.o=true; render(); }, ()=>{ S.got.o=true; render(); }));
+    if(!sees("leaders")) unsubs.push(onSnapshot(collection(fs,"teams"), s=>{ S.teams=Object.fromEntries(s.docs.map(d=>[d.id,d.data()])); S.got.t=true; render(); }, ()=>{ S.got.t=true; render(); }));
+    if(!sees("care") && !sees("social")){ const mm=parse(TODAY).getMonth()+1; const got={};
+      [mm, mm%12+1].forEach(k=>unsubs.push(onSnapshot(fsM.query(collection(fs,"birthdays"), fsM.where("month","==",k)), s=>{ got[k]=s.docs.map(d=>({id:d.id,...d.data()})); S.births=Object.values(got).flat(); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }))); }
+    unsubs.push(onSnapshot(collection(fs,"weeks"), s=>{
       S.weeks = s.docs.map(d=>({...d.data(), date:d.data().date||d.id})); S.got.w=true;
       if(S.mode==="slow") S.mode="live"; clearTimeout(slow); render();
     }, ()=>{ S.got.w=true; render(); toast("일정을 불러오지 못했어요"); }));

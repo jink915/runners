@@ -58,8 +58,9 @@ const pref = (d, k) => {
 const enabled = (d, k) => d.prefs.all !== false && pref(d, k).on;
 const INSTANT = new Set(["join", "request"]);   // 가입 신청·수정 요청은 시간 상관없이 바로
 const dueNow = (d, k) => { if (INSTANT.has(k)) return enabled(d, k); const p = pref(d, k); return enabled(d, k) && p.days.includes(dow) && hour >= p.hour; };
-const social = devices.filter(d => d.depts.includes("social"));
-const care = devices.filter(d => d.depts.includes("care"));
+// 사회·대표기도 차례 알림은 이름으로 가니까 부서와 상관없이, 생일 알림은 승인된 멤버 모두에게
+const social = devices;
+const care = devices;
 const byName = n => n ? social.filter(d => d.name === n) : [];
 
 const out = new Map();   // token → { lines[], keys[] }

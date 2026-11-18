@@ -671,3 +671,32 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 .prof-hues button{width:34px;height:34px;border-radius:50%;border:0;background:oklch(0.86 0.08 var(--h));cursor:pointer}
 .prof-hues button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--accent)}
 @media (max-width:380px){ .prof-grid{grid-template-columns:repeat(6,minmax(0,1fr))} }
+
+/* ---------- 멤버 홈 ---------- */
+.banner.turn{display:flex;align-items:center;gap:10px;background:var(--warm-soft);color:var(--warm-ink,#8A3414);margin-bottom:10px;font-size:15px}
+.banner.turn .i{width:20px;height:20px;color:var(--warm);flex:none}
+.m-worship{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.mw-top{display:flex;align-items:center;gap:10px} .mw-top b{font-size:20px;letter-spacing:-.01em} .mw-top .eyebrow{margin:0}
+.mw-top .chip{margin-left:auto}
+.mw-verse{display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--ink-2)} .mw-verse .i{width:18px;height:18px;flex:none;color:var(--accent);margin-top:1px}
+.mw-people{display:flex;flex-wrap:wrap;gap:8px}
+.m-pray{padding:6px 16px}
+.mp-row{display:flex;gap:10px;padding:10px 0} .mp-row + .mp-row{box-shadow:0 -1px 0 var(--line)}
+.mp-row > div,.mp-lines{display:flex;flex-direction:column;gap:3px;min-width:0} .mp-row b{font-size:14px}
+.mp-row span,.mp-lines span{font-size:14px;color:var(--ink-2);line-height:1.5;overflow-wrap:anywhere}
+.m-pray > .mp-lines{padding:10px 0}
+.m-sub{font-size:12px;font-weight:700;color:var(--muted);padding:12px 16px 4px}
+.row.bday .t .av{vertical-align:-7px;margin-right:2px}
+.post-row .t{white-space:normal}
+.new-dot{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--bad);color:#fff;font-size:10px;font-weight:800;vertical-align:2px}
+.post-title{font-size:24px;line-height:1.3;word-break:keep-all}
+.post-card{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.post-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap} .post-meta > div{display:flex;flex-direction:column;gap:1px} .post-meta b{font-size:14.5px} .post-meta span{font-size:12.5px;color:var(--muted)}
+.post-acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.post-body{font-size:16px;line-height:1.75;color:var(--ink);overflow-wrap:anywhere;white-space:normal}
+.row.cmt{align-items:flex-start} .cmt .t small{font-weight:500;color:var(--faint);font-size:12px;margin-left:4px}
+.cmt-text{white-space:pre-wrap!important;overflow:visible!important;text-overflow:clip!important;color:var(--ink-2)!important;font-size:14.5px!important;line-height:1.55}
+.cmt-add{display:flex;gap:8px;align-items:flex-end;padding:12px 14px;box-shadow:0 -1px 0 var(--line)}
+.cmt-add textarea{flex:1;font-size:16px;border-radius:12px;padding:9px 12px;min-height:40px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);border:0;color:var(--ink)}
+.tm-row.is-me{background:var(--accent-soft)}
+.att-mark{font-size:14px;margin-left:2px}
