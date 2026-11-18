@@ -20,10 +20,11 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-20";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-21";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
+  {k:"notice",   g:"러너스", instant:true, t:"공지 알림", d:"관리자가 게시판 글을 공지로 올리면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
   {k:"prayer",   mc:true, g:"주일 준비 (사회자)", dept:"social", t:"대표기도 미정",     d:"사회 맡은 주에 대표기도가 아직 비어 있으면",        days:[3,4], hour:12},
   {k:"hymn",     mc:true, g:"주일 준비 (사회자)", dept:"social", t:"헌금찬송 미정",     d:"사회 맡은 주에 헌금찬송이 아직 비어 있으면",        days:[3,4], hour:12},
   {k:"script",   mc:true, g:"주일 준비 (사회자)", dept:"social", t:"기도문 작성",       d:"사회 맡은 주에 묵도·헌금기도 문장이 아직 비어 있으면", days:[3,4], hour:12},
@@ -94,6 +95,7 @@ const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.s
 const ICON = {
   chev:'<path d="m9 6 6 6-6 6"/>', down:'<path d="m6 9 6 6 6-6"/>', plus:'<path d="M12 5v14M5 12h14"/>',
   up:'<path d="m6 15 6-6 6 6"/>',
+  shield:'<path d="M12 3.5 5 6v5.5c0 4.3 3 7.7 7 9 4-1.3 7-4.7 7-9V6z"/><path d="m9 12 2 2 4-4"/>',
   receipt:'<path d="M6 3.5h12a1 1 0 0 1 1 1V21l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V4.5a1 1 0 0 1 1-1z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/>',
   print:'<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
   image:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 2.5-2.5L20 19"/>', x:'<path d="M18 6 6 18M6 6l12 12"/>',
@@ -584,7 +586,9 @@ function vMore(){
       ${sees("social")?setRow("#E0663E","heart","기도제목","",icon("chev","chev"),'data-act="topics"'):""}
       ${S.isAdmin?setRow("#2F78D0","upload","데이터 가져오기","",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
+    <div class="card list">${setRow("#64748B","shield","개인정보 처리 안내","",icon("chev","chev"),'data-act="privacy"')}</div>
     <div class="card list">${setRow("#C23A3F","logout",`<span style="color:var(--bad)">로그아웃</span>`,"","",'data-act="logout"')}</div>
+    ${S.isOwner?"":`<p class="leave-link"><button type="button" class="link-btn" data-act="leave">러너스 탈퇴하기</button></p>`}
     <p class="ver">러너스 버전 ${APP_VERSION}</p>`;
 }
 
@@ -772,6 +776,28 @@ function shrinkImage(file, size=128){
       const m=Math.min(img.width,img.height); x.drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,size,size); URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg",0.82)); };
     img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); }; img.src = url;
   });
+}
+/* ---------- 개인정보 안내 · 탈퇴 ---------- */
+const PRIVACY = [
+  ["모으는 정보", "구글 로그인 이메일·이름, 앱에서 쓰는 이름, 프로필(사진·한 줄 소개), 게시글·댓글, 기도제목, 팀 출석 기록, 생일(챙김부 명단), 지출결의서(서명·영수증 사진 포함), 알림을 보내기 위한 기기 정보"],
+  ["쓰는 곳", "러너스 모임 운영(주일 예배 준비, 생일 챙기기, 회계, 팀 돌봄)과 알림 보내기에만 써요. 광고나 외부 판매·제공은 하지 않아요."],
+  ["보관 장소", "Google Firebase(서울 지역) 서버에 저장돼요. 화면 코드는 GitHub에 있지만, 개인정보는 들어 있지 않아요."],
+  ["볼 수 있는 사람", "관리자가 승인한 멤버만 볼 수 있어요. 부서마다 권한이 달라서, 예를 들어 장부는 총무부, 생일 명단은 챙김부, 팀 기도제목은 그 팀과 리더단만 봐요."],
+  ["보관 기간", "탈퇴하기 전까지 보관해요. 탈퇴하면 계정과 내가 남긴 기록(프로필, 글·댓글, 수정 요청, 승인 전 지출결의서, 팀 기도제목, 알림 기기)을 바로 지워요."],
+  ["남는 기록", "승인된 지출결의서와 장부 기록은 모임의 회계 자료라서 남아요. 챙김부 생일 명단과 리더단 출석 기록은 담당 부서가 관리하니, 지우고 싶으면 수정 요청으로 알려 주세요."],
+  ["문의", "더보기 → 수정 요청으로 언제든 알려 주세요."],
+];
+function privacySheet(){
+  openSheet("개인정보 처리 안내", `<div class="privacy">${PRIVACY.map(([h,t])=>`<section><h3>${h}</h3><p>${t}</p></section>`).join("")}
+    <p class="privacy-foot">이 안내는 <a href="privacy.html" target="_blank" rel="noopener">웹 페이지</a>로도 볼 수 있어요.</p></div>`);
+}
+function leaveSheet(){
+  openSheet("러너스 탈퇴", `<div class="fields leave">
+    <p class="leave-lead">탈퇴하면 계정과 아래 기록이 바로 지워지고, 되돌릴 수 없어요.</p>
+    <ul class="leave-list"><li>프로필, 내가 쓴 글·댓글, 수정 요청</li><li>승인 전 지출결의서, 팀 기도제목</li><li>알림 받는 기기 정보</li></ul>
+    <p class="leave-keep">승인된 지출결의서·장부 기록과 부서가 관리하는 명단(생일·출석)은 남아요.</p>
+    <label class="field"><span>확인을 위해 <b>탈퇴</b>라고 적어 주세요</span><input id="leave-ok" autocomplete="off" maxlength="4"></label></div>`,
+    `<button class="btn danger block" type="button" data-act="doLeave">탈퇴하기</button>`);
 }
 function topicsSheet(){
   if(S.canEdit) openSheet("기도제목", `<div class="fields"><label class="field"><span class="sr-only">기도제목</span><textarea id="t-topics" name="topics" rows="16">${esc(S.topics||DEFAULT_TOPICS)}</textarea></label></div>`,
@@ -1910,6 +1936,17 @@ document.addEventListener("click", async e => {
   if(a==="copyTopics") copy(document.getElementById("t-topics")?.value || S.topics || DEFAULT_TOPICS);
   if(a==="saveTopics"){ const v=document.getElementById("t-topics").value; if(await write(()=>S.db.doc("config/topics").set({text:v}),"기도제목을 저장했어요")) closeSheet(); }
   if(a==="login") login();
+  if(a==="privacy"){ privacySheet(); return; }
+  if(a==="leave"){ leaveSheet(); return; }
+  if(a==="doLeave"){ if(val("leave-ok")!=="탈퇴"){ toast("'탈퇴'라고 적어 주세요"); document.getElementById("leave-ok")?.focus(); return; }
+    if(!FB){ toast("아직 연결 중이에요"); return; }
+    t.disabled=true; t.textContent="지우는 중…";
+    try{
+      const fnM = await import(SDK+"firebase-functions.js");
+      await fnM.httpsCallable(fnM.getFunctions(FB.app, "asia-northeast3"), "deleteAccount")();
+      closeSheet(); try{ localStorage.clear(); }catch{} await AUTH.signOut().catch(()=>{}); location.hash=""; toast("탈퇴했어요. 그동안 함께해 주셔서 고마워요");
+    }catch(err){ t.disabled=false; t.textContent="탈퇴하기"; toast(err?.message?.includes("최고 관리자")?"최고 관리자 계정은 탈퇴할 수 없어요":"탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요"); }
+    return; }
   if(a==="logout"){ await AUTH.signOut(); location.hash="#dash"; toast("로그아웃했어요"); }
   if(a==="install"){
     if(S.installEvt){ const ev=S.installEvt; S.installEvt=null; ev.prompt(); try{ const r=await ev.userChoice; if(r.outcome==="accepted") toast("설치하고 있어요. 바탕화면을 확인해 주세요"); }catch{} render(); }

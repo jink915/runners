@@ -12,11 +12,12 @@ const DEFAULTS = {   // 앱의 ALERTS 기본값과 같게
   bdToday: { days: [0, 1, 2, 3, 4, 5, 6], hour: 9 }, bdWeek: { days: [1], hour: 9 },
   join: { days: [0, 1, 2, 3, 4, 5, 6], hour: 9 }, request: { days: [0, 1, 2, 3, 4, 5, 6], hour: 9 },
   expense: { days: [0, 1, 2, 3, 4, 5, 6], hour: 0 }, expResult: { days: [0, 1, 2, 3, 4, 5, 6], hour: 0 },
+  notice: { days: [0, 1, 2, 3, 4, 5, 6], hour: 0 },
 };
 const ALL_DEPTS = ["social", "care"];
 const HONOR = { "목자": "목자님", "형제": "형제님", "자매": "자매님" };
 
-export async function runRemind({ instantOnly = false, test = false } = {}) {
+export async function runRemind({ instantOnly = false, test = false, notice = null } = {}) {
   const INSTANT_ONLY = instantOnly, TEST = test;
   const db = getFirestore(), fcm = getMessaging();
   // 한국 시간
@@ -56,7 +57,7 @@ export async function runRemind({ instantOnly = false, test = false } = {}) {
     return { on: v !== false, ...def };
   };
   const enabled = (d, k) => d.prefs.all !== false && pref(d, k).on;
-  const INSTANT = new Set(["join", "request", "expense", "expResult"]);   // 가입 신청·수정 요청은 시간 상관없이 바로
+  const INSTANT = new Set(["join", "request", "expense", "expResult", "notice"]);   // 가입 신청·수정 요청은 시간 상관없이 바로
   const dueNow = (d, k) => { if (INSTANT.has(k)) return enabled(d, k); const p = pref(d, k); return enabled(d, k) && p.days.includes(dow) && hour >= p.hour; };
   // 사회·대표기도 차례 알림은 일정에 적힌 이름으로 (그 사람에게만), 생일 알림은 챙김부에게만
   const social = devices;
@@ -131,6 +132,9 @@ export async function runRemind({ instantOnly = false, test = false } = {}) {
       for (const d of devices.filter(d => d.uid === e.uid && dueNow(d, "expResult")))
         add(d, { title: ok ? "지출결의서 승인" : "지출결의서 반려", body: ok ? `'${e.title}' ${won(e.amount)}원이 승인됐어요.` : `'${e.title}'이(가) 반려됐어요. 사유: ${String(e.rejectReason || "").slice(0, 60)}`, link: "#expenses", tag: `expres-${x.id}-${e.status}`, mark: [`expenses/${x.id}`, "resultNotified"] });
     }
+    // 게시판 공지: 관리자가 공지로 올린 순간 모두에게 (한 번만)
+    if (notice) for (const d of devices.filter(d => dueNow(d, "notice")))
+      add(d, { title: "📢 러너스 공지", body: `${notice.title}${notice.body ? " — " + String(notice.body).split("\n")[0].slice(0, 60) : ""}`, link: "#board", tag: `notice-${notice.id}`, mark: [`posts/${notice.id}`, "noticeSent"] });
   }
 
   if (!msgs.length) { console.log("지금 보낼 알림이 없어요"); }

@@ -860,3 +860,18 @@ nav.tabs a .tab-ic{position:relative;display:inline-flex}
 }
 .alert-g{padding:14px 18px 4px;font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.02em}
 .alert-g:first-child{padding-top:10px}
+
+/* 개인정보 안내 · 탈퇴 */
+.privacy{display:flex;flex-direction:column;gap:14px;padding:0 2px 6px}
+.privacy h3{margin:0 0 4px;font-size:14px;color:var(--ink)}
+.privacy p{margin:0;font-size:14px;line-height:1.6;color:var(--ink-2);word-break:keep-all;text-wrap:pretty}
+.privacy-foot{font-size:13px!important;color:var(--muted)!important}
+.privacy-foot a{color:var(--accent)}
+.leave-link{text-align:center;margin:18px 0 4px}
+.link-btn{background:none;border:0;padding:8px 12px;font:inherit;font-size:13px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.leave-lead{margin:0;font-weight:700;color:var(--bad);word-break:keep-all}
+.leave-list{margin:0;padding-left:20px;color:var(--ink-2);line-height:1.7;font-size:14px}
+.leave-keep{margin:0;font-size:13px;color:var(--muted);word-break:keep-all}
+.leave-lead,.leave-keep{padding:0 18px}
+.leave-list{padding-left:38px;padding-right:18px}
+.privacy{padding:0 18px 6px}
