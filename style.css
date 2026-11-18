@@ -645,3 +645,29 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 @media (prefers-reduced-motion:reduce){ .dept-item,.dept-list.sorting .dept-item{transition:none} }
 .dept-item{-webkit-user-drag:none}
 .honor-src{font-weight:600;font-size:11.5px;color:var(--accent);margin-left:4px}
+
+/* ---------- 프로필 꾸미기 ---------- */
+.av.img{padding:0;overflow:hidden;background:oklch(0.93 0.04 var(--h,220))}
+.av.img img{width:100%;height:100%;object-fit:cover;display:block}
+.av.img.sheep img{object-fit:contain;transform:scale(1.15) translateY(4%)}
+.av.emo{font-family:system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif;font-size:21px}
+.av.sm.emo{font-size:14px} .av.lg.emo{font-size:30px}
+.av.big{width:84px;height:84px;border-radius:26px;font-size:36px;min-width:0} .av.big.emo{font-size:44px}
+.profile-card{display:block;width:100%;text-align:left;border:0;font:inherit;color:inherit;cursor:pointer;transition:transform 120ms ease}
+.profile-card:active{transform:scale(.98)}
+.profile-card .profile .chev{margin-left:4px}
+.prof{gap:14px}
+.prof-preview{display:flex;align-items:center;gap:14px;padding:4px 18px 4px}
+.prof-preview > div{display:flex;flex-direction:column;gap:2px;min-width:0} .prof-preview b{font-size:18px} .prof-preview span{font-size:13.5px;color:var(--muted)}
+.prof .seg{margin:0 18px}
+.prof-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;padding:0 18px}
+.prof-grid button{aspect-ratio:1;border:0;border-radius:12px;background:var(--sunken);font-size:22px;cursor:pointer;display:grid;place-items:center;padding:0;font-family:system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif}
+.prof-grid button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--accent);background:var(--accent-soft)}
+.prof-grid.sheep{grid-template-columns:repeat(3,minmax(0,1fr))}
+.prof-grid.sheep img{width:76%;height:76%;object-fit:contain}
+.prof-photo{display:flex;flex-direction:column;gap:8px;padding:0 18px}
+.prof-photo .btn svg:not(.i){width:18px;height:18px}
+.prof-hues{display:flex;gap:10px;flex-wrap:wrap}
+.prof-hues button{width:34px;height:34px;border-radius:50%;border:0;background:oklch(0.86 0.08 var(--h));cursor:pointer}
+.prof-hues button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--accent)}
+@media (max-width:380px){ .prof-grid{grid-template-columns:repeat(6,minmax(0,1fr))} }

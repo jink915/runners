@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-6";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-7";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -52,7 +52,7 @@ function loadPrefs(){ try{ return normPrefs(JSON.parse(store.get("runners-push-p
 const S = {
   approved:false, isOwner:false,
   push:{ token: store.get("runners-push-token")||"", prefs: loadPrefs() },
-  member:null, memberReady:false, members:[], births:[], birthQ:"", teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
+  member:null, memberReady:false, members:[], births:[], birthQ:"", profiles:{}, profByName:{}, profDraft:null, teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
   dept: store.get("runners-dept")==="care" ? "care" : "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
   sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false},
@@ -118,7 +118,17 @@ const GOOGLE = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107"
 const SHEEP = { heart:["img/sheep-heart.webp",537,479], wave:["img/sheep-wave.webp",455,215], pray:["img/sheep-pray.webp",242,343] };
 const sheep = (k, cls="mascot") => `<img class="${cls}" src="${SHEEP[k][0]}" alt="" width="${SHEEP[k][1]}" height="${SHEEP[k][2]}" decoding="async">`;
 const hue = name => { let h=0; for(const c of name||"") h=(h*31+c.charCodeAt(0))%360; return h; };
-const av = (name, cls="") => `<span class="av ${cls}" style="--h:${hue(name)}" aria-hidden="true">${esc((firstName(name)||"?")[0])}</span>`;
+// 프로필: 사진·러너스 양·이모지·글자(색) 중 각자 고른 모양으로 이름 동그라미를 그려요
+const PROFILE_HUES = [210, 250, 290, 330, 10, 35, 95, 160];
+const PROFILE_EMOJI = ["🐑","🌱","🌸","🍀","☀️","🌙","⭐","🎵","📖","🙏","🔥","💙","🧡","☕","🐣","🌈"];
+const profileOf = name => { const n=(name||"").trim(); return n ? S.profByName[n] : null; };
+function av(name, cls=""){
+  const p = profileOf(name); const h = Number.isFinite(p?.hue) ? p.hue : hue(name);
+  if(p?.kind==="photo" && p.photo) return `<span class="av img ${cls}" aria-hidden="true"><img src="${esc(p.photo)}" alt=""></span>`;
+  if(p?.kind==="sheep" && SHEEP[p.sheep]) return `<span class="av img sheep ${cls}" style="--h:${h}" aria-hidden="true"><img src="${SHEEP[p.sheep][0]}" alt=""></span>`;
+  if(p?.kind==="emoji" && p.emoji) return `<span class="av emo ${cls}" style="--h:${h}" aria-hidden="true">${esc(p.emoji)}</span>`;
+  return `<span class="av ${cls}" style="--h:${h}" aria-hidden="true">${esc((firstName(name)||"?")[0])}</span>`;
+}
 
 let toastT;
 function toast(msg){
@@ -540,7 +550,7 @@ function vMore(){
   const setRow = (c, ic, t, s, right="", act="") => `<${act?"button":"div"} ${act?`type="button" ${act}`:""} class="row"><span class="set-ic" style="--c:${c}">${icon(ic)}</span><span class="main"><span class="t">${t}</span>${s?`<span class="s" style="white-space:normal">${s}</span>`:""}</span>${right}</${act?"button":"div"}>`;
   const noDept = !ALL_DEPTS.some(sees);
   return `${head("더보기")}${noDept?`<div class="banner">아직 볼 수 있는 부서가 없어요. 관리자에게 부서를 열어 달라고 해 주세요.</div>`:""}
-    <div class="card"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(u?.email||"")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.member?.role==="member"?"mute":"acc"}">${ROLE_NAME[S.member?.role]||"멤버"}</span>`}</div></div>
+    <button type="button" class="card profile-card" data-act="editProfile" aria-label="내 프로필 꾸미기"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(S.profiles[S.user?.uid]?.bio || u?.email || "")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.member?.role==="member"?"mute":"acc"}">${ROLE_NAME[S.member?.role]||"멤버"}</span>`}${icon("chev","chev")}</div></button>
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
       ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", "",
@@ -570,6 +580,7 @@ function openSheet(title, body, foot=""){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ root.className="open"; root.querySelector(".sheet-b input:not([disabled]):not([type=file]), .sheet-b select")?.focus({preventScroll:true}); }));
   bindSheetDrag(root.querySelector(".sheet"), root.querySelector(".drag-zone"));
 }
+function closeSheetQuiet(){ const root=document.getElementById("sheet-root"); sheetOpen=false; root.innerHTML=""; root.className=""; document.body.style.overflow=""; }
 function closeSheet(){
   const root=document.getElementById("sheet-root"); if(!sheetOpen) return;
   sheetOpen=false; root.className="open closing"; document.body.style.overflow="";
@@ -711,6 +722,33 @@ function installGuide(){
     : ios ? `      <ol class="ig">${step("share","아래쪽 가운데 공유 버튼을 눌러요","네모에서 화살표가 위로 나온 모양이에요")}${step("plusSq","'홈 화면에 추가'를 눌러요","목록을 조금 내리면 있어요")}${step("check","오른쪽 위 '추가'를 누르면 끝","바탕화면의 러너스 양 아이콘으로 열어 주세요")}</ol>`
     : `<ol class="ig">${step("menu","Chrome 오른쪽 위 ⋮ 메뉴를 눌러요","")}${step("download","'앱 설치' 또는 '홈 화면에 추가'를 눌러요","")}${step("check","'설치'를 누르면 바탕화면에 생겨요","")}</ol>`;
   openSheet("휴대폰에 앱 설치", body, `<button class="btn pri block" type="button" data-act="closeSheet">알겠어요</button>`);
+}
+function indexProfiles(){ S.profByName = Object.fromEntries(Object.values(S.profiles).filter(p=>p?.name).map(p=>[p.name.trim(), p])); }
+function profileSheet(){
+  const cur = S.profiles[S.user.uid] || {}; const d = S.profDraft = S.profDraft || { kind: cur.kind||"initial", hue: Number.isFinite(cur.hue)?cur.hue:hue(myName()), emoji: cur.emoji||"🐑", sheep: cur.sheep||"heart", photo: cur.photo||"", bio: cur.bio||"" };
+  const name = myName();
+  const prev = () => { const keep = S.profByName[name]; S.profByName[name] = {...d}; const h = av(name, "big"); S.profByName[name] = keep; return h; };
+  const kinds = [["initial","글자"],["emoji","이모지"],["sheep","러너스 양"],["photo","사진"]];
+  openSheet("내 프로필", `<div class="fields prof">
+    <div class="prof-preview" id="prof-preview">${prev()}<div class="prof-who"><b>${esc(name)}</b><span>${esc(d.bio||"")}</span></div></div>
+    <div class="seg" role="group" aria-label="프로필 모양">${kinds.map(([k,l])=>`<button type="button" data-act="profKind" data-v="${k}" aria-pressed="${d.kind===k}">${l}</button>`).join("")}</div>
+    ${d.kind==="emoji"?`<div class="prof-grid emo">${PROFILE_EMOJI.map(e=>`<button type="button" data-act="profEmoji" data-v="${e}" aria-pressed="${d.emoji===e}" aria-label="${e}">${e}</button>`).join("")}</div>`:""}
+    ${d.kind==="sheep"?`<div class="prof-grid sheep">${Object.keys(SHEEP).map(k=>`<button type="button" data-act="profSheep" data-v="${k}" aria-pressed="${d.sheep===k}" aria-label="러너스 양 ${k}"><img src="${SHEEP[k][0]}" alt=""></button>`).join("")}</div>`:""}
+    ${d.kind==="photo"?`<div class="prof-photo"><label class="btn block"><input type="file" id="prof-file" accept="image/*" hidden>${icon("upload")}${d.photo?"다른 사진 고르기":"사진 고르기"}</label>
+      ${S.user?.photoURL?`<button class="btn block" type="button" data-act="profGoogle">${GOOGLE}Google 프로필 사진 쓰기</button>`:""}</div>`:""}
+    ${d.kind!=="photo"?`<div class="field"><span class="lab">배경색</span><div class="prof-hues">${PROFILE_HUES.map(h=>`<button type="button" data-act="profHue" data-v="${h}" style="--h:${h}" aria-pressed="${d.hue===h}" aria-label="색 ${h}"></button>`).join("")}</div></div>`:""}
+    <label class="field"><span>한 줄 소개</span><input id="prof-bio" maxlength="40" autocomplete="off" placeholder="예: 하리보팀 · 커피 좋아해요" value="${esc(d.bio)}"></label>
+  </div>`, `<button class="btn pri block" type="button" data-act="saveProfile">저장</button>`);
+}
+function refreshProfilePreview(){ const el=document.getElementById("prof-preview"); if(!el||!S.profDraft) return; const name=myName(); const keep=S.profByName[name]; S.profByName[name]={...S.profDraft}; el.querySelector(".av").outerHTML = av(name,"big"); S.profByName[name]=keep; const bio=el.querySelector(".prof-who span"); if(bio) bio.textContent = S.profDraft.bio||""; }
+// 사진은 작게(정사각형 128px) 줄여서 저장해요
+function shrinkImage(file, size=128){
+  return new Promise((res, rej) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const c=document.createElement("canvas"); c.width=c.height=size; const x=c.getContext("2d");
+      const m=Math.min(img.width,img.height); x.drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,size,size); URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg",0.82)); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); }; img.src = url;
+  });
 }
 function topicsSheet(){
   if(S.canEdit) openSheet("기도제목", `<div class="fields"><label class="field"><span class="sr-only">기도제목</span><textarea id="t-topics" name="topics" rows="16">${esc(S.topics||DEFAULT_TOPICS)}</textarea></label></div>`,
@@ -1349,6 +1387,17 @@ document.addEventListener("click", async e => {
   if(a==="day"){ const on=t.getAttribute("aria-pressed")==="true";
     if(on && t.parentElement.querySelectorAll('[aria-pressed="true"]').length===1){ toast("요일을 하나 이상 골라 주세요"); return; }
     t.setAttribute("aria-pressed", String(!on)); return; }
+  if(a==="editProfile"){ S.profDraft=null; profileSheet(); return; }
+  if(a==="profKind"){ S.profDraft.kind=t.dataset.v; S.profDraft.bio=val("prof-bio"); closeSheetQuiet(); profileSheet(); return; }
+  if(a==="profEmoji"||a==="profSheep"||a==="profHue"){ const k={profEmoji:"emoji",profSheep:"sheep",profHue:"hue"}[a]; S.profDraft[k] = a==="profHue" ? +t.dataset.v : t.dataset.v;
+    t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); refreshProfilePreview(); return; }
+  if(a==="profGoogle"){ S.profDraft.photo = S.user.photoURL; S.profDraft.kind="photo"; refreshProfilePreview(); toast("Google 프로필 사진으로 정했어요"); return; }
+  if(a==="saveProfile"){ const d=S.profDraft; d.bio=val("prof-bio");
+    if(d.kind==="photo" && !d.photo){ toast("사진을 골라 주세요"); return; }
+    const body={ name:myName(), kind:d.kind, hue:d.hue, emoji:d.emoji, sheep:d.sheep, photo:d.kind==="photo"?d.photo:"", bio:d.bio, updatedAt: FB?FB.m.serverTimestamp():new Date() };
+    t.disabled=true;
+    try{ await S.db.doc("profiles/"+S.user.uid).set(body); S.profiles[S.user.uid]=body; indexProfiles(); toast("프로필을 바꿨어요"); closeSheet(); render(); }
+    catch{ t.disabled=false; toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="goRequests") location.hash="#requests";
   if(a==="reqTab"){ S.reqTab=t.dataset.v; render(); }
@@ -1507,6 +1556,7 @@ document.addEventListener("click", async e => {
 });
 document.addEventListener("change", async e => {
   if(e.target.id==="s-date"){ syncScript(e.target.value); render(); return; }
+  if(e.target.id==="prof-file" && e.target.files[0]){ try{ S.profDraft.photo = await shrinkImage(e.target.files[0]); S.profDraft.kind="photo"; refreshProfilePreview(); }catch{ toast("이 사진은 쓸 수 없어요. 다른 사진을 골라 주세요"); } e.target.value=""; return; }
   if(e.target.id!=="imp-file" || !e.target.files[0]) return;
   try{
     const data = JSON.parse(await e.target.files[0].text());
@@ -1525,6 +1575,7 @@ document.addEventListener("input", e => {
   if(e.target.dataset?.pray || e.target.dataset?.prayTeam || e.target.dataset?.why){ savePray(e.target); return; }
   if(id==="lgq"){ S.lgQ=e.target.value; render(); return; }
   if(id==="lg-amt"||id==="le-amt"){ const n=parseWon(e.target.value); e.target.value = n ? won(n) : ""; return; }
+  if(id==="prof-bio" && S.profDraft){ S.profDraft.bio=e.target.value; refreshProfilePreview(); return; }
   if(id==="bq"){ S.birthQ=e.target.value; render(); return; }
   if(id==="pq"){ S.peopleQ=e.target.value; render(); return; }
   if(id==="w-kind"){ const k=e.target.value; document.getElementById("w-other-wrap").hidden = k!=="__other"; document.getElementById("w-roles").hidden = !!k; return; }
@@ -1597,7 +1648,7 @@ async function startFirebase(){
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
   const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false;
-    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
+    S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.profiles={}; S.profByName={}; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
     if(started) return; started = true;
@@ -1620,6 +1671,10 @@ async function startFirebase(){
     // 수정 요청: 관리자는 전부, 나머지는 내가 보낸 것만
     const reqQ = S.isAdmin ? collection(fs,"requests") : fsM.query(collection(fs,"requests"), fsM.where("uid","==",S.user.uid));
     unsubs.push(onSnapshot(reqQ, s=>{ S.requests=s.docs.map(d=>({id:d.id,...d.data()})); S.got.r=true; render(); }, ()=>{ S.got.r=true; render(); }));
+    // 프로필: 승인된 멤버끼리 서로 볼 수 있어요. 관리자가 이름을 바꿨으면 내 프로필 이름도 맞춰요
+    unsubs.push(onSnapshot(collection(fs,"profiles"), s=>{ S.profiles=Object.fromEntries(s.docs.map(d=>[d.id,d.data()])); indexProfiles();
+      const mine=S.profiles[S.user.uid]; if(mine && myName() && mine.name!==myName()) setDoc(doc(fs,"profiles",S.user.uid), {...mine, name:myName()}).catch(()=>{});
+      render(); }, ()=>{}));
     if(S.isAdmin) unsubs.push(onSnapshot(collection(fs,"members"), s=>{ S.members=s.docs.map(d=>({id:d.id,...d.data()})); S.got.m=true; render(); }, ()=>{ S.got.m=true; render(); }));
     refreshPush();
   };
