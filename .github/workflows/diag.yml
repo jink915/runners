@@ -19,4 +19,6 @@ jobs:
           initializeApp({ credential: cert(JSON.parse(process.env.SA)) });
           const s = await getFirestore().collection("soldiers").get();
           console.log("문서 수", s.size);
-          s.docs.forEach((d,i)=>{ const x=d.data(); console.log(i+1, JSON.stringify({branch:x.branch, start:x.start, end:x.end, keys:Object.keys(x).sort()})); });'
+          for (const d of s.docs) { const x=d.data();
+            if (x.start==="2026-08-03" && x.end==="2026-11-18") { await d.ref.update({ end: "" }); console.log("잘못 들어간 전역일을 비웠어요"); }
+            const y=(await d.ref.get()).data(); console.log(JSON.stringify({branch:y.branch, start:y.start, end:y.end})); }'
