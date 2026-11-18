@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-5";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-6";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -274,7 +274,7 @@ async function moveRank(id, dir){
 /* ---------- 화면 조각 ---------- */
 const head = (title, sub="", right="", eyebrow="") => `<div class="page-head"><div>${eyebrow?`<p class="eyebrow">${eyebrow}</p>`:""}<h1>${title}</h1>${sub?`<p class="sub">${sub}</p>`:""}</div>${right}</div>`;
 const section = (title, body, link="") => `<section class="section"><div class="section-h"><h2>${title}</h2>${link}</div>${body}</section>`;
-const empty = (title, text, k="wave", action="") => `<div class="empty">${sheep(k)}<strong>${title}</strong><p>${text}</p>${action}</div>`;
+const empty = (title, text, k="wave", action="") => `<div class="empty">${sheep(k)}<strong>${title}</strong>${action}</div>`;
 const datebox = d => `<span class="datebox"><span class="m">${parse(d).getMonth()+1}월</span><span class="d">${parse(d).getDate()}</span></span>`;
 const person = (role, name) => name ? `<span class="person"><span><span class="role">${role}</span> ${esc(name)}</span></span>` : `<span class="person none">${role} 미정</span>`;
 
@@ -302,7 +302,6 @@ function vLogin(){
     <p class="tag">진실됨으로 하나님께 나아가자<br>주일 예배 준비를 한곳에서</p>
     ${sheep("heart")}
     <button class="gbtn" type="button" data-act="login" ${ready?"":"disabled"}>${GOOGLE}${ready?"Google 계정으로 시작하기":"연결하는 중…"}</button>
-    <p class="fine">처음이면 Google 계정으로 가입 신청을 하고, 관리자가 승인하면 이용할 수 있어요.</p>
   </section>`;
 }
 
@@ -338,8 +337,7 @@ function vMembers(){
   return `${head("멤버 관리", `멤버 ${ok.length}명${pend.length?` · 승인 대기 ${pend.length}명`:""}`)}
     ${pend.length?section("승인 대기", `<div class="card list">${pend.map(m=>row(m, `<span class="acts">
         <button class="btn sm danger" type="button" data-act="rejectMember" data-id="${m.id}">거절</button>
-        <button class="btn sm pri" type="button" data-act="editMember" data-id="${m.id}">${icon("check")}권한 정하고 승인</button></span>`)).join("")}</div>
-        <p class="note">승인을 누르면 권한과 부서를 고른 뒤 승인할 수 있어요. 이름은 일정에 적힌 이름과 똑같이 맞춰 주세요(알림이 이 이름으로 가요).</p>`):""}
+        <button class="btn sm pri" type="button" data-act="editMember" data-id="${m.id}">${icon("check")}권한 정하고 승인</button></span>`)).join("")}</div>`):""}
     ${section("멤버", `<div class="card list">${ok.map(m=>`<button type="button" class="row" data-act="editMember" data-id="${m.id}" aria-label="${esc(m.name)} 편집">${av(m.name||m.email)}<span class="main"><span class="t">${esc(m.name||"(이름 없음)")} ${roleChip(m)}</span><span class="s">${deptLine(m)} · ${esc(m.email)}</span></span>${icon("chev","chev")}</button>`).join("")||`<p class="note" style="padding:16px">아직 승인한 멤버가 없어요</p>`}</div>`)}
     ${rej.length?section("거절함", `<div class="card list">${rej.map(m=>row(m, `<span class="acts">
         <button class="btn sm" type="button" data-act="deleteMember" data-id="${m.id}">기록 지우기</button>
@@ -354,12 +352,11 @@ function memberSheet(id){
     <div class="field"><span class="lab" id="lab-role">권한</span>${owner?`<span class="readout">최고 관리자 (바꿀 수 없어요)</span>`:`
       <div class="role-pick" role="radiogroup" aria-labelledby="lab-role">
         ${[["admin","관리자","모든 부서에서 모든 권한 (멤버 관리 포함)"],["operator","운영자","고른 부서에서 관리자와 같은 권한"],["member","멤버","고른 부서를 보기만"]].map(([v,t,d])=>`
-        <label class="role-opt"><input type="radio" name="m-role" value="${v}" ${role===v?"checked":""}><span><b>${t}</b><small>${d}</small></span></label>`).join("")}
+        <label class="role-opt"><input type="radio" name="m-role" value="${v}" ${role===v?"checked":""}><span><b>${t}</b></span></label>`).join("")}
       </div>`}</div>
     ${owner?"":`<div class="field" id="m-depts-wrap"><span class="lab" id="lab-dept">활동 부서 (여러 개 고를 수 있어요)</span>
       <div class="dept-pick" role="group" aria-labelledby="lab-dept">${ALL_DEPTS.map(d=>`
-        <label class="dept-opt"><input type="checkbox" name="m-dept" value="${d}" ${ds.includes(d)?"checked":""}><span class="set-ic" style="--c:${DEPTS[d].color}">${icon(DEPTS[d].icon)}</span><span><b>${DEPTS[d].name}</b><small>${DEPTS[d].desc}</small></span></label>`).join("")}</div>
-      <span class="hint" id="m-dept-hint" ${role==="admin"?"":"hidden"}>관리자는 고르지 않아도 모든 부서를 볼 수 있어요.</span></div>`}
+        <label class="dept-opt"><input type="checkbox" name="m-dept" value="${d}" ${ds.includes(d)?"checked":""}><span class="set-ic" style="--c:${DEPTS[d].color}">${icon(DEPTS[d].icon)}</span><span><b>${DEPTS[d].name}</b></span></label>`).join("")}</div></div>`}
     <div class="field"><span>이메일</span><span class="readout">${esc(m.email)}</span></div></div>`,
     owner ? `<button class="btn pri block" type="button" data-act="saveMember" data-id="${m.id}">저장</button>`
     : approving ? `<button class="btn danger" type="button" data-act="rejectMember" data-id="${m.id}">거절</button><button class="btn pri" type="button" data-act="saveMember" data-id="${m.id}" data-approve="1">${icon("check")}승인</button>`
@@ -438,8 +435,7 @@ function rankBoard(){
           ${r===1&&slot?`<button class="btn sm pri" type="button" data-act="assign" data-name="${esc(p.name)}" data-date="${slot.date}">${fmtShort(slot.date)} 배정</button>`:""}
           ${r>1?`<button class="btn icon sm" type="button" data-act="rankUp" data-id="${p.id}" aria-label="${esc(p.name)} 순위 올리기">${icon("up")}</button>`:""}
           <button class="btn icon sm" type="button" data-act="rankClear" data-id="${p.id}" aria-label="${esc(p.name)} 순위에서 빼기">${icon("x")}</button></span>`:""}
-      </div>`;}).join("")}</div>
-    <p class="note">대표기도를 가장 오래 안 한 사람이 자동으로 위에 와요. ↑로 올리면 그 자리에 고정되고, ✕로 빼면 다음 배정 때까지 빠져요.${slot?` 1순위는 가장 가까운 빈 주일(${fmtKo(slot.date)})에 바로 배정할 수 있어요.`:""}</p>`;
+      </div>`;}).join("")}</div>`;
 }
 function vPeople(){
   const st=stats(); const f=S.peopleFilter; const q=S.peopleQ.trim();
@@ -502,7 +498,7 @@ function vScript(){
   const ppl = S.people.filter(p=>!p.excluded).map(p=>p.name).sort((a,b)=>a.localeCompare(b,"ko"));
   const blanks = (scriptText().match(/\[[^\]]+\]/g)||[]).length;
   const tab = S.scriptTab;
-  return `${head("사회 원고", cw?.title?`${esc(verseText(cw))} · ${esc(cw.title)}`:"주일을 고르면 원고가 채워져요", sheep("pray"))}
+  return `${head("사회 원고", cw?.title?`${esc(verseText(cw))} · ${esc(cw.title)}`:"", sheep("pray"))}
     <label class="sr-only" for="s-date">주일 선택</label>
     <div class="select-wrap"><select id="s-date" name="date">${services.map(w=>`<option value="${w.date}" ${w.date===sc.date?"selected":""}>${fmtFull(w.date)}${w.date===nx?.date?" · 다음 예배":""}</option>`).join("")}</select>${icon("down")}</div>
     <div class="seg" role="group" aria-label="보기">
@@ -518,7 +514,7 @@ function vScript(){
     <div class="card fields">
       <div class="field-row">
         <label class="field"><span>대표기도자</span><input id="s-prayer" name="prayer" list="dl-people" autocomplete="off" value="${esc(sc.prayer)}"></label>
-        <label class="field"><span>호칭 <small id="honor-src" class="honor-src">${roleOf(sc.prayer)?`챙김부 명단: ${roleOf(sc.prayer)}`:""}</small></span><select id="s-honor" name="honor">${["형제님","자매님","목자님"].map(h=>`<option ${sc.honor===h?"selected":""}>${h}</option>`).join("")}</select></label>
+        <label class="field"><span>호칭</span><select id="s-honor" name="honor">${["형제님","자매님","목자님"].map(h=>`<option ${sc.honor===h?"selected":""}>${h}</option>`).join("")}</select></label>
       </div>
       <div class="field"><span class="lab" id="lab-verse">본문 · 책 / 장 / 시작절 / 끝절</span><div class="verse" role="group" aria-labelledby="lab-verse">
         <input id="s-book" name="book" aria-label="책" placeholder="로마서" autocomplete="off" value="${esc(sc.book)}">
@@ -531,8 +527,7 @@ function vScript(){
       </div>
       <label class="field"><span>묵도 · 지난주 말씀 기반 기도</span><textarea id="s-mukdo" name="mukdo" rows="6" placeholder="지난주 말씀을 떠올리며 감사와 간구를 적어 주세요">${esc(sc.mukdo)}</textarea></label>
       <label class="field"><span>헌금기도 · 오늘 말씀 참고 멘트</span><textarea id="s-offering" name="offering" rows="3" placeholder="오늘 말씀을 통해 …">${esc(sc.offering)}</textarea></label>
-      ${S.canEdit?`<div class="field"><button class="btn block pri" type="button" data-act="saveLines">묵도·헌금기도 저장</button><span class="hint">저장하면 다른 운영자도 같은 문장을 봐요. 나머지 칸은 이 화면에서만 바뀌어요.</span></div>`
-        :`<div class="field"><span class="hint">여기서 고친 내용은 이 화면에서만 바뀌어요.</span></div>`}
+      ${S.canEdit?`<div class="field"><button class="btn block pri" type="button" data-act="saveLines">묵도·헌금기도 저장</button></div>`:""}
     </div>
     <datalist id="dl-people">${ppl.map(n=>`<option value="${esc(n)}">`).join("")}</datalist>`}`;
 }
@@ -548,14 +543,14 @@ function vMore(){
     <div class="card"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(u?.email||"")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.member?.role==="member"?"mute":"acc"}">${ROLE_NAME[S.member?.role]||"멤버"}</span>`}</div></div>
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
-      ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", S.installEvt?"오른쪽 버튼을 누르면 바로 설치돼요":ios?"오른쪽 버튼을 누르면 설치 방법을 알려 드려요":"오른쪽 버튼을 누르면 설치하거나 방법을 알려 드려요",
+      ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", "",
         `<button class="btn icon install-btn" type="button" data-act="install" aria-label="앱 설치">${icon("download")}</button>`)}
-      ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?(ALERTS.filter(a=>S.push.prefs[a.k].on && alertVisible(a)).map(a=>a.t).join(" · ")||"모든 종류 꺼짐"):"전체 알림 꺼짐"):"예배 준비·생일 소식을 이 휴대폰으로 알려 드려요", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
-      ${S.isAdmin?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"가입 승인, 관리자 지정", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
-      ${setRow("#14A3A0","edit","수정 요청", S.isAdmin ? (openReqCount()?`새로 온 요청 <b>${openReqCount()}건</b>`:"멤버들이 보낸 요청 확인") : "불편한 점이나 바라는 기능을 관리자에게 보내요",
+      ${setRow("#F0A020","bell","알림", S.push.token?(S.push.prefs.all?`${ALERTS.filter(a=>S.push.prefs[a.k].on && alertVisible(a)).length}개 켜짐`:"전체 꺼짐"):"", S.push.token?(S.push.prefs.all?`<span class="chip ok">켜짐</span>`:`<span class="chip mute">꺼짐</span>`):icon("chev","chev"),'data-act="notify"')}
+      ${S.isAdmin?setRow("#7A5CE0","users","멤버 관리", pendingCount()?`승인 대기 <b>${pendingCount()}명</b>`:"", pendingCount()?`<span class="chip warn plain">${pendingCount()}</span>`:icon("chev","chev"),'data-act="goMembers"'):""}
+      ${setRow("#14A3A0","edit","수정 요청", S.isAdmin ? (openReqCount()?`새로 온 요청 <b>${openReqCount()}건</b>`:"") : "",
         S.isAdmin && openReqCount() ? `<span class="chip warn plain">${openReqCount()}</span>` : icon("chev","chev"), 'data-act="goRequests"')}
-      ${sees("social")?setRow("#E0663E","heart","기도제목","대표기도자에게 보낼 기도 가이드",icon("chev","chev"),'data-act="topics"'):""}
-      ${S.isAdmin?setRow("#2F78D0","upload","데이터 가져오기","받은 json 파일로 명단·배정·생일을 옮겨요",icon("chev","chev"),'data-act="importSheet"'):""}
+      ${sees("social")?setRow("#E0663E","heart","기도제목","",icon("chev","chev"),'data-act="topics"'):""}
+      ${S.isAdmin?setRow("#2F78D0","upload","데이터 가져오기","",icon("chev","chev"),'data-act="importSheet"'):""}
     </div>`)}
     <div class="card list">${setRow("#C23A3F","logout",`<span style="color:var(--bad)">로그아웃</span>`,"","",'data-act="logout"')}</div>
     <p class="ver">러너스 버전 ${APP_VERSION}</p>`;
@@ -636,7 +631,7 @@ function personSheet(id){
       </div>
       <div class="field"><span class="lab" id="lab-st">상태</span><div class="radios" role="radiogroup" aria-labelledby="lab-st">${[["ok","가능"],["hold","보류"],["excluded","제외"]].map(([k,l])=>`<label><input type="radio" name="p-st" value="${k}" ${s===k?"checked":""}>${l}</label>`).join("")}</div></div>
       <label class="field"><span>메모 · 사유</span><input id="p-note" name="note" placeholder="군대, 사회 담당 등" autocomplete="off" value="${esc(p.note)}"></label>
-      <label class="field"><span>시트 기록상 마지막 대표기도</span><input id="p-last" name="last" type="date" value="${p.last||""}"><span class="hint">일정에 배정된 날짜가 더 최근이면 그 날짜가 마지막으로 잡혀요.</span></label>
+      <label class="field"><span>시트 기록상 마지막 대표기도</span><input id="p-last" name="last" type="date" value="${p.last||""}"></label>
     </div>`,
     `${id?`<button class="btn danger" type="button" data-act="delPerson" data-id="${id}">삭제</button>`:""}<button class="btn pri" type="button" data-act="savePerson" data-id="${id||""}">저장</button>`);
 }
@@ -655,19 +650,18 @@ function notifySheet(){
   openSheet("알림", `<div class="fields">
       ${note?`<p class="hint" role="alert" style="color:var(--warn);margin:0 18px">${note}</p>`:""}
       <div class="card list toggles">
-        <label class="row toggle master"><span class="set-ic" style="--c:#F0A020">${icon("bell")}</span><span class="main"><span class="t">전체 알림</span><span class="s">끄면 아래 설정은 그대로 두고 모든 알림을 멈춰요</span></span>
+        <label class="row toggle master"><span class="set-ic" style="--c:#F0A020">${icon("bell")}</span><span class="main"><span class="t">전체 알림</span></span>
           <input type="checkbox" role="switch" class="switch" id="pref-all" ${pf.all?"checked":""}></label>
       </div>
       <div class="card list toggles alerts ${pf.all?"":"dim"}" id="alert-list">${list.map(a=>{ const v=pf[a.k]; return `
         <div class="alert" data-alert="${a.k}">
-          <label class="row toggle"><span class="main"><span class="t">${a.t}</span><span class="s">${a.d}</span></span>
+          <label class="row toggle"><span class="main"><span class="t">${a.t}</span></span>
             <input type="checkbox" role="switch" class="switch" data-pref="${a.k}" ${v.on?"checked":""}></label>
           ${a.instant?"":`<div class="alert-cfg" ${v.on?"":"hidden"}>
             <div class="days" role="group" aria-label="${a.t} 요일">${DAY_ORDER.map(d=>`<button type="button" class="day ${d===0?"sun":""}" data-act="day" data-day="${d}" aria-pressed="${v.days.includes(d)}">${DAYS[d]}</button>`).join("")}</div>
             <div class="select-wrap hour"><select data-hour aria-label="${a.t} 시각">${HOURS.map(h=>`<option value="${h}" ${h===v.hour?"selected":""}>${fmtHour(h)}</option>`).join("")}</select>${icon("down")}</div>
           </div>`}
         </div>`; }).join("")}</div>
-      <p class="hint" style="margin:4px 18px 8px">알림은 <b>${esc(myName()||"(이름 없음)")}</b> 이름으로 와요. 일정에 적힌 이름과 다르면 관리자에게 고쳐 달라고 해 주세요. 시각은 1시간 단위이고, 몇 분 늦게 올 수 있어요. 사회부 알림의 요일은 그 주 주일(일요일) 기준이에요.</p>
     </div>`,
     on ? `<button class="btn pri block" type="button" data-act="pushSave">저장</button>`
        : `<button class="btn pri block" type="button" data-act="pushOn" ${note?"disabled":""}>알림 켜기</button>`);
@@ -714,10 +708,8 @@ function installGuide(){
   const ios = isIOS(); const inApp = /KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent);
   const step = (ic, t, d) => `<li class="ig-step"><span class="set-ic" style="--c:#2F9E6B">${icon(ic)}</span><div><b>${t}</b>${d?`<small>${d}</small>`:""}</div></li>`;
   const body = inApp ? `<ol class="ig">${step("share","먼저 기본 브라우저로 열어 주세요","카톡·인스타 같은 앱 안의 브라우저에서는 설치가 안 돼요. 오른쪽 위(또는 아래) 메뉴 → '다른 브라우저로 열기'를 눌러 주세요.")}${step("download", ios?"Safari에서 다시 이 버튼":"Chrome에서 다시 이 버튼", "열린 화면에서 더보기 → 앱 설치 버튼을 다시 눌러 주세요.")}</ol>`
-    : ios ? `<p class="note" style="margin:0 18px 8px">아이폰은 애플 정책상 버튼 한 번으로 설치할 수 없어서, 아래 3단계로 추가해요. (Safari에서만 돼요)</p>
-      <ol class="ig">${step("share","아래쪽 가운데 공유 버튼을 눌러요","네모에서 화살표가 위로 나온 모양이에요")}${step("plusSq","'홈 화면에 추가'를 눌러요","목록을 조금 내리면 있어요")}${step("check","오른쪽 위 '추가'를 누르면 끝","바탕화면의 러너스 양 아이콘으로 열어 주세요")}</ol>`
-    : `<ol class="ig">${step("menu","Chrome 오른쪽 위 ⋮ 메뉴를 눌러요","")}${step("download","'앱 설치' 또는 '홈 화면에 추가'를 눌러요","")}${step("check","'설치'를 누르면 바탕화면에 생겨요","")}</ol>
-      <p class="hint" style="margin:0 18px 8px">한 번 둘러본 뒤 다시 누르면 바로 설치 창이 뜨기도 해요.</p>`;
+    : ios ? `      <ol class="ig">${step("share","아래쪽 가운데 공유 버튼을 눌러요","네모에서 화살표가 위로 나온 모양이에요")}${step("plusSq","'홈 화면에 추가'를 눌러요","목록을 조금 내리면 있어요")}${step("check","오른쪽 위 '추가'를 누르면 끝","바탕화면의 러너스 양 아이콘으로 열어 주세요")}</ol>`
+    : `<ol class="ig">${step("menu","Chrome 오른쪽 위 ⋮ 메뉴를 눌러요","")}${step("download","'앱 설치' 또는 '홈 화면에 추가'를 눌러요","")}${step("check","'설치'를 누르면 바탕화면에 생겨요","")}</ol>`;
   openSheet("휴대폰에 앱 설치", body, `<button class="btn pri block" type="button" data-act="closeSheet">알겠어요</button>`);
 }
 function topicsSheet(){
@@ -726,7 +718,7 @@ function topicsSheet(){
   else openSheet("기도제목", `<div class="plain-text">${esc(S.topics||DEFAULT_TOPICS)}</div>`, `<button class="btn pri" type="button" data-act="copyTopics">${icon("copy")}복사</button>`);
 }
 function importSheet(){
-  openSheet("데이터 가져오기", `<div class="fields"><label class="field"><span>받은 json 파일 고르기 (데이터·생일 파일)</span><input id="imp-file" type="file" accept=".json,application/json"><span class="hint">같은 날짜·사람은 파일 내용으로 덮어써요. 처음 한 번만 하면 돼요.</span></label></div>`);
+  openSheet("데이터 가져오기", `<div class="fields"><label class="field"><span>json 파일 고르기</span><input id="imp-file" type="file" accept=".json,application/json"></label></div>`);
 }
 const val = id => document.getElementById(id)?.value.trim() ?? "";
 
@@ -815,15 +807,15 @@ function openDrawer(){
   drawerReturn=document.activeElement; const root=document.getElementById("drawer-root");
   const item = (k) => { const d=DEPTS[k]; const on=S.dept===k;
     return `<a class="dept-item ${on?"on":""}" href="#${d.home}" data-act="goDept" data-dept="${k}" ${on?'aria-current="true"':""}>
-      <span class="set-ic" style="--c:${d.color}">${icon(d.icon)}</span><span class="main"><span class="t">${d.name}</span><span class="s">${d.desc}</span></span>${on?icon("check","ck"):""}</a>`; };
+      <span class="set-ic" style="--c:${d.color}">${icon(d.icon)}</span><span class="main"><span class="t">${d.name}</span></span>${on?icon("check","ck"):""}</a>`; };
   root.innerHTML = `<div class="scrim" data-act="closeDrawer"></div>
     <nav class="drawer" id="drawer" aria-label="부서 메뉴">
       <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스</span>
         <button class="btn icon sm" type="button" data-act="closeDrawer" aria-label="메뉴 닫기">${icon("x")}</button></div>
-      <p class="drawer-label">부서 <span>꾹 눌러서 순서 바꾸기</span></p>
+      <p class="drawer-label">부서</p>
       <div class="dept-list">${deptOrder().filter(sees).map(item).join("")}</div>
       <div class="drawer-sep"></div>
-      <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span><span class="s">알림, 화면 모드${S.isAdmin?", 멤버 관리":""}</span></span></a>
+      <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span></span></a>
       <div class="drawer-foot">${av(myName()||S.user?.email||"?","sm")}<span>${esc(myName()||"")}</span></div>
     </nav>`;
   bindDeptSort(root.querySelector(".dept-list"));
@@ -981,7 +973,7 @@ function vLead(){
   const d = S.ldSun; const stats = TEAMS.map(t=>({t, ...teamStat(d, t.id)}));
   const tot = stats.reduce((a,x)=>({total:a.total+x.total, came:a.came+x.o+x.on, checked:a.checked+x.checked}), {total:0,came:0,checked:0});
   const mine = myTeam();
-  return `${head("리더단", "팀별 출석과 기도제목", `<button class="btn" type="button" data-act="copyPrayers">${icon("copy")}기도제목 모아 복사</button>`, "리더단")}
+  return `${head("리더단", "", `<button class="btn" type="button" data-act="copyPrayers">${icon("copy")}기도제목 모아 복사</button>`, "리더단")}
     ${ldWeekNav()}
     <section class="card ld-total">
       <div class="ld-total-n"><span class="k">전체 출석</span><b class="tnum">${tot.came}<small>/${tot.total}명</small></b></div>
@@ -993,8 +985,7 @@ function vLead(){
       <span class="team-n tnum">${x.total?`${x.o+x.on}<small>/${x.total}</small>`:`<small>팀원 없음</small>`}</span>
       <span class="team-bar"><i style="width:${x.total?(x.o+x.on)/x.total*100:0}%"></i></span>
       <span class="team-meta">${x.total?`${x.checked<x.total?`미체크 ${x.total-x.checked}명`:"체크 완료"} · 기도제목 ${x.prayers}`:"눌러서 팀원 등록"}</span>
-    </button>`).join("")}</div>
-    <p class="note">팀 카드를 누르면 출석을 체크하고 기도제목을 적거나 그 팀 기도제목만 복사할 수 있어요.</p>`;
+    </button>`).join("")}</div>`;
 }
 function vTeam(){
   const t = teamOf(S.teamSel) || TEAMS[0]; if(!S.ldSun) S.ldSun = sundayOn(TODAY);
@@ -1015,7 +1006,7 @@ function vTeam(){
       ${edit?`<div class="tm-add"><label class="sr-only" for="tm-new">팀원 추가</label><input id="tm-new" maxlength="20" autocomplete="off" enterkeyhint="done" placeholder="팀원 이름 추가"><button class="btn sm pri" type="button" data-act="addMember">${icon("plus")}추가</button></div>`:""}</section>
       <section class="section"><div class="section-h"><h2>팀 전체 기도제목</h2><button class="link" type="button" data-act="copyTeamPrayers" data-id="${t.id}">${icon("copy")}이 팀 기도제목 복사</button></div>
         <textarea class="tm-pray team keep-val" id="pr-team" data-pray-team="1" rows="3" maxlength="800" placeholder="팀이 함께 기도할 제목" ${edit?"":"readonly"}>${esc(w.teamPrayer||"")}</textarea></section>
-      <p class="note">${edit?"적는 대로 자동 저장돼요.":"보기 전용이에요. 기록은 리더단 운영자가 할 수 있어요."}${w.updatedAt?.toDate?` 마지막 저장 ${ago(w.updatedAt.toDate())}`:""}</p>`
+      ${w.updatedAt?.toDate?`<p class="note">마지막 저장 ${ago(w.updatedAt.toDate())}</p>`:""}`
       : `<div class="card">${empty("팀원을 먼저 등록해 주세요", edit?"오른쪽 위 '팀원 편집'에서 이름을 한 줄에 한 명씩 적으면 돼요.":"리더단 운영자가 팀원을 등록하면 여기에 보여요.","wave", edit?`<button class="btn pri" type="button" data-act="editTeam" data-id="${t.id}">팀원 편집</button>`:"")}</div>`}`;
 }
 function vLeadHist(){
@@ -1039,8 +1030,7 @@ function teamSheet(id){
     <label class="field"><span>팀원 (한 줄에 한 명)</span><textarea id="tm-names" rows="8" placeholder="홍길동&#10;김하늘">${esc(ms.join("\n"))}</textarea></label>
     <div class="field-row"><label class="field"><span>리더</span><input id="tm-leader" list="dl-tm" autocomplete="off" value="${esc(leader)}" placeholder="팀원 중 한 명"></label>
       <label class="field"><span>멘토</span><input id="tm-mentor" list="dl-tm" autocomplete="off" value="${esc(S.teams[id]?.mentor||"")}" placeholder="팀원 중 한 명"></label></div>
-    <datalist id="dl-tm">${ms.map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
-    <p class="hint" style="margin:0 18px">이름을 바꾸거나 빼도 지난 기록은 그대로 남아요. 팀원 이름을 멤버 이름과 똑같이 적으면 그 사람에게 '우리 팀'이 표시돼요.</p></div>`,
+    <datalist id="dl-tm">${ms.map(m=>`<option value="${esc(m)}">`).join("")}</datalist></div>`,
     `<button class="btn pri block" type="button" data-act="saveTeam" data-id="${id}">저장</button>`);
 }
 // 팀원 이동·빼기·추가 (팀 문서의 members/leader/mentor를 고쳐요. 지난 출석·기도제목 기록은 그대로)
@@ -1057,8 +1047,7 @@ function memberMenu(m){
   openSheet(esc(m), `<div class="fields">
     <div class="field"><span>지금 팀</span><span class="readout" style="--tc:${t.c}"><span class="team-dot"></span> ${t.name}${d.leader===m?" · 리더":d.mentor===m?" · 멘토":""}</span></div>
     <div class="field"><span class="lab" id="lab-mv">다른 팀으로 이동</span>
-      <div class="mv-grid" role="group" aria-labelledby="lab-mv">${TEAMS.filter(x=>x.id!==id).map(x=>`<button type="button" class="mv-team" data-act="moveTo" data-m="${esc(m)}" data-to="${x.id}" style="--tc:${x.c}"><span class="team-dot"></span>${x.name}<small>${teamMembers(x.id).length}명</small></button>`).join("")}</div>
-      <span class="hint">이동해도 이 팀에서의 지난 출석·기도제목 기록은 그대로 남아요.</span></div>
+      <div class="mv-grid" role="group" aria-labelledby="lab-mv">${TEAMS.filter(x=>x.id!==id).map(x=>`<button type="button" class="mv-team" data-act="moveTo" data-m="${esc(m)}" data-to="${x.id}" style="--tc:${x.c}"><span class="team-dot"></span>${x.name}<small>${teamMembers(x.id).length}명</small></button>`).join("")}</div></div>
     <div class="field"><span class="lab">역할</span><div class="mv-roles">
       <button type="button" class="btn sm" data-act="setRole" data-m="${esc(m)}" data-r="leader">${d.leader===m?"리더 해제":"리더로 지정"}</button>
       <button type="button" class="btn sm" data-act="setRole" data-m="${esc(m)}" data-r="mentor">${d.mentor===m?"멘토 해제":"멘토로 지정"}</button></div></div>
@@ -1174,7 +1163,6 @@ function vLedger(){
           <tfoot><tr><td class="c-date">합계</td><td class="c-cat"></td><td class="c-memo">${shown.length}건<span class="m-only foot-sum"><b class="in">+${won(sumOf(shown,"in"))}</b> <b class="out">−${won(sumOf(shown,"out"))}</b></span></td><td class="c-num in d-only">${won(sumOf(shown,"in"))}</td><td class="c-num out d-only">${won(sumOf(shown,"out"))}</td><td class="c-num m-only">${sgn(sumOf(shown,"in")-sumOf(shown,"out"))}</td><td class="c-num bal">${sgn(opening+inM-outM)}</td></tr></tfoot>
         </table>
       </div>
-      ${edit?`<p class="note lg-note">줄을 누르면 고치거나 지울 수 있어요.</p>`:""}
     </section>`;
 }
 function vLedgerSum(){
@@ -1252,14 +1240,14 @@ function vRequests(){
       <div class="field"><span class="lab" id="lab-cat">종류</span><div class="seg" role="group" aria-labelledby="lab-cat">${Object.entries(REQ_CAT).map(([k,[t]])=>`<button type="button" data-act="reqCat" data-v="${k}" aria-pressed="${S.reqCat===k}">${t}</button>`).join("")}</div></div>
       <label class="field"><span>어떤 화면에서요? (선택)</span><input id="rq-where" maxlength="40" autocomplete="off" placeholder="예: 챙김부 · 전체 생일"></label>
       <label class="field"><span>내용</span><textarea id="rq-text" rows="6" maxlength="2000" placeholder="불편했던 점, 고쳐 줬으면 하는 점, 있었으면 하는 기능을 자유롭게 적어 주세요"></textarea></label>
-      <div class="field"><button class="btn pri block" type="button" data-act="sendReq">${icon("upload")}관리자에게 보내기</button><span class="hint">관리자(진규님 포함)만 볼 수 있어요. 답변이 달리면 아래 '내가 보낸 요청'에서 볼 수 있어요.</span></div>
+      <div class="field"><button class="btn pri block" type="button" data-act="sendReq">${icon("upload")}관리자에게 보내기</button></div>
     </div>`;
   const myList = section("내가 보낸 요청", mine.length?`<div class="card list">${sorted(mine).map(r=>reqRow(r,false)).join("")}</div>`:`<div class="card"><p class="note" style="padding:16px">아직 보낸 요청이 없어요</p></div>`);
-  if(!admin) return `${head("수정 요청","불편한 점이나 바라는 기능을 관리자에게 보내요")}${compose}${myList}`;
+  if(!admin) return `${head("수정 요청")}${compose}${myList}`;
   const groups = [["open","새로 온 요청"],["doing","확인 중"],["hold","보류"],["done","반영 완료"]];
   const inbox = S.requests.length ? groups.map(([st,t])=>{ const l=sorted(S.requests.filter(r=>(r.status||"open")===st)); return l.length?section(`${t} <span class="cnt">${l.length}</span>`, `<div class="card list">${l.map(r=>reqRow(r,true)).join("")}</div>`):""; }).join("")
     : `<div class="card">${empty("아직 받은 요청이 없어요","멤버들이 더보기 → 수정 요청에서 보내면 여기에 모여요.","wave")}</div>`;
-  return `${head("수정 요청", openReqCount()?`새로 온 요청 ${openReqCount()}건`:"받은 요청을 확인하고 답해 주세요")}
+  return `${head("수정 요청", openReqCount()?`새로 온 요청 ${openReqCount()}건`:"")}
     <div class="seg" role="group" aria-label="보기">
       <button type="button" data-act="reqTab" data-v="inbox" aria-pressed="${tab==="inbox"}">받은 요청${openReqCount()?` ${openReqCount()}`:""}</button>
       <button type="button" data-act="reqTab" data-v="write" aria-pressed="${tab==="write"}">요청 보내기</button>
