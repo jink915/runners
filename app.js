@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-19";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-20";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -135,7 +135,7 @@ const PROFILE_EMOJI = ["🐑","🌱","🌸","🍀","☀️","🌙","⭐","🎵",
 const profileOf = name => { const n=(name||"").trim(); return n ? S.profByName[n] : null; };
 function av(name, cls=""){
   const p = profileOf(name); const h = Number.isFinite(p?.hue) ? p.hue : hue(name);
-  if(p?.kind==="photo" && p.photo) return `<span class="av img ${cls}" aria-hidden="true"><img src="${esc(p.photo)}" alt=""></span>`;
+  if(p?.kind==="photo" && p.photo && (imgData(p.photo) || /^https:\/\/[a-z0-9.-]+\.googleusercontent\.com\//.test(p.photo))) return `<span class="av img ${cls}" aria-hidden="true"><img src="${esc(p.photo)}" alt=""></span>`;
   if(p?.kind==="sheep" && SHEEP[p.sheep]) return `<span class="av img sheep ${cls}" style="--h:${h}" aria-hidden="true"><img src="${SHEEP[p.sheep][0]}" alt=""></span>`;
   if(p?.kind==="emoji" && p.emoji) return `<span class="av emo ${cls}" style="--h:${h}" aria-hidden="true">${esc(p.emoji)}</span>`;
   return `<span class="av ${cls}" style="--h:${h}" aria-hidden="true">${esc((firstName(name)||"?")[0])}</span>`;
@@ -1124,6 +1124,8 @@ function watchComments(id){
 
 /* ---------- 러너스: 지출결의서 ---------- */
 const EXP_MAX = 4;
+// 그림 주소는 우리가 만든 이미지(data:image/…;base64)만 그대로 쓰고, 나머지는 버려요 (남이 넣은 코드가 실행되지 않게)
+const imgData = u => typeof u==="string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(u) ? u : "";
 // 12300 → "일만이천삼백"
 function wonKo(n){ n=Math.floor(+n||0); if(n<=0) return "영"; const D="일이삼사오육칠팔구", U=["천","백","십",""], B=["","만","억","조"]; let out="", g=0;
   while(n>0){ const part=n%10000; if(part){ let t=""; String(part).padStart(4,"0").split("").forEach((c,i)=>{ if(+c) t+=D[+c-1]+U[i]; }); out=t+B[g]+out; } n=Math.floor(n/10000); g++; } return out; }
@@ -1146,9 +1148,9 @@ function expDoc(e, files){
       <tr class="r-sign ${e.detail?"with-detail":""}"><th colspan="2">영수확인</th><td class="exp-sign">
         <p>상기 금액을 정히 영수합니다.</p>
         <p class="d">${koDate(e.date)}</p>
-        <p class="who"><span>영수자</span><b>${esc(e.payee||"")}</b><span class="sig">${e.sign?`<img src="${e.sign}" alt="${esc(e.payee||"")} 서명">`:""}<i>(서명)</i></span></p></td></tr>
+        <p class="who"><span>영수자</span><b>${esc(e.payee||"")}</b><span class="sig">${imgData(e.sign)?`<img src="${imgData(e.sign)}" alt="${esc(e.payee||"")} 서명">`:""}<i>(서명)</i></span></p></td></tr>
     </tbody></table></div>
-    ${files.length?`<section class="exp-files"><h2>영수증 첨부</h2><div class="exp-imgs n${Math.min(files.length,2)}">${files.map((f,i)=>`<figure><img src="${f.data}" alt="영수증 ${i+1}"><figcaption>영수증 ${i+1} · ${esc(e.title||"")}</figcaption></figure>`).join("")}</div></section>`:""}`;
+    ${files.length?`<section class="exp-files"><h2>영수증 첨부</h2><div class="exp-imgs n${Math.min(files.length,2)}">${files.filter(f=>imgData(f.data)).map((f,i)=>`<figure><img src="${imgData(f.data)}" alt="영수증 ${i+1}"><figcaption>영수증 ${i+1} · ${esc(e.title||"")}</figcaption></figure>`).join("")}</div></section>`:""}`;
 }
 function expRow(e){
   return `<button type="button" class="row exp-row" data-act="openExp" data-id="${e.id}">
@@ -1236,7 +1238,7 @@ function expSheet(id){
 }
 function expThumbs(){
   const f = S.expDraft?.files||[];
-  return f.map((x,i)=>`<div class="exp-th"><img src="${x.data}" alt="영수증 ${i+1}"><button type="button" class="btn icon sm" data-act="expRmFile" data-i="${i}" aria-label="영수증 ${i+1} 빼기">${icon("x")}</button></div>`).join("")
+  return f.map((x,i)=>`<div class="exp-th"><img src="${imgData(x.data)}" alt="영수증 ${i+1}"><button type="button" class="btn icon sm" data-act="expRmFile" data-i="${i}" aria-label="영수증 ${i+1} 빼기">${icon("x")}</button></div>`).join("")
     + (f.length<EXP_MAX ? `<label class="exp-add"><input type="file" id="ex-file" accept="image/*" multiple hidden>${icon("plus")}<span>사진</span></label>` : "");
 }
 // 영수증 사진: 긴 쪽 1400px JPEG로 줄여서 저장 (문서 하나에 1MB를 넘지 않게)
