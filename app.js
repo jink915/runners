@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-4";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-5";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -463,9 +463,14 @@ function vPeople(){
 }
 
 /* ---------- 원고 ---------- */
+// 챙김부 생일 명단의 구분(목자·형제·자매)으로 대표기도자 호칭을 자동으로 맞춰요
+const ROLE_HONOR = { "목자":"목자님", "형제":"형제님", "자매":"자매님" };
+const roleOf = name => { const n=(name||"").replace(/\s/g,""); return n ? (S.births.find(b=>(b.name||"").replace(/\s/g,"")===n)?.role||"") : ""; };
+const honorOf = name => ROLE_HONOR[roleOf(name)] || "";
 function syncScript(date){
   const w = weekAt(date); const sc=S.script;
   Object.assign(sc, {date, prayer:w.prayer||"", book:w.book||"", ch:w.ch||"", v1:w.v1||"", v2:w.v2||"", hymn:w.hymn||"", mukdo:w.mukdo||"", offering:w.offering||""});
+  const h = honorOf(sc.prayer); if(h) sc.honor = h;
 }
 function buildScript(){
   const sc=S.script; const ph = t => `[${t}]`;
@@ -513,7 +518,7 @@ function vScript(){
     <div class="card fields">
       <div class="field-row">
         <label class="field"><span>대표기도자</span><input id="s-prayer" name="prayer" list="dl-people" autocomplete="off" value="${esc(sc.prayer)}"></label>
-        <label class="field"><span>호칭</span><select id="s-honor" name="honor">${["형제님","자매님","목자님"].map(h=>`<option ${sc.honor===h?"selected":""}>${h}</option>`).join("")}</select></label>
+        <label class="field"><span>호칭 <small id="honor-src" class="honor-src">${roleOf(sc.prayer)?`챙김부 명단: ${roleOf(sc.prayer)}`:""}</small></span><select id="s-honor" name="honor">${["형제님","자매님","목자님"].map(h=>`<option ${sc.honor===h?"selected":""}>${h}</option>`).join("")}</select></label>
       </div>
       <div class="field"><span class="lab" id="lab-verse">본문 · 책 / 장 / 시작절 / 끝절</span><div class="verse" role="group" aria-labelledby="lab-verse">
         <input id="s-book" name="book" aria-label="책" placeholder="로마서" autocomplete="off" value="${esc(sc.book)}">
@@ -1537,6 +1542,9 @@ document.addEventListener("input", e => {
   if(id==="w-kind"){ const k=e.target.value; document.getElementById("w-other-wrap").hidden = k!=="__other"; document.getElementById("w-roles").hidden = !!k; return; }
   const map={"s-prayer":"prayer","s-honor":"honor","s-book":"book","s-ch":"ch","s-v1":"v1","s-v2":"v2","s-hymn":"hymn","s-mukdo":"mukdo","s-offering":"offering"};
   if(map[id]) S.script[map[id]]=e.target.value;
+  if(id==="s-prayer"){ const r=roleOf(e.target.value), h=ROLE_HONOR[r]; const src=document.getElementById("honor-src");
+    if(h){ S.script.honor=h; const sel=document.getElementById("s-honor"); if(sel) sel.value=h; }
+    if(src) src.textContent = r ? `챙김부 명단: ${r}` : ""; }
 });
 document.addEventListener("keydown", e => {
   if(e.key==="Enter" && e.target.id==="tm-new" && !e.isComposing){ e.preventDefault(); document.querySelector('[data-act="addMember"]')?.click(); return; }
@@ -1616,7 +1624,7 @@ async function startFirebase(){
       unsubs.push(onSnapshot(collection(fs,"teamWeeks"), s=>{ S.tweeks=Object.fromEntries(s.docs.map(d=>[d.id,d.data()])); b=true; done(); }, ()=>{ b=true; done(); }));
     }
     if(sees("finance")) unsubs.push(onSnapshot(collection(fs,"ledger"), s=>{ S.ledger=s.docs.map(d=>({id:d.id,...d.data()})); S.got.l=true; render(); }, ()=>{ S.got.l=true; render(); }));
-    if(sees("care")) unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
+    if(sees("care") || sees("social")) unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
     if(can("social")){
       unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
     }

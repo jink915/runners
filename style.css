@@ -644,3 +644,4 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 .dept-item.lifting{position:relative;z-index:2;transition:none!important;background:var(--surface);box-shadow:0 10px 30px rgb(10 20 40 / .22),0 0 0 1.5px var(--accent);cursor:grabbing}
 @media (prefers-reduced-motion:reduce){ .dept-item,.dept-list.sorting .dept-item{transition:none} }
 .dept-item{-webkit-user-drag:none}
+.honor-src{font-weight:600;font-size:11.5px;color:var(--accent);margin-left:4px}
