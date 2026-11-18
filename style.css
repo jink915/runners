@@ -915,3 +915,19 @@ button.card.army{cursor:pointer}
 .so-own{margin:0;border-radius:14px;background:var(--sunken);padding:10px 14px}
 .mp-row b{display:flex;align-items:center;gap:6px}
 .mp-row b .av{flex:none}
+
+/* 알림 묶음 */
+.alert-groups{display:flex;flex-direction:column;gap:10px;transition:opacity .15s}
+.alert-groups.dim{opacity:.45;pointer-events:none}
+.ag{padding:0;overflow:hidden}
+.ag-head{display:flex;align-items:center;gap:12px}
+.ag-head .main{flex:1;min-width:0}
+.ag-head .s{font-size:12.5px;color:var(--muted)}
+.ag-head .s b{color:var(--ink);font-weight:800}
+.ag-more{display:inline-flex;align-items:center;gap:2px;flex:none;background:var(--sunken);border:0;border-radius:999px;padding:6px 10px 6px 12px;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-2);cursor:pointer}
+.ag-more .i{width:15px;height:15px;transition:transform .15s}
+.ag-more[aria-expanded="true"] .i{transform:rotate(180deg)}
+.ag-body{border-top:1px solid var(--line);background:color-mix(in srgb,var(--sunken) 45%,transparent)}
+.ag-body .alert + .alert{border-top:1px solid var(--line)}
+.ag-body .row.toggle .s{display:block;font-size:12px;color:var(--muted);margin-top:1px;word-break:keep-all}
+.alert-groups{margin:0 18px}

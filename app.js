@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-27";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-28";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -687,6 +687,19 @@ function pushSupportNote(){
   if(Notification.permission==="denied") return "이 기기에서 러너스 알림이 차단돼 있어요. 휴대폰 설정 → 알림에서 러너스(또는 브라우저)를 허용해 주세요.";
   return "";
 }
+// 알림 화면: 큰 묶음 5개 (스위치 하나로 켜고 끄기, 세부 항목은 '자세히'에서)
+const ALERT_GROUPS = [
+  { id:"notice", t:"공지", d:"게시판에 공지가 올라오면", icon:"bell", c:"#F0A020", keys:["notice"] },
+  { id:"turn", t:"내 차례 · 주일 준비", d:"사회·대표기도 차례와 준비", icon:"mic", c:"#2F78D0", keys:["prayDay","mcDay","prayer","hymn","script","fallback"] },
+  { id:"birth", t:"생일", d:"챙김부 생일 알림", icon:"cake", c:"#E0663E", keys:["bdToday","bdWeek"] },
+  { id:"inbox", t:"들어온 요청", d:"가입·수정 요청·지출결의서", icon:"edit", c:"#14A3A0", keys:["join","request","expense","expResult"] },
+  { id:"change", t:"부서 변경", d:"다른 운영자가 고친 내용", icon:"users", c:"#7A5CE0", keys:["chg_social","chg_care","chg_finance","chg_leaders"] },
+];
+function syncAlertGroup(box){
+  if(!box) return; const prefs=[...box.querySelectorAll("[data-pref]")]; const onN=prefs.filter(x=>x.checked).length;
+  const sw=box.querySelector("[data-group-switch]"); if(sw) sw.checked = onN>0;
+  const b=box.querySelector(".ag-sum b"); if(b) b.textContent = onN;
+}
 function notifySheet(){
   const note = pushSupportNote(); const on = !!S.push.token; const pf = S.push.prefs;
   const list = ALERTS.filter(alertVisible);
@@ -696,16 +709,22 @@ function notifySheet(){
         <label class="row toggle master"><span class="set-ic" style="--c:#F0A020">${icon("bell")}</span><span class="main"><span class="t">전체 알림</span></span>
           <input type="checkbox" role="switch" class="switch" id="pref-all" ${pf.all?"checked":""}></label>
       </div>
-      <div class="card list toggles alerts ${pf.all?"":"dim"}" id="alert-list">${list.map((a,i)=>{ const v=pf[a.k]; return `
-        ${a.g && a.g!==list[i-1]?.g?`<div class="alert-g">${a.g}</div>`:""}
-        <div class="alert" data-alert="${a.k}">
-          <label class="row toggle"><span class="main"><span class="t">${a.t}</span></span>
-            <input type="checkbox" role="switch" class="switch" data-pref="${a.k}" ${v.on?"checked":""}></label>
-          ${a.instant?"":`<div class="alert-cfg" ${v.on?"":"hidden"}>
-            <div class="days" role="group" aria-label="${a.t} 요일">${DAY_ORDER.map(d=>`<button type="button" class="day ${d===0?"sun":""}" data-act="day" data-day="${d}" aria-pressed="${v.days.includes(d)}">${DAYS[d]}</button>`).join("")}</div>
-            <div class="select-wrap hour"><select data-hour aria-label="${a.t} 시각">${HOURS.map(h=>`<option value="${h}" ${h===v.hour?"selected":""}>${fmtHour(h)}</option>`).join("")}</select>${icon("down")}</div>
-          </div>`}
-        </div>`; }).join("")}</div>
+      <div class="alert-groups ${pf.all?"":"dim"}" id="alert-list">${ALERT_GROUPS.map(g=>{ const items=list.filter(a=>g.keys.includes(a.k)); if(!items.length) return "";
+        const onN = items.filter(a=>pf[a.k].on).length; const single = items.length===1;
+        return `<div class="card ag" data-group="${g.id}">
+          <div class="row toggle ag-head"><span class="set-ic" style="--c:${g.c}">${icon(g.icon)}</span>
+            <span class="main"><span class="t">${g.t}</span><span class="s ag-sum">${single ? esc(g.d) : `<b>${onN}</b>/${items.length}개 켜짐`}</span></span>
+            ${single && items[0].instant ? "" : `<button type="button" class="ag-more" data-act="agMore" aria-expanded="false" aria-label="${g.t} 자세히">${single?"시각":"자세히"}${icon("down")}</button>`}
+            <input type="checkbox" role="switch" class="switch" data-group-switch="${g.id}" aria-label="${g.t} 알림" ${onN?"checked":""}></div>
+          <div class="ag-body" hidden>${items.map(a=>{ const v=pf[a.k]; return `
+            <div class="alert" data-alert="${a.k}">
+              ${single?`<input type="checkbox" data-pref="${a.k}" ${v.on?"checked":""} hidden>`:`<label class="row toggle"><span class="main"><span class="t">${a.t}</span><span class="s">${esc(a.d)}</span></span>
+                <input type="checkbox" role="switch" class="switch" data-pref="${a.k}" ${v.on?"checked":""}></label>`}
+              ${a.instant?"":`<div class="alert-cfg" ${v.on?"":"hidden"}>
+                <div class="days" role="group" aria-label="${a.t} 요일">${DAY_ORDER.map(d=>`<button type="button" class="day ${d===0?"sun":""}" data-act="day" data-day="${d}" aria-pressed="${v.days.includes(d)}">${DAYS[d]}</button>`).join("")}</div>
+                <div class="select-wrap hour"><select data-hour aria-label="${a.t} 시각">${HOURS.map(h=>`<option value="${h}" ${h===v.hour?"selected":""}>${fmtHour(h)}</option>`).join("")}</select>${icon("down")}</div>
+              </div>`}
+            </div>`; }).join("")}</div></div>`; }).join("")}</div>
     </div>`,
     on ? `<button class="btn pri block" type="button" data-act="pushSave">저장</button>`
        : `<button class="btn pri block" type="button" data-act="pushOn" ${note?"disabled":""}>알림 켜기</button>`);
@@ -2029,6 +2048,7 @@ document.addEventListener("click", async e => {
     }catch(err){ t.disabled=false; t.textContent="탈퇴하기"; toast(err?.message?.includes("최고 관리자")?"최고 관리자 계정은 탈퇴할 수 없어요":"탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요"); }
     return; }
   if(a==="reload"){ location.reload(); return; }
+  if(a==="agMore"){ const body=t.closest(".ag").querySelector(".ag-body"); body.hidden=!body.hidden; t.setAttribute("aria-expanded", String(!body.hidden)); return; }
   if(a==="logout"){ await AUTH.signOut(); location.hash="#dash"; toast("로그아웃했어요"); }
   if(a==="install"){
     if(S.installEvt){ const ev=S.installEvt; S.installEvt=null; ev.prompt(); try{ const r=await ev.userChoice; if(r.outcome==="accepted") toast("설치하고 있어요. 바탕화면을 확인해 주세요"); }catch{} render(); }
@@ -2057,7 +2077,8 @@ document.addEventListener("input", e => {
   if(id==="so-start"||id==="so-end"){ syncSoldierCalc(); return; }
   if(id==="ex-amt"){ const n=parseWon(e.target.value); const ko=document.getElementById("ex-ko"); if(ko) ko.textContent = n ? wonLine(n) : ""; return; }
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
-  if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
+  if(e.target.matches?.("[data-group-switch]")){ const box=e.target.closest(".ag"); box.querySelectorAll("[data-pref]").forEach(x=>{ x.checked=e.target.checked; const cfg=x.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!x.checked; }); syncAlertGroup(box); return; }
+  if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; syncAlertGroup(e.target.closest(".ag")); return; }
   if(e.target.name==="m-role"){ syncDeptPick(); return; }
   if(id==="my-pray"){ saveMyPray(e.target); return; }
   if(e.target.dataset?.pray || e.target.dataset?.prayTeam || e.target.dataset?.why){ savePray(e.target); return; }
