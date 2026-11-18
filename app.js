@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-24";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-25";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1077,13 +1077,16 @@ function soldierSheet(id){
     <label class="field"><span>이름</span><input id="so-name" maxlength="20" autocomplete="off" value="${esc(s?.name||"")}"></label>
     <div class="field"><span class="lab" id="lab-br">복무</span><div class="seg wrap" role="radiogroup" aria-labelledby="lab-br">${Object.entries(BRANCH).map(([k,[n,m]])=>`<button type="button" role="radio" data-act="soBranch" data-v="${k}" aria-pressed="${br===k}" aria-checked="${br===k}">${n}<small>${m}개월</small></button>`).join("")}</div></div>
     <label class="field"><span>입대일</span><input type="date" id="so-start" value="${s?.start||""}"></label>
-    <label class="field"><span>전역일 (조기 전역·연장일 때만 직접 적기)</span><input type="date" id="so-end" value="${s?.end||""}"></label>
+    <label class="row toggle so-own"><span class="main"><span class="t">전역일 직접 정하기</span><span class="s">조기 전역·연장일 때만</span></span>
+      <input type="checkbox" role="switch" class="switch" id="so-own" ${s?.end?"checked":""}></label>
+    <label class="field" id="so-end-wrap" ${s?.end?"":"hidden"}><span>전역일</span><input type="date" id="so-end" value="${s?.end||""}"></label>
     <p class="so-calc" id="so-calc"></p>
     <label class="field"><span>메모</span><input id="so-note" maxlength="100" autocomplete="off" placeholder="예: 부대·편지 주소" value="${esc(s?.note||"")}"></label>
   </div>`, `${s?`<button class="btn danger" type="button" data-act="delSoldier" data-id="${s.id}">삭제</button>`:""}<button class="btn pri ${s?"":"block"}" type="button" data-act="saveSoldier" data-id="${s?.id||""}">저장</button>`);
   syncSoldierCalc();
 }
-function soldierForm(){ return { name:val("so-name"), branch:document.querySelector('[data-act="soBranch"][aria-pressed="true"]')?.dataset.v||"army", start:val("so-start"), end:val("so-end"), note:val("so-note") }; }
+// 전역일은 '직접 정하기'를 켰을 때만 저장 (날짜 칸을 실수로 눌러 오늘 날짜가 들어가는 일 방지)
+function soldierForm(){ return { name:val("so-name"), branch:document.querySelector('[data-act="soBranch"][aria-pressed="true"]')?.dataset.v||"army", start:val("so-start"), end:document.getElementById("so-own")?.checked ? val("so-end") : "", note:val("so-note") }; }
 function syncSoldierCalc(){
   const el = document.getElementById("so-calc"); if(!el) return; const f = soldierForm();
   if(!f.start){ el.textContent=""; return; } const st = armyStat(f);
@@ -1833,7 +1836,8 @@ document.addEventListener("click", async e => {
   if(a==="editSoldier"){ if(!can("care")) return; soldierSheet(t.dataset.id); return; }
   if(a==="soBranch"){ t.parentElement.querySelectorAll("button").forEach(b=>{ b.setAttribute("aria-pressed", String(b===t)); b.setAttribute("aria-checked", String(b===t)); }); syncSoldierCalc(); return; }
   if(a==="saveSoldier"){ const f=soldierForm(); if(!f.name){ toast("이름을 적어 주세요"); return; } if(!f.start){ toast("입대일을 골라 주세요"); return; }
-    if(f.end && f.end<f.start){ toast("전역일이 입대일보다 빨라요"); return; }
+    if(document.getElementById("so-own")?.checked && !f.end){ toast("전역일을 골라 주세요"); return; }
+    if(f.end && f.end<=f.start){ toast("전역일이 입대일보다 빨라요"); return; }
     const id=t.dataset.id; t.disabled=true;
     const ok = await write(()=> id ? S.db.doc("soldiers/"+id).set(f) : S.db.collection("soldiers").doc().set(f), id?"고쳤어요":`${f.name}님을 추가했어요`);
     if(ok){ closeSheet(); if(!FB){ id ? Object.assign(S.soldiers.find(x=>x.id===id), f) : S.soldiers.push({id:"s"+Date.now(), ...f}); render(); } } else t.disabled=false; return; }
@@ -2025,6 +2029,7 @@ document.addEventListener("click", async e => {
     else installGuide(); }
 });
 document.addEventListener("change", async e => {
+  if(e.target.id==="so-own"){ const w=document.getElementById("so-end-wrap"); if(w) w.hidden=!e.target.checked; if(e.target.checked && !val("so-end")){ const f=soldierForm(); if(f.start){ const el=document.getElementById("so-end"); el.value=dischargeOf({...f,end:""}); } } syncSoldierCalc(); return; }
   if(e.target.id==="s-date"){ syncScript(e.target.value); render(); return; }
   if(e.target.id==="ex-file" && e.target.files.length){ const fs=[...e.target.files]; e.target.value="";
     for(const f of fs){ if(S.expDraft.files.length>=EXP_MAX){ toast(`영수증은 ${EXP_MAX}장까지 붙일 수 있어요`); break; }
