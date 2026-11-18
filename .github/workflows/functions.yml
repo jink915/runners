@@ -26,6 +26,11 @@ jobs:
         run: npx --yes firebase-tools@14 deploy --only functions --project runners-prepare --non-interactive --force
       - name: 빌드 이미지 자동 정리(하루 지나면 삭제)
         run: npx --yes firebase-tools@14 functions:artifacts:setpolicy --location asia-northeast3 --project runners-prepare --force || true
+      - name: 탈퇴 함수 열림 확인 (로그인 없이 부르면 '로그인 필요'가 와야 정상)
+        run: |
+          out=$(curl -s -X POST -H 'Content-Type: application/json' -d '{"data":{}}' -w ' HTTP%{http_code}' https://asia-northeast3-runners-prepare.cloudfunctions.net/deleteAccount)
+          echo "$out"
+          echo "$out" | grep -q UNAUTHENTICATED || { echo "::warning::deleteAccount가 앱에서 호출되지 않을 수 있어요"; }
       - name: 정리
         if: always()
         run: rm -f "$RUNNER_TEMP/sa.json"
