@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-25";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-26";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -135,11 +135,13 @@ const hue = name => { let h=0; for(const c of name||"") h=(h*31+c.charCodeAt(0))
 const PROFILE_HUES = [210, 250, 290, 330, 10, 35, 95, 160];
 const PROFILE_EMOJI = ["🐑","🌱","🌸","🍀","☀️","🌙","⭐","🎵","📖","🙏","🔥","💙","🧡","☕","🐣","🌈"];
 const profileOf = name => { const n=(name||"").trim(); return n ? S.profByName[n] : null; };
-function av(name, cls=""){
+// 꾸민 프로필(사진·이모지·러너스 양)만 보여요. 이름 한 글자 기본 박스는 숨기고, 내 프로필·내 버튼(force)에서만 써요
+function av(name, cls="", force=false){
   const p = profileOf(name); const h = Number.isFinite(p?.hue) ? p.hue : hue(name);
   if(p?.kind==="photo" && p.photo && (imgData(p.photo) || /^https:\/\/[a-z0-9.-]+\.googleusercontent\.com\//.test(p.photo))) return `<span class="av img ${cls}" aria-hidden="true"><img src="${esc(p.photo)}" alt=""></span>`;
   if(p?.kind==="sheep" && SHEEP[p.sheep]) return `<span class="av img sheep ${cls}" style="--h:${h}" aria-hidden="true"><img src="${SHEEP[p.sheep][0]}" alt=""></span>`;
   if(p?.kind==="emoji" && p.emoji) return `<span class="av emo ${cls}" style="--h:${h}" aria-hidden="true">${esc(p.emoji)}</span>`;
+  if(!force && !/\b(lg|big)\b/.test(cls)) return "";
   return `<span class="av ${cls}" style="--h:${h}" aria-hidden="true">${esc((firstName(name)||"?")[0])}</span>`;
 }
 
@@ -913,7 +915,7 @@ function openDrawer(){
       <div class="dept-list">${deptOrder().filter(sees).map(item).join("")}</div>
       <div class="drawer-sep"></div>
       <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span></span></a>
-      <div class="drawer-foot">${av(myName()||S.user?.email||"?","sm")}<span>${esc(myName()||"")}</span></div>
+      <div class="drawer-foot">${av(myName()||S.user?.email||"?","sm",true)}<span>${esc(myName()||"")}</span></div>
     </nav>`;
   bindDeptSort(root.querySelector(".dept-list"));
   drawerOpen=true; document.body.style.overflow="hidden";
@@ -1124,7 +1126,7 @@ function vMHome(){
     ${worship}
     <div class="cols"><div>
       ${section("게시판", `<div class="card list">${sortedPosts().slice(0,4).map(postRow).join("") || `<p class="note" style="padding:16px">아직 글이 없어요</p>`}</div>`, `<a class="link" href="#board">전체${icon("chev")}</a>`)}
-      ${section(t?`${t.name} 기도제목`:"우리 팀", t ? `<div class="card m-pray">${tlines.length ? tlines.map(x=>`<div class="mp-row">${av(x,"sm")}<div><b>${esc(x)}</b>${bullets(pr[x]).map(l=>`<span>${esc(l)}</span>`).join("")}</div></div>`).join("") : `<p class="note" style="padding:16px">이번 주 기도제목이 아직 없어요</p>`}</div>` : `<div class="card"><p class="note" style="padding:16px">아직 팀이 정해지지 않았어요</p></div>`, `<a class="link" href="#myteam">${t?"내 기도제목 적기":"우리 팀"}${icon("chev")}</a>`)}
+      ${section(t?`${t.name} 기도제목`:"우리 팀", t ? `<div class="card m-pray">${tlines.length ? tlines.map(x=>`<div class="mp-row"><div><b>${av(x,"sm")}${esc(x)}</b>${bullets(pr[x]).map(l=>`<span>${esc(l)}</span>`).join("")}</div></div>`).join("") : `<p class="note" style="padding:16px">이번 주 기도제목이 아직 없어요</p>`}</div>` : `<div class="card"><p class="note" style="padding:16px">아직 팀이 정해지지 않았어요</p></div>`, `<a class="link" href="#myteam">${t?"내 기도제목 적기":"우리 팀"}${icon("chev")}</a>`)}
     </div><div>
       ${section("생일자", `<div class="card list">
         ${thisWeek.length?`<div class="m-sub">이번 주</div>${thisWeek.map(b=>birthRowPlain(b)).join("")}`:""}
@@ -1727,7 +1729,7 @@ function render(){
   if(!S.approved){ document.body.classList.add("gate"); const ae=document.activeElement?.id; main.innerHTML = vPending(); syncThemeButtons(); if(ae) document.getElementById(ae)?.focus({preventScroll:true}); return; }
   const r=route();
   renderTabs(r);
-  const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(myName()||S.user.email,"");
+  const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(myName()||S.user.email,"",true);
   syncThemeButtons();
   S.all = mergedWeeks();
   // 그 화면에 필요한 데이터만 기다려요 (더보기·멤버 관리는 기다릴 것 없음)
