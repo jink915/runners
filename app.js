@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-9";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-10";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -366,7 +366,7 @@ function memberSheet(id){
         ${[["admin","관리자","모든 부서에서 모든 권한 (멤버 관리 포함)"],["operator","운영자","고른 부서에서 관리자와 같은 권한"],["member","멤버","고른 부서를 보기만"]].map(([v,t,d])=>`
         <label class="role-opt"><input type="radio" name="m-role" value="${v}" ${role===v?"checked":""}><span><b>${t}</b></span></label>`).join("")}
       </div>`}</div>
-    ${owner?"":`<div class="field" id="m-depts-wrap"><span class="lab" id="lab-dept">활동 부서 (여러 개 고를 수 있어요)</span>
+    ${owner?"":`<div class="field" id="m-depts-wrap" ${role==="operator"?"":"hidden"}><span class="lab" id="lab-dept">운영할 부서</span>
       <div class="dept-pick" role="group" aria-labelledby="lab-dept">${ALL_DEPTS.map(d=>`
         <label class="dept-opt"><input type="checkbox" name="m-dept" value="${d}" ${ds.includes(d)?"checked":""}><span class="set-ic" style="--c:${DEPTS[d].color}">${icon(DEPTS[d].icon)}</span><span><b>${DEPTS[d].name}</b></span></label>`).join("")}</div></div>`}
     <div class="field"><span>이메일</span><span class="readout">${esc(m.email)}</span></div></div>`,
@@ -378,7 +378,7 @@ function memberSheet(id){
 function syncDeptPick(){
   const role = document.querySelector('input[name="m-role"]:checked')?.value;
   const wrap = document.getElementById("m-depts-wrap"); if(!wrap) return;
-  wrap.classList.toggle("dim", role==="admin" || role==="member");
+  wrap.hidden = role!=="operator";   // 부서는 운영자만 골라요. 멤버는 러너스만, 관리자는 전부
   const h=document.getElementById("m-dept-hint"); if(h) h.hidden = role!=="admin";
 }
 
@@ -1542,7 +1542,8 @@ document.addEventListener("click", async e => {
   if(a==="saveMember"){ const name=val("m-name"); if(!name){ toast("이름을 적어 주세요"); return; }
     const role=document.querySelector('input[name="m-role"]:checked')?.value; const patch={name};
     if(role){ patch.role=role; patch.depts=[...document.querySelectorAll('input[name="m-dept"]:checked')].map(x=>x.value);
-      if(role!=="admin" && !patch.depts.length){ toast("활동 부서를 하나 이상 골라 주세요"); return; } }
+      if(role==="operator" && !patch.depts.length){ toast("운영할 부서를 하나 이상 골라 주세요"); return; }
+      if(role==="member") patch.depts=[]; }
     if(t.dataset.approve) patch.status="approved";
     if(await write(()=>S.db.doc("members/"+t.dataset.id).update(patch), t.dataset.approve?`${name}님을 승인했어요`:"저장했어요")) closeSheet(); }
   if(a==="savePendName"){ const name=val("pend-name"); if(!name){ toast("이름을 적어 주세요"); return; }
