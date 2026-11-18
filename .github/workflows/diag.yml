@@ -1,0 +1,22 @@
+name: 임시 점검 (군입대 날짜)
+on: workflow_dispatch
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci --no-audit --no-fund
+        working-directory: functions
+      - name: 군입대 문서의 날짜 값만 출력 (이름·메모는 출력 안 함)
+        working-directory: functions
+        env: { SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" }
+        run: |
+          node --input-type=module -e '
+          import { initializeApp, cert } from "firebase-admin/app";
+          import { getFirestore } from "firebase-admin/firestore";
+          initializeApp({ credential: cert(JSON.parse(process.env.SA)) });
+          const s = await getFirestore().collection("soldiers").get();
+          console.log("문서 수", s.size);
+          s.docs.forEach((d,i)=>{ const x=d.data(); console.log(i+1, JSON.stringify({branch:x.branch, start:x.start, end:x.end, keys:Object.keys(x).sort()})); });'
