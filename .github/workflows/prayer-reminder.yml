@@ -21,13 +21,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-          cache-dependency-path: scripts/package-lock.json
+          cache-dependency-path: functions/package-lock.json
       - run: npm ci --no-audit --no-fund
-        working-directory: scripts
-      - run: node remind.mjs
-        working-directory: scripts
+        working-directory: functions
+      - run: node gh-remind.mjs
+        working-directory: functions
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.test }}
