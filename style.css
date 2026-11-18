@@ -700,3 +700,7 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 .cmt-add textarea{flex:1;font-size:16px;border-radius:12px;padding:9px 12px;min-height:40px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);border:0;color:var(--ink)}
 .tm-row.is-me{background:var(--accent-soft)}
 .att-mark{font-size:14px;margin-left:2px}
+/* 맨 위 한 줄 알림 */
+.notice-line{display:flex;align-items:center;gap:6px;margin:0 0 12px;font-size:13.5px;color:var(--ink-2);text-decoration:none;white-space:nowrap;overflow:hidden}
+.notice-line span{overflow:hidden;text-overflow:ellipsis} .notice-line b{color:var(--accent);font-weight:700}
+.notice-line .i{width:16px;height:16px;flex:none;color:var(--accent)} .notice-line .chev{width:14px;height:14px;opacity:.5}

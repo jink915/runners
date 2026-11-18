@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-8";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-9";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -413,7 +413,7 @@ function vDash(){
   const upcoming = section("다가오는 주일", `<div class="card list">${up.map(w=>weekRow(w,nx)).join("")}</div>`, `<a class="link" href="#schedule">전체 일정${icon("chev")}</a>`);
   const ranks = S.canEdit && S.got.p ? section("대표기도 순서", rankBoard(), `<a class="link" href="#people">명단${icon("chev")}</a>`) : "";
   const bars = section(`${year} 사회 횟수`, `<div class="card"><div class="bars">${mcArr.map(([n,c])=>`<div class="bar"><span class="who">${av(n,"sm")}${esc(n)}</span><div class="track" role="img" aria-label="${esc(n)} ${c}회"><div class="fill" style="width:${c/mcMax*100}%"></div></div><span class="n">${c}</span></div>`).join("")||`<p class="note">기록이 없어요</p>`}</div></div>`);
-  const pendBanner = S.isAdmin && pendingCount() ? `<a class="banner pend" href="#members">${icon("users")}<span>가입 신청 <b>${pendingCount()}명</b>이 승인을 기다리고 있어요</span>${icon("chev","chev")}</a>` : "";
+  const pendBanner = S.isAdmin && pendingCount() ? `<a class="notice-line" href="#members">${icon("users")}<span>가입 신청 <b>${pendingCount()}명</b></span>${icon("chev","chev")}</a>` : "";
   return `${head("이번 주일 준비", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}${pendBanner}${hero}<div class="cols"><div>${upcoming}</div><div>${ranks}${bars}</div></div>`;
 }
 
@@ -1014,7 +1014,7 @@ function vMHome(){
       ${nx.book?`<div class="mw-verse">${icon("book")}<span>${esc(verseText(nx))}${nx.title?` · ${esc(nx.title)}`:""}</span></div>`:""}
       <div class="mw-people">${person("사회",nx.mc)}${person("기도",nx.prayer)}</div></section>` : "";
   return `${head("러너스", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}
-    ${turns.map(x=>`<div class="banner turn">${icon("bell")}<span><b>${fmtKo(x.date)}</b> ${x.what} 차례예요</span></div>`).join("")}
+    ${turns.length?`<p class="notice-line">${icon("bell")}<span>${turns.map(x=>`<b>${+x.date.slice(5,7)}/${+x.date.slice(8)}</b> ${x.what}`).join(" · ")} 차례</span></p>`:""}
     ${worship}
     <div class="cols"><div>
       ${section("게시판", `<div class="card list">${sortedPosts().slice(0,4).map(postRow).join("") || `<p class="note" style="padding:16px">아직 글이 없어요</p>`}</div>`, `<a class="link" href="#board">전체${icon("chev")}</a>`)}
