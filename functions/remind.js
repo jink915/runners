@@ -47,8 +47,9 @@ export async function runRemind({ instantOnly = false, test = false, notice = nu
       const admin = !!(t.m.owner || t.m.role === "admin");
       const depts = admin ? ALL_DEPTS : Array.isArray(t.m.depts) ? t.m.depts : ALL_DEPTS;   // 예전 멤버는 모든 부서
       const editFinance = admin || (t.m.role === "operator" && Array.isArray(t.m.depts) && t.m.depts.includes("finance"));
+      const seesSocial = admin || (t.m.role === "operator" && depts.includes("social")) || (Array.isArray(t.m.view) && t.m.view.includes("social"));
       const seesCare = admin || (t.m.role === "operator" && depts.includes("care")) || (Array.isArray(t.m.view) && t.m.view.includes("care"));
-      return { token: t.token, uid: t.uid, name: (t.m.name || "").trim(), admin, depts, editFinance, seesCare,
+      return { token: t.token, uid: t.uid, name: (t.m.name || "").trim(), admin, depts, editFinance, seesCare, seesSocial,
         editSocial: admin || (t.m.role === "operator" && depts.includes("social")), prefs: t.prefs || {} };
     });
   const pref = (d, k) => {
@@ -76,7 +77,7 @@ export async function runRemind({ instantOnly = false, test = false, notice = nu
     // 후보 알림 모으기
     const cands = [];
     if (!w.event) {
-    const mcDevices = byName(mc);
+    const mcDevices = byName(mc).filter(d => d.seesSocial);   // 사회자 준비 알림은 사회부(보기·운영)에게만
     for (const d of mcDevices) {
       if (!prayer) cands.push([d, "prayer", `아직 대표기도가 세워지지 않았어요! ${until >= 2 ? `이번주(${label})` : when} 대표기도 섭외를 진행해주세요:)`]);
       if (!w.hymn) cands.push([d, "hymn", "헌금찬송이 아직 비어 있어요. 찬송가를 골라 앱에 적어 주세요."]);

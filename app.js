@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-21";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-22";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -87,8 +87,8 @@ const levelOf = (m, d) => editOf(m).includes(d) ? "edit" : viewOf(m).includes(d)
 const isPlainMember = () => S.approved && !S.isAdmin && !editOf(S.member).length && !viewOf(S.member).length;
 const sees = d => d==="home" ? S.approved : (S.isAdmin || (S.approved && levelOf(S.member, d)!=="none"));
 const can = d => S.isAdmin || (S.approved && editOf(S.member).includes(d));
-// 알림 목록은 내 역할에 맞는 것만: 사회자 알림은 일정에 사회자로 있는 사람·사회부 운영, 생일은 챙김부, 결의서 도착은 총무부 운영
-const alertVisible = a => a.admin ? S.isAdmin : a.edit ? can(a.dept) : a.dept==="care" ? sees("care") : a.mc ? (can("social") || mcPool().includes(myName())) : S.approved;
+// 알림 목록은 내 부서에 맞는 것만: 사회자 알림은 사회부(보기·운영), 생일은 챙김부, 결의서 도착은 총무부 운영
+const alertVisible = a => a.admin ? S.isAdmin : a.edit ? can(a.dept) : a.dept==="care" ? sees("care") : a.mc ? sees("social") : S.approved;
 const myName = () => (S.member?.name || S.user?.displayName || "").trim();
 const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n; };
 
