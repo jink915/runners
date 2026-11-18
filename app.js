@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-23";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-24";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1704,15 +1704,23 @@ function skeleton(){
 // 글 칸: 스크롤 막대 대신 적은 만큼 칸이 늘어나요
 function grow(el){ if(!el || el.tagName!=="TEXTAREA") return; el.style.height="auto"; el.style.height = (el.scrollHeight + 2) + "px"; }
 const growAll = root => root?.querySelectorAll("textarea").forEach(grow);
+// 켜지는 중 화면: 빈 화면(다크 모드에선 까만 화면) 대신 로고와 점 3개. 8초가 넘으면 다시 시도 버튼
+let splashAt = 0;
+function splash(){
+  if(!splashAt){ splashAt = Date.now(); setTimeout(()=>{ if(document.querySelector(".splash")) render(); }, 8200); }
+  const slow = Date.now() - splashAt > 8000;
+  return `<div class="splash" role="status" aria-live="polite">${sheep("heart","splash-sheep")}<b>러너스</b>
+    ${slow ? `<p>연결이 느려요. 인터넷 연결을 확인해 주세요.</p><button class="btn pri" type="button" data-act="reload">다시 시도</button>` : `<span class="dots" aria-label="불러오는 중"><i></i><i></i><i></i></span>`}</div>`;
+}
 function render(){
   const main=document.getElementById("main");
   const gate = !S.authReady || !S.user;
   document.body.classList.toggle("gate", gate);
   if(gate){
-    if(!S.authReady && S.mode!=="setup"){ main.innerHTML=""; return; } // 로그인 상태 확인 전엔 잠깐 빈 화면 (로그인 화면이 깜빡이지 않도록)
+    if(!S.authReady && S.mode!=="setup"){ main.innerHTML=splash(); return; } // 로그인 상태 확인 전엔 로딩 화면 (로그인 화면이 깜빡이지 않도록)
     main.innerHTML = vLogin(); syncThemeButtons(); return;
   }
-  if(!S.memberReady){ document.body.classList.add("gate"); main.innerHTML=""; return; }
+  if(!S.memberReady){ document.body.classList.add("gate"); main.innerHTML=splash(); return; }
   if(!S.approved){ document.body.classList.add("gate"); const ae=document.activeElement?.id; main.innerHTML = vPending(); syncThemeButtons(); if(ae) document.getElementById(ae)?.focus({preventScroll:true}); return; }
   const r=route();
   renderTabs(r);
@@ -2010,6 +2018,7 @@ document.addEventListener("click", async e => {
       closeSheet(); try{ localStorage.clear(); }catch{} await AUTH.signOut().catch(()=>{}); location.hash=""; toast("탈퇴했어요. 그동안 함께해 주셔서 고마워요");
     }catch(err){ t.disabled=false; t.textContent="탈퇴하기"; toast(err?.message?.includes("최고 관리자")?"최고 관리자 계정은 탈퇴할 수 없어요":"탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요"); }
     return; }
+  if(a==="reload"){ location.reload(); return; }
   if(a==="logout"){ await AUTH.signOut(); location.hash="#dash"; toast("로그아웃했어요"); }
   if(a==="install"){
     if(S.installEvt){ const ev=S.installEvt; S.installEvt=null; ev.prompt(); try{ const r=await ev.userChoice; if(r.outcome==="accepted") toast("설치하고 있어요. 바탕화면을 확인해 주세요"); }catch{} render(); }
@@ -2162,27 +2171,35 @@ async function startFirebase(){
     render();
     if(!u) return;
     // 최고 관리자 확인: Firestore 보안 규칙에 등록된 계정만 이 문서를 읽을 수 있어요
-    if(u.email){ try{ await getDoc(doc(fs,"admins",u.email)); S.isOwner = true; }catch{ S.isOwner = false; } }
+    // 결과를 기다리지 않고(느린 통신에서 10초 가까이 걸려요) 지난번 결과로 먼저 시작, 확인되면 바로 반영
+    const ownerKey = "runners-owner-" + u.uid;
+    S.isOwner = store.get(ownerKey) === "1";
+    const ownerCheck = u.email ? getDoc(doc(fs,"admins",u.email)).then(()=>true, e=> e?.code==="permission-denied" ? false : null) : Promise.resolve(false);
+    ownerCheck.then(v=>{ if(v===null || S.user!==u) return; store.set(ownerKey, v ? "1" : null);
+      if(v!==S.isOwner){ S.isOwner = v; if(S.member && S.memberReady){ applyMember(S.member, true); } } });
     const ref = doc(fs,"members",u.uid);
-    memberUnsub = onSnapshot(ref, async snap=>{
-      if(!snap.exists()){
-        // 처음 로그인: 가입 신청 (최고 관리자는 바로 승인된 관리자로)
-        const owner = S.isOwner;
-        try{ await setDoc(ref, { name:(u.displayName||"").replace(/\s+/g,"").slice(0,20) || (u.email||"").split("@")[0].slice(0,20), email:u.email||"", photo:u.photoURL||"",
-          status: owner?"approved":"pending", role: owner?"admin":"member", depts: owner?[...ALL_DEPTS]:[], owner, createdAt: fsM.serverTimestamp() }); }
-        catch{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } else toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); render(); }
-        return;
-      }
-      const m = snap.data(); const before = [S.approved, S.isAdmin, S.member?.role, deptsOf(S.member).join(), viewOf(S.member).join()].join("|");
+    const applyMember = (m, force) => {
+      const before = [S.approved, S.isAdmin, S.member?.role, deptsOf(S.member).join(), viewOf(S.member).join()].join("|");
       S.member = m; S.memberReady = true;
       S.approved = S.isOwner || m.status==="approved";
       S.isAdmin = S.isOwner || (S.approved && m.role==="admin");
       S.canEdit = can("social");
       // 권한·부서가 바뀌면 읽는 데이터를 다시 정리
-      if(before !== [S.approved, S.isAdmin, m.role, deptsOf(m).join(), viewOf(m).join()].join("|")) stopData();
+      if(force || before !== [S.approved, S.isAdmin, m.role, deptsOf(m).join(), viewOf(m).join()].join("|")) stopData();
       if(S.approved) startData();
       render();
-    }, ()=>{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } render(); });
+    };
+    memberUnsub = onSnapshot(ref, async snap=>{
+      if(!snap.exists()){
+        // 처음 로그인: 가입 신청 (최고 관리자는 바로 승인된 관리자로)
+        const owner = (await ownerCheck) === true || S.isOwner; S.isOwner = owner;
+        try{ await setDoc(ref, { name:(u.displayName||"").replace(/\s+/g,"").slice(0,20) || (u.email||"").split("@")[0].slice(0,20), email:u.email||"", photo:u.photoURL||"",
+          status: owner?"approved":"pending", role: owner?"admin":"member", depts: owner?[...ALL_DEPTS]:[], owner, createdAt: fsM.serverTimestamp() }); }
+        catch{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } else toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); render(); }
+        return;
+      }
+      applyMember(snap.data());
+    }, async ()=>{ if((await ownerCheck)===true) S.isOwner = true; S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } render(); });
   });
 }
 
