@@ -1,6 +1,6 @@
 // 러너스 Cloud Functions
 //  · remindHourly: 매시 정각(한국 시간) 예약 알림
-//  · onMember / onRequest / onExpense: 가입 신청·수정 요청·지출결의서가 들어오는 순간 알림
+//  · onMember / onRequest / onExpenseWrite: 가입 신청·수정 요청·지출결의서가 들어오는 순간 알림
 import { readFileSync } from "node:fs";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -22,6 +22,6 @@ export const onMember = onDocumentWritten("members/{id}", async ev => {
 export const onRequest = onDocumentWritten("requests/{id}", async ev => {
   const r = after(ev); if (r && r.notified === false) await runRemind({ instantOnly: true });
 });
-export const onExpense = onDocumentWritten("expenses/{id}", async ev => {
+export const onExpenseWrite = onDocumentWritten("expenses/{id}", async ev => {
   const e = after(ev); if (e && ((e.status === "submitted" && e.notified === false) || e.resultNotified === false)) await runRemind({ instantOnly: true });
 });
