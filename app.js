@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-16";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-17";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1169,8 +1169,8 @@ function vExpense(){
     <div class="exp-bar">
       ${EXP_CHIP[st].replace(" plain","")}${who&&st!=="submitted"?`<span class="exp-by">${esc(who)}</span>`:""}
       <span class="sp"></span>
-      ${expEditable(e)?`<button class="btn sm" type="button" data-act="editExp" data-id="${e.id}">${st==="rejected"?"고쳐서 다시 내기":"고치기"}</button>`:""}
-      ${(expEditable(e)||S.isAdmin)&&st!=="approved"?`<button class="btn sm danger" type="button" data-act="delExp" data-id="${e.id}">지우기</button>`:""}
+      ${expEditable(e)&&S.dept!=="finance"?`<button class="btn sm" type="button" data-act="editExp" data-id="${e.id}">${st==="rejected"?"고쳐서 다시 내기":"고치기"}</button>`:""}
+      ${expEditable(e)&&S.dept!=="finance"?`<button class="btn sm danger" type="button" data-act="delExp" data-id="${e.id}">지우기</button>`:""}
       <button class="btn sm pri" type="button" data-act="printExp" data-id="${e.id}">${icon("print")}인쇄</button></div>
     ${st==="rejected"&&e.rejectReason?`<div class="exp-reject"><b>반려 사유</b><p>${esc(e.rejectReason)}</p></div>`:""}
     ${fin?`<div class="exp-review">${st==="approved"
@@ -1718,7 +1718,7 @@ document.addEventListener("click", async e => {
     if(!ok){ t.disabled=false; return; }
     closeSheet(); S.expSel=id; watchExpFiles(id); if(!FB) S.expFiles=d.files.map((f,i)=>({id:String(i),...f}));
     { const h = S.dept==="finance" ? "#expCheck" : "#expense"; if(location.hash===h) render(); else location.hash=h; } return; }
-  if(a==="delExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return;
+  if(a==="delExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e || !expEditable(e) || S.dept==="finance") return;
     if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 지울까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="지우기"; t.classList.remove("solid"); } }, 3000); return; }
     if(expStatus(e)==="approved"){ toast("승인된 결의서는 먼저 승인을 취소해 주세요"); return; }
     if(await write(async()=>{ for(let i=0;i<(e.files||0);i++) await S.db.doc(`expenses/${e.id}/files/${i}`).delete(); await S.db.doc("expenses/"+e.id).delete(); }, "지웠어요")){ watchExpFiles(null); S.expSel=null; location.hash = S.dept==="finance" ? "#expReview" : "#expenses"; } return; }
