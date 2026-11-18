@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-15";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-16";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1170,7 +1170,7 @@ function vExpense(){
       ${EXP_CHIP[st].replace(" plain","")}${who&&st!=="submitted"?`<span class="exp-by">${esc(who)}</span>`:""}
       <span class="sp"></span>
       ${expEditable(e)?`<button class="btn sm" type="button" data-act="editExp" data-id="${e.id}">${st==="rejected"?"고쳐서 다시 내기":"고치기"}</button>`:""}
-      ${(expEditable(e)||fin)&&st!=="approved"?`<button class="btn sm danger" type="button" data-act="delExp" data-id="${e.id}">지우기</button>`:""}
+      ${(expEditable(e)||S.isAdmin)&&st!=="approved"?`<button class="btn sm danger" type="button" data-act="delExp" data-id="${e.id}">지우기</button>`:""}
       <button class="btn sm pri" type="button" data-act="printExp" data-id="${e.id}">${icon("print")}인쇄</button></div>
     ${st==="rejected"&&e.rejectReason?`<div class="exp-reject"><b>반려 사유</b><p>${esc(e.rejectReason)}</p></div>`:""}
     ${fin?`<div class="exp-review">${st==="approved"
@@ -1458,7 +1458,7 @@ function vLedger(){
         <button class="btn pri block" type="button" data-act="lgAdd">${icon("plus")}장부에 추가</button>
       </div></details>
       <datalist id="dl-cat">${cats.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>` : "";
-  const rowsHtml = shown.map(r=>`<tr ${edit?`data-act="lgEdit" data-id="${r.id}" tabindex="0"`:""} class="${r.type}">
+  const rowsHtml = shown.map(r=>`<tr ${r.expId&&!S.isAdmin?`data-act="viewExp" data-id="${r.expId}" tabindex="0"`:edit?`data-act="lgEdit" data-id="${r.id}" tabindex="0"`:""} class="${r.type}${r.expId?" from-exp":""}">
       <td class="c-date tnum">${+r.date.slice(5,7)}.${pad(+r.date.slice(8,10))}</td>
       <td class="c-cat"><span class="tag ${r.type}">${esc(r.cat||"-")}</span></td>
       <td class="c-memo"><span class="tag ${r.type} m-only">${esc(r.cat||"-")}</span>${esc(r.memo||"")}${r.expId?`<button type="button" class="lg-att" data-act="viewExp" data-id="${r.expId}" aria-label="지출결의서 보기">${icon("receipt")}결의서</button>`:""}${r.who?`<small>${esc(r.who)}</small>`:""}</td>
