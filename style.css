@@ -712,3 +712,78 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 .lv-row .set-ic{width:32px;height:32px}
 .lv-row .seg{flex:none}
 .lv-sum{margin:8px 2px 0;font-size:13px;font-weight:700;color:var(--accent)}
+
+/* ---------- 지출결의서 ---------- */
+.exp-row .exp-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,#E85D8A 14%,transparent);color:#E85D8A}
+.exp-row .s .i{width:13px;height:13px;vertical-align:-2px;margin-right:1px}
+.exp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.exp-bar .sp{flex:1}
+.exp-bar.fin{padding:10px 12px;border-radius:14px;background:var(--ok-soft)}
+.exp-in{display:grid;grid-template-columns:1fr 132px;gap:8px}
+.exp-in.two{grid-template-columns:1fr 1fr}
+.won-in{position:relative}
+.won-in input{width:100%;padding-right:34px;text-align:right;font-variant-numeric:tabular-nums}
+.won-in span{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700;pointer-events:none}
+.exp-ko{display:block;margin-top:6px;font-size:13px;font-weight:700;color:var(--accent);min-height:1em}
+.exp-stmt{margin:0 0 8px;font-weight:700;color:var(--ink-2)}
+.sig-pad{position:relative;margin-top:8px;height:132px;border-radius:14px;background:#fff;border:1.5px dashed color-mix(in srgb,var(--muted) 55%,transparent);overflow:hidden}
+.sig-pad canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.sig-pad .sig-ph{position:absolute;inset:0;display:grid;place-items:center;color:#9aa3b2;font-weight:700;pointer-events:none}
+.sig-pad.has .sig-ph{display:none}
+.sig-pad .btn{position:absolute;right:8px;bottom:8px;background:#f1f4f9;color:#334}
+.exp-thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.exp-th,.exp-add{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden}
+.exp-th img{width:100%;height:100%;object-fit:cover;display:block;outline:1px solid oklch(0 0 0 / .1);outline-offset:-1px}
+.exp-th .btn{position:absolute;top:4px;right:4px;width:28px;height:28px;min-height:0;padding:0;background:rgba(0,0,0,.55);color:#fff}
+.exp-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:var(--sunken);color:var(--muted);font-size:13px;font-weight:700;box-shadow:inset 0 0 0 1.5px var(--line)}
+
+/* 결의서 종이: 화면 미리보기와 인쇄가 같은 모양 */
+.exp-paper{background:#fff;color:#111;border-radius:var(--r-card);padding:28px 20px;box-shadow:var(--shadow-1)}
+.exp-doc{color:#111;font-family:var(--f-body)}
+.exp-doc .exp-h{margin:0 0 22px;text-align:center;font-size:26px;font-weight:800;letter-spacing:.5em;padding-left:.5em;color:#111}
+.exp-t{width:100%;border-collapse:collapse;table-layout:fixed;font-size:15px}
+.exp-t col.c1{width:78px}.exp-t col.c2{width:62px}
+.exp-t th,.exp-t td{border:1px solid #333;padding:12px 10px;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}
+.exp-t th{background:#f2f3f5;font-weight:700;text-align:center;color:#111}
+.exp-t th.sub{font-weight:600;font-size:14px}
+.exp-t td.amt{font-weight:700;font-variant-numeric:tabular-nums}
+.exp-sign{text-align:center;padding:18px 10px!important}
+.exp-sign p{margin:0}
+.exp-sign .d{margin:16px 0 14px;letter-spacing:.05em}
+.exp-sign .who{display:flex;align-items:center;justify-content:center;gap:12px}
+.exp-sign .who b{font-size:17px;letter-spacing:.15em}
+.exp-sign .sig{position:relative;display:inline-grid;place-items:center;min-width:76px;height:44px}
+.exp-sign .sig i{font-style:normal;color:#555}
+.exp-sign .sig img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:56px;max-width:150px;object-fit:contain}
+.exp-files{margin-top:28px}
+.exp-files h2{font-size:17px;margin:0 0 12px;color:#111}
+.exp-imgs{display:grid;gap:12px}
+.exp-imgs.n2{grid-template-columns:1fr 1fr}
+.exp-imgs figure{margin:0;break-inside:avoid}
+.exp-imgs img{width:100%;max-height:520px;object-fit:contain;display:block;background:#fafafa;outline:1px solid oklch(0 0 0 / .1);outline-offset:-1px}
+.exp-imgs figcaption{font-size:12px;color:#555;margin-top:4px;text-align:center}
+@media (max-width:420px){ .exp-t{font-size:14px} .exp-t col.c1{width:64px} .exp-t col.c2{width:54px} .exp-t th,.exp-t td{padding:10px 7px} }
+
+#print-root{display:none}
+@media print{
+  @page{size:A4;margin:16mm 15mm}
+  body.printing{background:#fff!important}
+  body.printing > *:not(#print-root){display:none!important}
+  body.printing #print-root{display:block}
+  #print-root .exp-doc{font-size:11pt}
+  #print-root .exp-h{font-size:24pt;margin:6mm 0 9mm}
+  #print-root .exp-t{font-size:11.5pt}
+  #print-root .exp-t col.c1{width:27mm} #print-root .exp-t col.c2{width:20mm}
+  #print-root .exp-t th,#print-root .exp-t td{padding:4.5mm 3mm;border-color:#000}
+  #print-root .exp-t th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #print-root .exp-sign{padding:8mm 3mm!important}
+  #print-root .exp-sign .d{margin:7mm 0 6mm}
+  #print-root .exp-files{break-before:page;margin-top:0}
+  #print-root .exp-imgs img{max-height:225mm;background:none;outline:none}
+  #print-root .exp-imgs.n2 img{max-height:110mm}
+}
+.exp-t th{white-space:nowrap;padding-left:4px;padding-right:4px}
+.exp-sign .who{white-space:nowrap;flex-wrap:nowrap}
+.exp-sign .who b{letter-spacing:.08em}
+@media (max-width:420px){ .exp-t col.c1{width:70px} .exp-t col.c2{width:56px} .exp-t th{font-size:13.5px} .exp-sign .who{gap:8px} .exp-sign .sig{min-width:64px} }
+@media print{ html:has(body.printing),body.printing{height:auto!important;min-height:0!important;padding:0!important;margin:0!important;overflow:visible!important} }

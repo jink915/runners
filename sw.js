@@ -1,5 +1,5 @@
 // 앱 화면은 캐시해 두고 오프라인에서도 열리게, 본문 데이터는 항상 최신을 먼저 시도
-const V = "runners-v39";
+const V = "runners-v40";
 const SHELL = ["./", "index.html", "style.css", "app.js", "firebase-config.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png",
   "img/sheep-heart.webp", "img/sheep-wave.webp", "img/sheep-pray.webp"];

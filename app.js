@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-11";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-12";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -55,7 +55,7 @@ const S = {
   member:null, memberReady:false, members:[], births:[], birthQ:"", posts:[], postSel:null, comments:[], myWeekKey:"", profiles:{}, profByName:{}, profDraft:null, teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
   dept: store.get("runners-dept") || "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false,o:false},
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false,o:false,e:false}, expenses:[], expSel:null, expFiles:[], expDraft:null,
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -90,7 +90,10 @@ const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.s
 
 const ICON = {
   chev:'<path d="m9 6 6 6-6 6"/>', down:'<path d="m6 9 6 6 6-6"/>', plus:'<path d="M12 5v14M5 12h14"/>',
-  up:'<path d="m6 15 6-6 6 6"/>', x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  up:'<path d="m6 15 6-6 6 6"/>',
+  receipt:'<path d="M6 3.5h12a1 1 0 0 1 1 1V21l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V4.5a1 1 0 0 1 1-1z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/>',
+  print:'<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
+  image:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 2.5-2.5L20 19"/>', x:'<path d="M18 6 6 18M6 6l12 12"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
   edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   doc:'<path d="M6 3h8.5L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h5"/>',
@@ -778,6 +781,7 @@ const val = id => document.getElementById(id)?.value.trim() ?? "";
 
 /* ---------- 부서 · 탭 · 메뉴 ---------- */
 const TAB_ICON = {
+  expenses:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M6 3.5h12a1 1 0 0 1 1 1V21l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V4.5a1 1 0 0 1 1-1z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg>',
   dash:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>',
   schedule:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   people:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle class="fillable" cx="9" cy="8" r="3.5"/><path class="fillable" d="M2.5 20c.8-3.6 3.4-5.6 6.5-5.6s5.7 2 6.5 5.6z"/><path d="M15.5 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20c-.5-2.5-1.8-4.1-3.6-4.9"/></svg>',
@@ -795,8 +799,8 @@ const TAB_ICON = {
 };
 const MENU_DEPTS = ["home","social","care","finance","leaders"];
 const DEPTS = {
-  home:   { name:"러너스", desc:"게시판·생일·우리 팀", icon:"heart", color:"#E85D8A", home:"mhome",
-            tabs:[["mhome","홈"],["board","게시판"],["myteam","우리 팀"],["more","더보기"]] },
+  home:   { name:"러너스", desc:"게시판·생일·우리 팀·지출결의서", icon:"heart", color:"#E85D8A", home:"mhome",
+            tabs:[["mhome","홈"],["board","게시판"],["myteam","우리 팀"],["expenses","지출결의"],["more","더보기"]] },
   social: { name:"사회부", desc:"예배 사회·대표기도·원고", icon:"mic", color:"#2F78D0", home:"dash",
             tabs:[["dash","홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
   care:   { name:"챙김부", desc:"러너스 생일 챙기기", icon:"cake", color:"#E0663E", home:"birth",
@@ -806,10 +810,10 @@ const DEPTS = {
   leaders:{ name:"리더단", desc:"팀별 출석·기도제목", icon:"users", color:"#7A5CE0", home:"lead",
             tabs:[["lead","이번 주"],["leadHist","출석부"],["more","더보기"]] },
 };
-const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
+const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", expenses:"home", expense:"home", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
-  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r;
+  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r==="expense" ? "expenses" : r;
   const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin;
   if(nav.dataset.key!==key){
     nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}">${TAB_ICON[k]}<span>${l}</span></a>`).join("");
@@ -1110,6 +1114,126 @@ let postUnsub = null;
 function watchComments(id){
   postUnsub?.(); postUnsub=null; S.comments=[]; if(!FB || !id) return;
   postUnsub = FB.m.onSnapshot(FB.m.collection(FB.fs,"posts",id,"comments"), s=>{ S.comments=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(tsOf(a)||new Date())-(tsOf(b)||new Date())); render(); }, ()=>{});
+}
+
+/* ---------- 러너스: 지출결의서 ---------- */
+const EXP_MAX = 4;
+// 12300 → "일만이천삼백"
+function wonKo(n){ n=Math.floor(+n||0); if(n<=0) return "영"; const D="일이삼사오육칠팔구", U=["천","백","십",""], B=["","만","억","조"]; let out="", g=0;
+  while(n>0){ const part=n%10000; if(part){ let t=""; String(part).padStart(4,"0").split("").forEach((c,i)=>{ if(+c) t+=D[+c-1]+U[i]; }); out=t+B[g]+out; } n=Math.floor(n/10000); g++; } return out; }
+const wonLine = a => `금 ${wonKo(a)}원정 (₩${won(a)})`;
+const koDate = d => d ? `${+d.slice(0,4)}년 ${+d.slice(5,7)}월 ${+d.slice(8,10)}일` : "";
+const sortedExp = () => [...S.expenses].sort((a,b)=>(tsOf(b)||new Date())-(tsOf(a)||new Date()));
+const expMine = e => e?.uid===S.user?.uid;
+const expEditable = e => expMine(e) && e.status!=="checked";
+function expDoc(e, files){
+  return `<div class="exp-doc">
+    <h1 class="exp-h">지출결의서</h1>
+    <table class="exp-t"><colgroup><col class="c1"><col class="c2"><col></colgroup><tbody>
+      <tr><th colspan="2">지출명</th><td>${esc(e.title||"")}</td></tr>
+      <tr><th colspan="2">지출처</th><td>${esc(e.place||"")}</td></tr>
+      <tr><th rowspan="2">지출사유</th><th class="sub">참여자</th><td>${esc(e.people||"")}</td></tr>
+      <tr><th class="sub">금액</th><td class="amt">${wonLine(e.amount)}</td></tr>
+      <tr><th colspan="2">영수확인</th><td class="exp-sign">
+        <p>상기 금액을 정히 영수합니다.</p>
+        <p class="d">${koDate(e.date)}</p>
+        <p class="who"><span>영수자</span><b>${esc(e.payee||"")}</b><span class="sig">${e.sign?`<img src="${e.sign}" alt="${esc(e.payee||"")} 서명">`:""}<i>(서명)</i></span></p></td></tr>
+    </tbody></table>
+    ${files.length?`<section class="exp-files"><h2>영수증 첨부</h2><div class="exp-imgs n${Math.min(files.length,2)}">${files.map((f,i)=>`<figure><img src="${f.data}" alt="영수증 ${i+1}"><figcaption>영수증 ${i+1}</figcaption></figure>`).join("")}</div></section>`:""}
+  </div>`;
+}
+function expRow(e){
+  return `<button type="button" class="row exp-row" data-act="openExp" data-id="${e.id}">
+    <span class="exp-ic">${icon("receipt")}</span><span class="main"><span class="t">${esc(e.title||"")}</span>
+    <span class="s">${sees("finance")&&!expMine(e)?`${esc(e.name||"")} · `:""}${e.date?`${+e.date.slice(5,7)}/${+e.date.slice(8)}`:""} · ${won(e.amount)}원${e.files?` · ${icon("image")}${e.files}`:""}</span></span>
+    ${e.status==="checked"?`<span class="chip ok plain">확인</span>`:`<span class="chip mute plain">제출</span>`}${icon("chev","chev")}</button>`;
+}
+function vExpenses(){
+  const list = sortedExp(); const sum = list.reduce((t,e)=>t+(+e.amount||0),0);
+  return `${head("지출결의서", list.length?`${list.length}건 · ${won(sum)}원`:"", `<button class="btn pri" type="button" data-act="newExp">${icon("edit")}작성</button>`)}
+    <div class="card list">${list.map(expRow).join("") || `<div style="padding:8px">${empty("아직 지출결의서가 없어요","","wave",`<button class="btn pri" type="button" data-act="newExp">작성하기</button>`)}</div>`}</div>`;
+}
+function vExpense(){
+  const e = S.expenses.find(x=>x.id===S.expSel);
+  if(!e) return `${head("지출결의서")}<div class="card">${empty("지워졌거나 없는 지출결의서예요","","pray",`<a class="btn" href="#expenses">목록으로</a>`)}</div>`;
+  const fin = can("finance");
+  return `<div class="page-head"><div><p class="eyebrow"><a href="#expenses" class="back-link">${icon("chev","flip")}지출결의서</a></p><h1 class="post-title">${esc(e.title)}</h1></div></div>
+    <div class="exp-bar">
+      ${e.status==="checked"?`<span class="chip ok">${icon("check")}총무부 확인${e.checkedBy?` · ${esc(e.checkedBy)}`:""}</span>`:`<span class="chip mute">제출됨</span>`}
+      <span class="sp"></span>
+      ${expEditable(e)?`<button class="btn sm" type="button" data-act="editExp" data-id="${e.id}">고치기</button>`:""}
+      ${expEditable(e)||fin?`<button class="btn sm danger" type="button" data-act="delExp" data-id="${e.id}">지우기</button>`:""}
+      <button class="btn sm pri" type="button" data-act="printExp" data-id="${e.id}">${icon("print")}인쇄</button></div>
+    ${fin?`<div class="exp-bar fin"><button class="btn sm" type="button" data-act="checkExp" data-id="${e.id}">${e.status==="checked"?"확인 취소":`${icon("check")}확인`}</button>
+      ${e.ledger?`<span class="chip ok plain">장부에 넣음</span>`:`<button class="btn sm" type="button" data-act="ledgerExp" data-id="${e.id}">${icon("wallet")}장부에 넣기</button>`}</div>`:""}
+    <div class="exp-paper">${expDoc(e, S.expFiles)}</div>`;
+}
+let expUnsub = null;
+function watchExpFiles(id){
+  expUnsub?.(); expUnsub=null; S.expFiles=[]; if(!FB || !id) return;
+  expUnsub = FB.m.onSnapshot(FB.m.collection(FB.fs,"expenses",id,"files"), s=>{ S.expFiles=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(+a.id)-(+b.id)); render(); }, ()=>{});
+}
+function expSheet(id){
+  const e = id ? S.expenses.find(x=>x.id===id) : null;
+  const d = S.expDraft = { id:e?.id||null, sign:e?.sign||"", files: e ? S.expFiles.map(f=>({data:f.data})) : [], oldFiles: e?.files||0 };
+  openSheet(e?"지출결의서 고치기":"지출결의서 작성", `<div class="fields exp-form">
+    <label class="field"><span>지출명</span><input id="ex-title" maxlength="80" autocomplete="off" placeholder="예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}"></label>
+    <label class="field"><span>지출처</span><input id="ex-place" maxlength="80" autocomplete="off" placeholder="예: 안암동 ○○식당" value="${esc(e?.place||"")}"></label>
+    <div class="field"><span class="lab">지출사유</span>
+      <div class="exp-in"><label class="sr-only" for="ex-people">참여자</label><input id="ex-people" maxlength="300" autocomplete="off" placeholder="참여자 · 예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">
+        <div class="won-in"><label class="sr-only" for="ex-amt">금액</label><input id="ex-amt" inputmode="numeric" autocomplete="off" placeholder="금액" value="${e?.amount?won(e.amount):""}"><span>원</span></div></div>
+      <span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span></div>
+    <div class="field"><span class="lab">영수확인</span>
+      <p class="exp-stmt">상기 금액을 정히 영수합니다.</p>
+      <div class="exp-in two"><label class="sr-only" for="ex-date">영수일</label><input type="date" id="ex-date" value="${e?.date||TODAY}">
+        <label class="sr-only" for="ex-payee">영수자</label><input id="ex-payee" maxlength="20" autocomplete="off" placeholder="영수자 이름" value="${esc(e?.payee||myName()||"")}"></div>
+      <div class="sig-pad ${d.sign?"has":""}"><canvas id="ex-sig" aria-label="서명란"></canvas><span class="sig-ph">여기에 서명해 주세요</span>
+        <button class="btn sm" type="button" data-act="sigClear">지우기</button></div></div>
+    <div class="field"><span class="lab">영수증 첨부</span><div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div></div>
+  </div>`, `<button class="btn pri block" type="button" data-act="saveExp">${e?"저장":"제출"}</button>`);
+  requestAnimationFrame(bindSig);
+}
+function expThumbs(){
+  const f = S.expDraft?.files||[];
+  return f.map((x,i)=>`<div class="exp-th"><img src="${x.data}" alt="영수증 ${i+1}"><button type="button" class="btn icon sm" data-act="expRmFile" data-i="${i}" aria-label="영수증 ${i+1} 빼기">${icon("x")}</button></div>`).join("")
+    + (f.length<EXP_MAX ? `<label class="exp-add"><input type="file" id="ex-file" accept="image/*" multiple hidden>${icon("plus")}<span>사진</span></label>` : "");
+}
+// 영수증 사진: 긴 쪽 1400px JPEG로 줄여서 저장 (문서 하나에 1MB를 넘지 않게)
+function shrinkReceipt(file){
+  return new Promise((res, rej) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { URL.revokeObjectURL(url);
+      const out = (max, q) => { const k=Math.min(1, max/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+        const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height); return c.toDataURL("image/jpeg", q); };
+      let d = out(1400, .72); if(d.length>700000) d = out(1100, .6); if(d.length>700000) d = out(800, .55); res(d); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); }; img.src = url;
+  });
+}
+// 서명판
+let sig = null;
+function bindSig(){
+  const c = document.getElementById("ex-sig"); if(!c) return; const r = c.getBoundingClientRect(); const dpr = Math.min(devicePixelRatio||1, 2);
+  c.width = Math.round(r.width*dpr); c.height = Math.round(r.height*dpr); const x = c.getContext("2d"); x.scale(dpr,dpr);
+  x.lineWidth = 2.4; x.lineCap = "round"; x.lineJoin = "round"; x.strokeStyle = x.fillStyle = "#16181d";
+  sig = { c, x, dirty:false, has:!!S.expDraft?.sign };
+  if(S.expDraft?.sign){ const im=new Image(); im.onload=()=>x.drawImage(im,0,0,r.width,r.height); im.src=S.expDraft.sign; }
+  const pt = e => { const b=c.getBoundingClientRect(); return {x:e.clientX-b.left, y:e.clientY-b.top}; };
+  let last = null;
+  c.addEventListener("pointerdown", e => { e.preventDefault(); c.setPointerCapture(e.pointerId); last=pt(e); x.beginPath(); x.arc(last.x,last.y,1.2,0,7); x.fill(); sig.dirty=true; sig.has=true; c.parentElement.classList.add("has"); });
+  c.addEventListener("pointermove", e => { if(!last) return; const p=pt(e); x.beginPath(); x.moveTo(last.x,last.y); x.lineTo(p.x,p.y); x.stroke(); last=p; });
+  const end = () => { last=null; }; c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end);
+}
+function sigData(){
+  if(!sig || !document.contains(sig.c)) return S.expDraft?.sign||"";
+  if(!sig.has) return ""; if(!sig.dirty) return S.expDraft?.sign||"";
+  const o=document.createElement("canvas"); o.width=480; o.height=Math.round(480*sig.c.height/sig.c.width); o.getContext("2d").drawImage(sig.c,0,0,o.width,o.height); return o.toDataURL("image/png");
+}
+function printExp(e){
+  let root = document.getElementById("print-root"); if(!root){ root=document.createElement("div"); root.id="print-root"; document.body.appendChild(root); }
+  root.innerHTML = expDoc(e, S.expFiles); document.body.classList.add("printing");
+  const done = () => { document.body.classList.remove("printing"); window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  Promise.all([...root.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{ i.onload=i.onerror=r; }))).then(()=>window.print());
 }
 
 /* ---------- 리더단: 팀별 출석·기도제목 ---------- */
@@ -1442,7 +1566,7 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, expenses:vExpenses, expense:vExpense};
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 function route(){ const h=location.hash.slice(1);
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
@@ -1478,6 +1602,7 @@ function render(){
   if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
   if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
   if(need==="home" && (!S.got.o || !S.got.t)){ main.innerHTML=skeleton(); return; }
+  if((r==="expenses"||r==="expense") && !S.got.e){ main.innerHTML=skeleton(); return; }
   if(need==="home") watchMyWeek();
   if(need==="leaders" && !S.got.t){ main.innerHTML=skeleton(); return; }
   if(r==="members" && !S.got.m){ main.innerHTML=skeleton(); return; }
@@ -1533,6 +1658,36 @@ document.addEventListener("click", async e => {
     t.disabled=true;
     try{ await S.db.doc("profiles/"+S.user.uid).set(body); S.profiles[S.user.uid]=body; indexProfiles(); toast("프로필을 바꿨어요"); closeSheet(); render(); }
     catch{ t.disabled=false; toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } return; }
+  if(a==="newExp"){ expSheet(); return; }
+  if(a==="openExp"){ S.expSel=t.dataset.id; watchExpFiles(S.expSel); if(location.hash==="#expense"){ window.scrollTo(0,0); render(); } else location.hash="#expense"; return; }
+  if(a==="editExp"){ expSheet(t.dataset.id); return; }
+  if(a==="printExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(e) printExp(e); return; }
+  if(a==="sigClear"){ if(sig){ sig.x.save(); sig.x.setTransform(1,0,0,1,0,0); sig.x.clearRect(0,0,sig.c.width,sig.c.height); sig.x.restore(); sig.has=false; sig.dirty=true; sig.c.parentElement.classList.remove("has"); } return; }
+  if(a==="expRmFile"){ S.expDraft.files.splice(+t.dataset.i,1); document.getElementById("ex-thumbs").innerHTML=expThumbs(); return; }
+  if(a==="saveExp"){ const d=S.expDraft; const amount=parseWon(val("ex-amt"));
+    const body={ name:myName(), title:val("ex-title"), place:val("ex-place"), people:val("ex-people"), amount, date:val("ex-date"), payee:val("ex-payee"), sign:sigData(), files:d.files.length, updatedAt:FB?FB.m.serverTimestamp():new Date() };
+    if(!body.title){ toast("지출명을 적어 주세요"); document.getElementById("ex-title")?.focus(); return; }
+    if(!amount){ toast("금액을 적어 주세요"); document.getElementById("ex-amt")?.focus(); return; }
+    if(!body.date || !body.payee){ toast("영수일과 영수자를 적어 주세요"); return; }
+    t.disabled=true; let id=d.id;
+    const ok = await write(async()=>{
+      if(id) await S.db.doc("expenses/"+id).update(body);
+      else { const ref=S.db.collection("expenses").doc(); id=ref.id; await ref.set({...body, uid:S.user.uid, status:"submitted", createdAt:FB?FB.m.serverTimestamp():new Date()}); }
+      for(let i=0;i<d.files.length;i++) await S.db.doc(`expenses/${id}/files/${i}`).set({data:d.files[i].data});
+      for(let i=d.files.length;i<d.oldFiles;i++) await S.db.doc(`expenses/${id}/files/${i}`).delete();
+    }, d.id?"고쳤어요":"지출결의서를 냈어요");
+    if(!ok){ t.disabled=false; return; }
+    closeSheet(); S.expSel=id; watchExpFiles(id); if(!FB) S.expFiles=d.files.map((f,i)=>({id:String(i),...f}));
+    if(location.hash==="#expense") render(); else location.hash="#expense"; return; }
+  if(a==="delExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return;
+    if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 지울까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="지우기"; t.classList.remove("solid"); } }, 3000); return; }
+    if(await write(async()=>{ for(let i=0;i<(e.files||0);i++) await S.db.doc(`expenses/${e.id}/files/${i}`).delete(); await S.db.doc("expenses/"+e.id).delete(); }, "지웠어요")){ watchExpFiles(null); S.expSel=null; location.hash="#expenses"; } return; }
+  if(a==="checkExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return; const on=e.status!=="checked";
+    await write(()=>S.db.doc("expenses/"+e.id).update({status:on?"checked":"submitted", checkedBy:on?myName():"", checkedAt:FB?FB.m.serverTimestamp():new Date()}), on?"확인했어요":"확인을 취소했어요"); return; }
+  if(a==="ledgerExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return; t.disabled=true;
+    const ok = await write(async()=>{ await S.db.collection("ledger").doc().set({date:e.date, type:"out", cat:"기타 지출", memo:(e.title||"").slice(0,80), amount:e.amount, who:e.payee||e.name||"", by:S.user.uid, createdAt:FB?FB.m.serverTimestamp():new Date()});
+      await S.db.doc("expenses/"+e.id).update({ledger:true}); }, `총무부 장부에 지출 ${won(e.amount)}원을 적었어요`);
+    if(!ok) t.disabled=false; return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="goRequests") location.hash="#requests";
   if(a==="reqTab"){ S.reqTab=t.dataset.v; render(); }
@@ -1708,6 +1863,10 @@ document.addEventListener("click", async e => {
 });
 document.addEventListener("change", async e => {
   if(e.target.id==="s-date"){ syncScript(e.target.value); render(); return; }
+  if(e.target.id==="ex-file" && e.target.files.length){ const fs=[...e.target.files]; e.target.value="";
+    for(const f of fs){ if(S.expDraft.files.length>=EXP_MAX){ toast(`영수증은 ${EXP_MAX}장까지 붙일 수 있어요`); break; }
+      try{ S.expDraft.files.push({data: await shrinkReceipt(f)}); }catch{ toast("이 사진은 쓸 수 없어요"); } }
+    const th=document.getElementById("ex-thumbs"); if(th) th.innerHTML=expThumbs(); return; }
   if(e.target.id==="prof-file" && e.target.files[0]){ try{ S.profDraft.photo = await shrinkImage(e.target.files[0]); S.profDraft.kind="photo"; refreshProfilePreview(); }catch{ toast("이 사진은 쓸 수 없어요. 다른 사진을 골라 주세요"); } e.target.value=""; return; }
   if(e.target.id!=="imp-file" || !e.target.files[0]) return;
   try{
@@ -1721,6 +1880,7 @@ document.addEventListener("change", async e => {
 document.addEventListener("input", e => {
   if(e.target.tagName==="TEXTAREA") grow(e.target);
   const id=e.target.id;
+  if(id==="ex-amt"){ const n=parseWon(e.target.value); const ko=document.getElementById("ex-ko"); if(ko) ko.textContent = n ? wonLine(n) : ""; return; }
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; return; }
   if(e.target.name==="m-role"){ syncDeptPick(); return; }
@@ -1800,7 +1960,7 @@ async function startFirebase(){
     for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>r.parent.id==="weeks" ? b.set(r,d,{merge:true}) : b.set(r,d)); await b.commit(); }
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
-  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false; myWeekUnsub?.(); myWeekUnsub=null; S.myWeekKey=""; postUnsub?.(); postUnsub=null;
+  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false; myWeekUnsub?.(); myWeekUnsub=null; S.myWeekKey=""; postUnsub?.(); postUnsub=null; expUnsub?.(); expUnsub=null; S.expenses=[]; S.got.e=false; S.expFiles=[];
     S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.posts=[]; S.got.o=false; S.profiles={}; S.profByName={}; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
@@ -1826,6 +1986,9 @@ async function startFirebase(){
       unsubs.push(onSnapshot(collection(fs,"people"), s=>{ S.people=s.docs.map(d=>({id:d.id,...d.data()})); S.got.p=true; render(); }, ()=>{ S.got.p=true; render(); }));
     }
     if(sees("social")) unsubs.push(onSnapshot(doc(fs,"config","topics"), s=>{ S.topics = s.exists() ? (s.data().text||null) : null; }, ()=>{}));
+    // 지출결의서: 총무부(보기 이상)·관리자는 전부, 나머지는 내가 쓴 것만
+    const expQ = sees("finance") ? collection(fs,"expenses") : fsM.query(collection(fs,"expenses"), fsM.where("uid","==",S.user.uid));
+    unsubs.push(onSnapshot(expQ, s=>{ S.expenses=s.docs.map(d=>({id:d.id,...d.data()})); S.got.e=true; render(); }, ()=>{ S.got.e=true; render(); }));
     // 수정 요청: 관리자는 전부, 나머지는 내가 보낸 것만
     const reqQ = S.isAdmin ? collection(fs,"requests") : fsM.query(collection(fs,"requests"), fsM.where("uid","==",S.user.uid));
     unsubs.push(onSnapshot(reqQ, s=>{ S.requests=s.docs.map(d=>({id:d.id,...d.data()})); S.got.r=true; render(); }, ()=>{ S.got.r=true; render(); }));
