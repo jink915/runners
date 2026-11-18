@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-13";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-14";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1142,9 +1142,8 @@ function expDoc(e, files){
         <p>상기 금액을 정히 영수합니다.</p>
         <p class="d">${koDate(e.date)}</p>
         <p class="who"><span>영수자</span><b>${esc(e.payee||"")}</b><span class="sig">${e.sign?`<img src="${e.sign}" alt="${esc(e.payee||"")} 서명">`:""}<i>(서명)</i></span></p></td></tr>
-    </tbody></table>
-    ${files.length?`<section class="exp-files"><h2>영수증 첨부</h2><div class="exp-imgs n${Math.min(files.length,2)}">${files.map((f,i)=>`<figure><img src="${f.data}" alt="영수증 ${i+1}"><figcaption>영수증 ${i+1} · ${esc(e.title||"")}</figcaption></figure>`).join("")}</div></section>`:""}
-  </div>`;
+    </tbody></table></div>
+    ${files.length?`<section class="exp-files"><h2>영수증 첨부</h2><div class="exp-imgs n${Math.min(files.length,2)}">${files.map((f,i)=>`<figure><img src="${f.data}" alt="영수증 ${i+1}"><figcaption>영수증 ${i+1} · ${esc(e.title||"")}</figcaption></figure>`).join("")}</div></section>`:""}`;
 }
 function expRow(e){
   return `<button type="button" class="row exp-row" data-act="openExp" data-id="${e.id}">

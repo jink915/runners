@@ -817,3 +817,12 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
   #print-root .exp-imgs img{flex:1;min-height:0;width:100%;max-height:none!important;object-fit:contain;background:none;outline:none}
 }
 @media print{ #print-root .exp-doc{display:block;height:auto} #print-root .exp-t{height:121mm} }
+/* A6 한 장 고정: 페이지 여백 0(브라우저 머리글·바닥글도 같이 빠짐) + 안쪽 여백으로 정확히 한 장 */
+@media print{
+  @page{size:105mm 148mm;margin:0}
+  #print-root .exp-doc{display:block;box-sizing:border-box;width:105mm;height:146mm;padding:7mm 7mm 6mm;overflow:hidden;break-inside:avoid;break-after:auto}
+  #print-root .exp-h{margin:0 0 3.5mm}
+  #print-root .exp-t{height:118mm}
+  #print-root .exp-files{display:contents}
+  #print-root .exp-imgs figure{box-sizing:border-box;width:105mm;height:146mm;padding:7mm;overflow:hidden;break-inside:avoid}
+}
