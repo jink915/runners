@@ -704,3 +704,11 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 .notice-line{display:flex;align-items:center;gap:6px;margin:0 0 12px;font-size:13.5px;color:var(--ink-2);text-decoration:none;white-space:nowrap;overflow:hidden}
 .notice-line span{overflow:hidden;text-overflow:ellipsis} .notice-line b{color:var(--accent);font-weight:700}
 .notice-line .i{width:16px;height:16px;flex:none;color:var(--accent)} .notice-line .chev{width:14px;height:14px;opacity:.5}
+
+/* 멤버 관리: 부서별 권한 (없음·보기·운영) */
+.lv-list{display:flex;flex-direction:column;gap:8px}
+.lv-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.lv-row b{font-size:15px;flex:1;min-width:0}
+.lv-row .set-ic{width:32px;height:32px}
+.lv-row .seg{flex:none}
+.lv-sum{margin:8px 2px 0;font-size:13px;font-weight:700;color:var(--accent)}

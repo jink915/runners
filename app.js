@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-10";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-11";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -77,10 +77,13 @@ const ALL_DEPTS = ["social","care","finance","leaders"];
 const LEGACY_DEPTS = ["social","care"];   // 부서를 정하기 전에 승인된 예전 멤버 (총무부는 따로 열어 줘야 보여요)
 const ROLE_NAME = { admin:"관리자", operator:"운영자", member:"멤버" };
 const deptsOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : Array.isArray(m.depts) ? m.depts.filter(d=>ALL_DEPTS.includes(d)) : [...LEGACY_DEPTS];
-// 멤버(일반)는 멤버 홈('러너스')만, 운영자는 맡은 부서 + 멤버 홈, 관리자는 전부
-const isPlainMember = () => S.approved && !S.isAdmin && S.member?.role!=="operator";
-const sees = d => d==="home" ? S.approved : (S.isAdmin || (S.approved && S.member?.role==="operator" && deptsOf(S.member).includes(d)));
-const can = d => S.isAdmin || (S.approved && S.member?.role==="operator" && deptsOf(S.member).includes(d));
+// 부서별 권한: 관리자는 전부. 그 외에는 부서마다 없음·보기·운영 (모두 러너스는 기본으로 봐요)
+const editOf = m => !m ? [] : (m.owner || m.role==="admin") ? [...ALL_DEPTS] : m.role==="operator" ? deptsOf(m) : [];
+const viewOf = m => !m ? [] : (Array.isArray(m.view) ? m.view.filter(d=>ALL_DEPTS.includes(d)) : []);
+const levelOf = (m, d) => editOf(m).includes(d) ? "edit" : viewOf(m).includes(d) ? "view" : "none";
+const isPlainMember = () => S.approved && !S.isAdmin && !editOf(S.member).length && !viewOf(S.member).length;
+const sees = d => d==="home" ? S.approved : (S.isAdmin || (S.approved && levelOf(S.member, d)!=="none"));
+const can = d => S.isAdmin || (S.approved && editOf(S.member).includes(d));
 const alertVisible = a => a.admin ? S.isAdmin : a.edit ? can(a.dept) : S.approved;
 const myName = () => (S.member?.name || S.user?.displayName || "").trim();
 const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n; };
@@ -339,8 +342,13 @@ function vPending(){
 
 /* ---------- 멤버 관리 ---------- */
 const pendingCount = () => S.members.filter(m=>m.status==="pending").length;
-const roleChip = m => m.owner ? `<span class="chip acc plain">최고 관리자</span>` : m.role==="admin" ? `<span class="chip acc plain">관리자</span>` : m.role==="operator" ? `<span class="chip ok plain">운영자</span>` : `<span class="chip mute plain">멤버</span>`;
-const deptLine = m => (m.owner||m.role==="admin") ? "모든 부서" : (deptsOf(m).map(d=>DEPTS[d].name).join(" · ") || "부서 없음");
+const roleChip = m => m.owner ? `<span class="chip acc plain">최고 관리자</span>` : m.role==="admin" ? `<span class="chip acc plain">관리자</span>` : editOf(m).length ? `<span class="chip ok plain">운영자</span>` : `<span class="chip mute plain">멤버</span>`;
+function accessText(edit, view){
+  const n = ds => ds.map(d=>DEPTS[d].name.replace(/부$|단$/,m=>m)).join("·");
+  const parts = []; if(edit.length) parts.push(`${n(edit)} 운영`); if(view.length) parts.push(`${n(view)} 보기`);
+  return parts.length ? `러너스 + ${parts.join(" · ")}` : "러너스만";
+}
+const deptLine = m => (m.owner||m.role==="admin") ? "모든 부서" : accessText(editOf(m), viewOf(m));
 function vMembers(){
   if(!S.got.m) return skeleton();
   const by = st => S.members.filter(m=>m.status===st).sort((a,b)=>(a.name||"").localeCompare(b.name||"","ko"));
@@ -357,29 +365,35 @@ function vMembers(){
 }
 function memberSheet(id){
   const m = S.members.find(x=>x.id===id); if(!m) return; const owner = !!m.owner; const approving = m.status!=="approved";
-  const role = m.role==="admin"||m.role==="operator" ? m.role : "member";
-  const ds = approving && !Array.isArray(m.depts) ? [...LEGACY_DEPTS] : deptsOf(m);
+  const admin = m.role==="admin";
+  const LV = [["none","없음"],["view","보기"],["edit","운영"]];
   openSheet(approving ? `${esc(m.name||m.email)} 승인` : esc(m.name||m.email), `<div class="fields">
     <label class="field"><span>이름 (일정에 적힌 이름과 똑같이)</span><input id="m-name" name="name" maxlength="20" autocomplete="off" spellcheck="false" value="${esc(m.name||"")}"></label>
     <div class="field"><span class="lab" id="lab-role">권한</span>${owner?`<span class="readout">최고 관리자 (바꿀 수 없어요)</span>`:`
-      <div class="role-pick" role="radiogroup" aria-labelledby="lab-role">
-        ${[["admin","관리자","모든 부서에서 모든 권한 (멤버 관리 포함)"],["operator","운영자","고른 부서에서 관리자와 같은 권한"],["member","멤버","고른 부서를 보기만"]].map(([v,t,d])=>`
-        <label class="role-opt"><input type="radio" name="m-role" value="${v}" ${role===v?"checked":""}><span><b>${t}</b></span></label>`).join("")}
-      </div>`}</div>
-    ${owner?"":`<div class="field" id="m-depts-wrap" ${role==="operator"?"":"hidden"}><span class="lab" id="lab-dept">운영할 부서</span>
-      <div class="dept-pick" role="group" aria-labelledby="lab-dept">${ALL_DEPTS.map(d=>`
-        <label class="dept-opt"><input type="checkbox" name="m-dept" value="${d}" ${ds.includes(d)?"checked":""}><span class="set-ic" style="--c:${DEPTS[d].color}">${icon(DEPTS[d].icon)}</span><span><b>${DEPTS[d].name}</b></span></label>`).join("")}</div></div>`}
+      <div class="seg" role="radiogroup" aria-labelledby="lab-role">
+        <button type="button" role="radio" data-act="mAdmin" data-v="0" aria-pressed="${!admin}" aria-checked="${!admin}">일반</button>
+        <button type="button" role="radio" data-act="mAdmin" data-v="1" aria-pressed="${admin}" aria-checked="${admin}">관리자</button></div>`}</div>
+    ${owner?"":`<div class="field" id="m-depts-wrap" ${admin?"hidden":""}><span class="lab">부서별 권한</span>
+      <div class="lv-list">${ALL_DEPTS.map(d=>{ const lv = approving && !m.view && m.role!=="operator" ? "none" : levelOf(m, d); return `
+        <div class="lv-row" data-dept="${d}"><span class="set-ic" style="--c:${DEPTS[d].color}">${icon(DEPTS[d].icon)}</span><b>${DEPTS[d].name}</b>
+          <div class="seg mini" role="radiogroup" aria-label="${DEPTS[d].name} 권한">${LV.map(([v,l])=>`<button type="button" role="radio" data-act="mLevel" data-d="${d}" data-v="${v}" aria-pressed="${lv===v}" aria-checked="${lv===v}">${l}</button>`).join("")}</div></div>`; }).join("")}</div>
+      <p class="lv-sum" id="m-sum"></p></div>`}
     <div class="field"><span>이메일</span><span class="readout">${esc(m.email)}</span></div></div>`,
     owner ? `<button class="btn pri block" type="button" data-act="saveMember" data-id="${m.id}">저장</button>`
     : approving ? `<button class="btn danger" type="button" data-act="rejectMember" data-id="${m.id}">거절</button><button class="btn pri" type="button" data-act="saveMember" data-id="${m.id}" data-approve="1">${icon("check")}승인</button>`
     : `<button class="btn danger" type="button" data-act="rejectMember" data-id="${m.id}">내보내기</button><button class="btn pri" type="button" data-act="saveMember" data-id="${m.id}">저장</button>`);
   syncDeptPick();
 }
+function readAccess(){
+  const admin = document.querySelector('[data-act="mAdmin"][aria-pressed="true"]')?.dataset.v==="1";
+  const edit=[], view=[];
+  document.querySelectorAll(".lv-row").forEach(r=>{ const v=r.querySelector('[aria-pressed="true"]')?.dataset.v; if(v==="edit") edit.push(r.dataset.dept); else if(v==="view") view.push(r.dataset.dept); });
+  return {admin, edit, view};
+}
 function syncDeptPick(){
-  const role = document.querySelector('input[name="m-role"]:checked')?.value;
   const wrap = document.getElementById("m-depts-wrap"); if(!wrap) return;
-  wrap.hidden = role!=="operator";   // 부서는 운영자만 골라요. 멤버는 러너스만, 관리자는 전부
-  const h=document.getElementById("m-dept-hint"); if(h) h.hidden = role!=="admin";
+  const a = readAccess(); wrap.hidden = a.admin;
+  const sum = document.getElementById("m-sum"); if(sum) sum.textContent = accessText(a.edit, a.view);
 }
 
 /* ---------- 홈 ---------- */
@@ -552,7 +566,7 @@ function vMore(){
   const setRow = (c, ic, t, s, right="", act="") => `<${act?"button":"div"} ${act?`type="button" ${act}`:""} class="row"><span class="set-ic" style="--c:${c}">${icon(ic)}</span><span class="main"><span class="t">${t}</span>${s?`<span class="s" style="white-space:normal">${s}</span>`:""}</span>${right}</${act?"button":"div"}>`;
   const noDept = !ALL_DEPTS.some(sees);
   return `${head("더보기")}${noDept?`<div class="banner">아직 볼 수 있는 부서가 없어요. 관리자에게 부서를 열어 달라고 해 주세요.</div>`:""}
-    <button type="button" class="card profile-card" data-act="editProfile" aria-label="내 프로필 꾸미기"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(S.profiles[S.user?.uid]?.bio || u?.email || "")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.member?.role==="member"?"mute":"acc"}">${ROLE_NAME[S.member?.role]||"멤버"}</span>`}${icon("chev","chev")}</div></button>
+    <button type="button" class="card profile-card" data-act="editProfile" aria-label="내 프로필 꾸미기"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(S.profiles[S.user?.uid]?.bio || u?.email || "")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.isAdmin||editOf(S.member).length?"acc":"mute"}">${S.isAdmin?"관리자":editOf(S.member).length?"운영자":"멤버"}</span>`}${icon("chev","chev")}</div></button>
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
       ${standalone?"":setRow("#2F9E6B","phone","휴대폰에 앱 설치", "",
@@ -1537,13 +1551,14 @@ document.addEventListener("click", async e => {
   if(a==="rejectMember"){ const m=S.members.find(x=>x.id===t.dataset.id); const label = m?.status==="pending"?"거절":"내보내기";
     if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent = m?.status==="pending"?"거절할까요?":"정말 내보낼까요?"; t.classList.add("solid");
       setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent=label; t.classList.remove("solid"); } }, 3000); return; }
-    if(await write(()=>S.db.doc("members/"+t.dataset.id).update({status:"rejected", role:"member", depts:[]}), "처리했어요")) closeSheet(); }
+    if(await write(()=>S.db.doc("members/"+t.dataset.id).update({status:"rejected", role:"member", depts:[], view:[]}), "처리했어요")) closeSheet(); }
   if(a==="deleteMember") await write(()=>S.db.doc("members/"+t.dataset.id).delete(), "기록을 지웠어요. 다시 로그인하면 새로 신청돼요");
+  if(a==="mAdmin"||a==="mLevel"){ t.parentElement.querySelectorAll("button").forEach(b=>{ b.setAttribute("aria-pressed", String(b===t)); b.setAttribute("aria-checked", String(b===t)); }); syncDeptPick(); return; }
   if(a==="saveMember"){ const name=val("m-name"); if(!name){ toast("이름을 적어 주세요"); return; }
-    const role=document.querySelector('input[name="m-role"]:checked')?.value; const patch={name};
-    if(role){ patch.role=role; patch.depts=[...document.querySelectorAll('input[name="m-dept"]:checked')].map(x=>x.value);
-      if(role==="operator" && !patch.depts.length){ toast("운영할 부서를 하나 이상 골라 주세요"); return; }
-      if(role==="member") patch.depts=[]; }
+    const patch={name};
+    if(document.querySelector('[data-act="mAdmin"]')){ const ac=readAccess();
+      patch.role = ac.admin ? "admin" : ac.edit.length ? "operator" : "member";
+      patch.depts = ac.admin ? [] : ac.edit; patch.view = ac.admin ? [] : ac.view; }
     if(t.dataset.approve) patch.status="approved";
     if(await write(()=>S.db.doc("members/"+t.dataset.id).update(patch), t.dataset.approve?`${name}님을 승인했어요`:"저장했어요")) closeSheet(); }
   if(a==="savePendName"){ const name=val("pend-name"); if(!name){ toast("이름을 적어 주세요"); return; }
@@ -1839,13 +1854,13 @@ async function startFirebase(){
         catch{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } else toast("가입 신청을 저장하지 못했어요. 다시 로그인해 주세요"); render(); }
         return;
       }
-      const m = snap.data(); const before = [S.approved, S.isAdmin, S.member?.role, deptsOf(S.member).join()].join("|");
+      const m = snap.data(); const before = [S.approved, S.isAdmin, S.member?.role, deptsOf(S.member).join(), viewOf(S.member).join()].join("|");
       S.member = m; S.memberReady = true;
       S.approved = S.isOwner || m.status==="approved";
       S.isAdmin = S.isOwner || (S.approved && m.role==="admin");
       S.canEdit = can("social");
       // 권한·부서가 바뀌면 읽는 데이터를 다시 정리
-      if(before !== [S.approved, S.isAdmin, m.role, deptsOf(m).join()].join("|")) stopData();
+      if(before !== [S.approved, S.isAdmin, m.role, deptsOf(m).join(), viewOf(m).join()].join("|")) stopData();
       if(S.approved) startData();
       render();
     }, ()=>{ S.memberReady=true; S.member={status:"pending"}; if(S.isOwner){ S.approved=true; S.isAdmin=true; S.canEdit=true; startData(); } render(); });
