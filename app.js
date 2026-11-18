@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-26";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-27";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -37,6 +37,10 @@ const ALERTS = [
   {k:"request",  g:"관리자", admin:true, instant:true, t:"수정 요청 도착", d:"멤버가 수정 요청을 보내면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
   {k:"expense",  g:"총무부", dept:"finance", edit:true, instant:true, t:"지출결의서 도착", d:"누가 지출결의서를 내면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
   {k:"expResult", g:"지출결의서", instant:true, t:"내 지출결의서 결과", d:"내가 낸 지출결의서가 승인·반려되면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"chg_social",  g:"부서 변경 알림", dept:"social",  edit:true, instant:true, t:"사회부가 바뀌면", d:"다른 운영자가 일정·명단·기도제목을 고치면 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"chg_care",    g:"부서 변경 알림", dept:"care",    edit:true, instant:true, t:"챙김부가 바뀌면", d:"다른 운영자가 생일·군입대 명단을 고치면 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"chg_finance", g:"부서 변경 알림", dept:"finance", edit:true, instant:true, t:"총무부가 바뀌면", d:"다른 운영자가 장부를 고치면 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"chg_leaders", g:"부서 변경 알림", dept:"leaders", edit:true, instant:true, t:"리더단이 바뀌면", d:"다른 운영자가 팀 명단을 고치면 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
 ];
 const DAYS = ["일","월","화","수","목","금","토"];
 const DAY_ORDER = [1,2,3,4,5,6,0];

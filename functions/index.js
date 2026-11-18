@@ -1,12 +1,14 @@
 // 러너스 Cloud Functions
 //  · remindHourly: 매시 정각(한국 시간) 예약 알림
 //  · onPost: 관리자가 게시판 글을 공지로 올리면 모두에게 알림
+//  · chg*: 부서 내용이 바뀌면 같은 부서의 다른 운영자에게 알림
 //  · deleteAccount: 본인 탈퇴 (계정과 내가 남긴 기록 삭제)
 //  · onMember / onRequest / onExpenseWrite: 가입 신청·수정 요청·지출결의서가 들어오는 순간 알림
 import { readFileSync } from "node:fs";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentWritten, onDocumentWrittenWithAuthContext } from "firebase-functions/v2/firestore";
+import { notifyChange } from "./changes.js";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldPath, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
@@ -74,3 +76,12 @@ export const deleteAccount = onCall(async req => {
   console.log("탈퇴", uid, JSON.stringify(n));
   return { ok: true, ...n };
 });
+
+// 부서 변경 알림
+export const chgSoldiers = onDocumentWrittenWithAuthContext("soldiers/{id}", ev => notifyChange("soldiers", ev));
+export const chgBirthdays = onDocumentWrittenWithAuthContext("birthdays/{id}", ev => notifyChange("birthdays", ev));
+export const chgWeeks = onDocumentWrittenWithAuthContext("weeks/{id}", ev => notifyChange("weeks", ev));
+export const chgPeople = onDocumentWrittenWithAuthContext("people/{id}", ev => notifyChange("people", ev));
+export const chgConfig = onDocumentWrittenWithAuthContext("config/{id}", ev => notifyChange("config", ev));
+export const chgLedger = onDocumentWrittenWithAuthContext("ledger/{id}", ev => notifyChange("ledger", ev));
+export const chgTeams = onDocumentWrittenWithAuthContext("teams/{id}", ev => notifyChange("teams", ev));
