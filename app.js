@@ -20,22 +20,22 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-18";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-19";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
-  {k:"prayer",   dept:"social", t:"대표기도 미정",     d:"사회 맡은 주에 대표기도가 아직 비어 있으면",        days:[3,4], hour:12},
-  {k:"hymn",     dept:"social", t:"헌금찬송 미정",     d:"사회 맡은 주에 헌금찬송이 아직 비어 있으면",        days:[3,4], hour:12},
-  {k:"script",   dept:"social", t:"기도문 작성",       d:"사회 맡은 주에 묵도·헌금기도 문장이 아직 비어 있으면", days:[3,4], hour:12},
-  {k:"mcDay",    dept:"social", t:"사회 차례 알림",    d:"내가 사회인 주에 미리 알려 드려요",                 days:[6],   hour:20},
-  {k:"prayDay",  dept:"social", t:"대표기도 차례 알림", d:"내가 대표기도인 주에 미리 알려 드려요",              days:[6],   hour:20},
-  {k:"fallback", dept:"social", t:"사회자 대신 받기",   d:"사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받아요", days:[3,4], hour:12, edit:true},
-  {k:"bdToday",  dept:"care",   t:"오늘 생일",         d:"고른 요일에 그날 생일인 사람이 있으면",              days:[0,1,2,3,4,5,6], hour:9},
-  {k:"bdWeek",   dept:"care",   t:"이번 주 생일 미리보기", d:"앞으로 7일 안의 생일을 한 번에 알려 드려요",       days:[1], hour:9},
-  {k:"join",     admin:true, instant:true, t:"가입 신청 도착", d:"누가 가입을 신청하면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
-  {k:"expense",  dept:"finance", edit:true, instant:true, t:"지출결의서 도착", d:"누가 지출결의서를 내면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
-  {k:"expResult", instant:true, t:"내 지출결의서 결과", d:"내가 낸 지출결의서가 승인·반려되면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
-  {k:"request",  admin:true, instant:true, t:"수정 요청 도착", d:"멤버가 수정 요청을 보내면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"prayer",   mc:true, g:"주일 준비 (사회자)", dept:"social", t:"대표기도 미정",     d:"사회 맡은 주에 대표기도가 아직 비어 있으면",        days:[3,4], hour:12},
+  {k:"hymn",     mc:true, g:"주일 준비 (사회자)", dept:"social", t:"헌금찬송 미정",     d:"사회 맡은 주에 헌금찬송이 아직 비어 있으면",        days:[3,4], hour:12},
+  {k:"script",   mc:true, g:"주일 준비 (사회자)", dept:"social", t:"기도문 작성",       d:"사회 맡은 주에 묵도·헌금기도 문장이 아직 비어 있으면", days:[3,4], hour:12},
+  {k:"mcDay",    mc:true, g:"주일 준비 (사회자)", dept:"social", t:"사회 차례 알림",    d:"내가 사회인 주에 미리 알려 드려요",                 days:[6],   hour:20},
+  {k:"prayDay",  g:"주일 준비 (대표기도)", dept:"social", t:"대표기도 차례 알림", d:"내가 대표기도인 주에 미리 알려 드려요",              days:[6],   hour:20},
+  {k:"fallback", g:"사회부", dept:"social", t:"사회자 대신 받기",   d:"사회자가 알림을 안 켰을 때 대표기도 미정 알림을 대신 받아요", days:[3,4], hour:12, edit:true},
+  {k:"bdToday",  g:"챙김부", dept:"care",   t:"오늘 생일",         d:"고른 요일에 그날 생일인 사람이 있으면",              days:[0,1,2,3,4,5,6], hour:9},
+  {k:"bdWeek",   g:"챙김부", dept:"care",   t:"이번 주 생일 미리보기", d:"앞으로 7일 안의 생일을 한 번에 알려 드려요",       days:[1], hour:9},
+  {k:"join",     g:"관리자", admin:true, instant:true, t:"가입 신청 도착", d:"누가 가입을 신청하면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"request",  g:"관리자", admin:true, instant:true, t:"수정 요청 도착", d:"멤버가 수정 요청을 보내면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"expense",  g:"총무부", dept:"finance", edit:true, instant:true, t:"지출결의서 도착", d:"누가 지출결의서를 내면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"expResult", g:"지출결의서", instant:true, t:"내 지출결의서 결과", d:"내가 낸 지출결의서가 승인·반려되면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
 ];
 const DAYS = ["일","월","화","수","목","금","토"];
 const DAY_ORDER = [1,2,3,4,5,6,0];
@@ -86,7 +86,8 @@ const levelOf = (m, d) => editOf(m).includes(d) ? "edit" : viewOf(m).includes(d)
 const isPlainMember = () => S.approved && !S.isAdmin && !editOf(S.member).length && !viewOf(S.member).length;
 const sees = d => d==="home" ? S.approved : (S.isAdmin || (S.approved && levelOf(S.member, d)!=="none"));
 const can = d => S.isAdmin || (S.approved && editOf(S.member).includes(d));
-const alertVisible = a => a.admin ? S.isAdmin : a.edit ? can(a.dept) : S.approved;
+// 알림 목록은 내 역할에 맞는 것만: 사회자 알림은 일정에 사회자로 있는 사람·사회부 운영, 생일은 챙김부, 결의서 도착은 총무부 운영
+const alertVisible = a => a.admin ? S.isAdmin : a.edit ? can(a.dept) : a.dept==="care" ? sees("care") : a.mc ? (can("social") || mcPool().includes(myName())) : S.approved;
 const myName = () => (S.member?.name || S.user?.displayName || "").trim();
 const firstName = n => { n=(n||"").trim(); return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n; };
 
@@ -685,7 +686,8 @@ function notifySheet(){
         <label class="row toggle master"><span class="set-ic" style="--c:#F0A020">${icon("bell")}</span><span class="main"><span class="t">전체 알림</span></span>
           <input type="checkbox" role="switch" class="switch" id="pref-all" ${pf.all?"checked":""}></label>
       </div>
-      <div class="card list toggles alerts ${pf.all?"":"dim"}" id="alert-list">${list.map(a=>{ const v=pf[a.k]; return `
+      <div class="card list toggles alerts ${pf.all?"":"dim"}" id="alert-list">${list.map((a,i)=>{ const v=pf[a.k]; return `
+        ${a.g && a.g!==list[i-1]?.g?`<div class="alert-g">${a.g}</div>`:""}
         <div class="alert" data-alert="${a.k}">
           <label class="row toggle"><span class="main"><span class="t">${a.t}</span></span>
             <input type="checkbox" role="switch" class="switch" data-pref="${a.k}" ${v.on?"checked":""}></label>

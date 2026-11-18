@@ -858,3 +858,5 @@ nav.tabs a .tab-ic{position:relative;display:inline-flex}
   #print-root .exp-t tr.r-sign.with-detail .exp-sign .d{margin:2.5mm 0 2mm}
   #print-root .exp-t td.detail{font-size:7.5pt;line-height:1.35;vertical-align:top}
 }
+.alert-g{padding:14px 18px 4px;font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.02em}
+.alert-g:first-child{padding-top:10px}

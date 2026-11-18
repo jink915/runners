@@ -46,7 +46,8 @@ export async function runRemind({ instantOnly = false, test = false } = {}) {
       const admin = !!(t.m.owner || t.m.role === "admin");
       const depts = admin ? ALL_DEPTS : Array.isArray(t.m.depts) ? t.m.depts : ALL_DEPTS;   // 예전 멤버는 모든 부서
       const editFinance = admin || (t.m.role === "operator" && Array.isArray(t.m.depts) && t.m.depts.includes("finance"));
-      return { token: t.token, uid: t.uid, name: (t.m.name || "").trim(), admin, depts, editFinance,
+      const seesCare = admin || (t.m.role === "operator" && depts.includes("care")) || (Array.isArray(t.m.view) && t.m.view.includes("care"));
+      return { token: t.token, uid: t.uid, name: (t.m.name || "").trim(), admin, depts, editFinance, seesCare,
         editSocial: admin || (t.m.role === "operator" && depts.includes("social")), prefs: t.prefs || {} };
     });
   const pref = (d, k) => {
@@ -57,9 +58,9 @@ export async function runRemind({ instantOnly = false, test = false } = {}) {
   const enabled = (d, k) => d.prefs.all !== false && pref(d, k).on;
   const INSTANT = new Set(["join", "request", "expense", "expResult"]);   // 가입 신청·수정 요청은 시간 상관없이 바로
   const dueNow = (d, k) => { if (INSTANT.has(k)) return enabled(d, k); const p = pref(d, k); return enabled(d, k) && p.days.includes(dow) && hour >= p.hour; };
-  // 사회·대표기도 차례 알림은 이름으로 가니까 부서와 상관없이, 생일 알림은 승인된 멤버 모두에게
+  // 사회·대표기도 차례 알림은 일정에 적힌 이름으로 (그 사람에게만), 생일 알림은 챙김부에게만
   const social = devices;
-  const care = devices;
+  const care = devices.filter(d => d.seesCare);   // 생일 알림은 챙김부(운영·보기)와 관리자만
   const byName = n => n ? social.filter(d => d.name === n) : [];
 
   // 보낼 알림: 항목 하나 = 알림 하나 (기기마다)
