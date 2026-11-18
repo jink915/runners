@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-17";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-18";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1136,11 +1136,12 @@ function expDoc(e, files){
   return `<div class="exp-doc">
     <h1 class="exp-h">지출결의서</h1>
     <table class="exp-t"><colgroup><col class="c1"><col class="c2"><col></colgroup><tbody>
-      <tr><th colspan="2">지출명</th><td>${esc(e.title||"")}</td></tr>
-      <tr><th colspan="2">지출처</th><td>${esc(e.place||"")}</td></tr>
-      <tr><th rowspan="2">지출사유</th><th class="sub">참여자</th><td>${esc(e.people||"")}</td></tr>
-      <tr><th class="sub">금액</th><td class="amt">${wonLine(e.amount)}</td></tr>
-      <tr><th colspan="2">영수확인</th><td class="exp-sign">
+      <tr class="r-title"><th colspan="2">지출명</th><td>${esc(e.title||"")}</td></tr>
+      <tr class="r-place"><th colspan="2">지출처</th><td>${esc(e.place||"")}</td></tr>
+      <tr class="r-people"><th rowspan="${e.detail?3:2}">지출사유</th><th class="sub">참여자</th><td>${esc(e.people||"")}</td></tr>
+      <tr class="r-amt"><th class="sub">금액</th><td class="amt">${wonLine(e.amount)}</td></tr>
+      ${e.detail?`<tr class="r-detail"><th class="sub">상세<br>내역</th><td class="detail">${esc(e.detail)}</td></tr>`:""}
+      <tr class="r-sign ${e.detail?"with-detail":""}"><th colspan="2">영수확인</th><td class="exp-sign">
         <p>상기 금액을 정히 영수합니다.</p>
         <p class="d">${koDate(e.date)}</p>
         <p class="who"><span>영수자</span><b>${esc(e.payee||"")}</b><span class="sig">${e.sign?`<img src="${e.sign}" alt="${esc(e.payee||"")} 서명">`:""}<i>(서명)</i></span></p></td></tr>
@@ -1219,7 +1220,8 @@ function expSheet(id){
     <div class="field"><span class="lab">지출사유</span>
       <div class="exp-in"><label class="sr-only" for="ex-people">참여자</label><input id="ex-people" maxlength="300" autocomplete="off" placeholder="참여자 · 예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">
         <div class="won-in"><label class="sr-only" for="ex-amt">금액</label><input id="ex-amt" inputmode="numeric" autocomplete="off" placeholder="금액" value="${e?.amount?won(e.amount):""}"><span>원</span></div></div>
-      <span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span></div>
+      <span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span>
+      <label class="sr-only" for="ex-detail">상세내역</label><textarea id="ex-detail" class="exp-detail" rows="3" maxlength="500" placeholder="상세내역 (한 줄에 하나씩)&#10;예: 김밥 10줄 30,000원&#10;음료 12개 18,000원">${esc(e?.detail||"")}</textarea></div>
     <div class="field"><span class="lab">영수확인</span>
       <p class="exp-stmt">상기 금액을 정히 영수합니다.</p>
       <div class="exp-in two"><label class="sr-only" for="ex-date">영수일</label><input type="date" id="ex-date" value="${e?.date||TODAY}">
@@ -1704,7 +1706,7 @@ document.addEventListener("click", async e => {
   if(a==="sigClear"){ if(sig){ sig.x.save(); sig.x.setTransform(1,0,0,1,0,0); sig.x.clearRect(0,0,sig.c.width,sig.c.height); sig.x.restore(); sig.has=false; sig.dirty=true; sig.c.parentElement.classList.remove("has"); } return; }
   if(a==="expRmFile"){ S.expDraft.files.splice(+t.dataset.i,1); document.getElementById("ex-thumbs").innerHTML=expThumbs(); return; }
   if(a==="saveExp"){ const d=S.expDraft; const amount=parseWon(val("ex-amt"));
-    const body={ name:myName(), title:val("ex-title"), place:val("ex-place"), people:val("ex-people"), amount, date:val("ex-date"), payee:val("ex-payee"), sign:sigData(), files:d.files.length, updatedAt:FB?FB.m.serverTimestamp():new Date() };
+    const body={ name:myName(), title:val("ex-title"), place:val("ex-place"), people:val("ex-people"), detail:(document.getElementById("ex-detail")?.value||"").trim(), amount, date:val("ex-date"), payee:val("ex-payee"), sign:sigData(), files:d.files.length, updatedAt:FB?FB.m.serverTimestamp():new Date() };
     if(!body.title){ toast("지출명을 적어 주세요"); document.getElementById("ex-title")?.focus(); return; }
     if(!amount){ toast("금액을 적어 주세요"); document.getElementById("ex-amt")?.focus(); return; }
     if(!body.date || !body.payee){ toast("영수일과 영수자를 적어 주세요"); return; }

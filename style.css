@@ -843,3 +843,18 @@ nav.tabs a .tab-ic{position:relative;display:inline-flex}
 .er-why{margin:0;padding:0 16px 14px;font-size:13px;color:var(--bad);word-break:keep-all}
 .exp-from{display:flex;align-items:center;gap:8px;margin:-6px 0 12px;font-size:14px;color:var(--muted)}
 .exp-from b{color:var(--ink)}
+
+/* 상세내역 */
+.exp-detail{margin-top:8px;min-height:84px;line-height:1.5;resize:none}
+.exp-t td.detail{white-space:pre-wrap;font-size:14px;line-height:1.5}
+@media print{
+  #print-root .exp-t tr{height:auto}
+  #print-root .exp-t tr.r-title,#print-root .exp-t tr.r-place{height:12%}
+  #print-root .exp-t tr.r-people{height:15%}
+  #print-root .exp-t tr.r-amt{height:11%}
+  #print-root .exp-t tr.r-sign{height:50%}
+  #print-root .exp-t tr.r-detail{height:22%}
+  #print-root .exp-t tr.r-sign.with-detail{height:28%}
+  #print-root .exp-t tr.r-sign.with-detail .exp-sign .d{margin:2.5mm 0 2mm}
+  #print-root .exp-t td.detail{font-size:7.5pt;line-height:1.35;vertical-align:top}
+}
