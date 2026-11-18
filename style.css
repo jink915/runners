@@ -826,3 +826,20 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
   #print-root .exp-files{display:contents}
   #print-root .exp-imgs figure{box-sizing:border-box;width:105mm;height:146mm;padding:7mm;overflow:hidden;break-inside:avoid}
 }
+
+/* 탭 배지 (검토 대기 건수) */
+nav.tabs a .tab-ic{position:relative;display:inline-flex}
+.tab-badge{position:absolute;top:-4px;right:-8px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:var(--bad);color:#fff;font-style:normal;font-size:11px;font-weight:800;line-height:18px;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--surface)}
+@media (max-width:760px){ .tab-badge{top:-2px;right:6px} }
+
+/* 총무부 결의서 검토 */
+.er-seg{margin:0 0 14px}
+.er-seg small{font-size:11px;font-weight:800;opacity:.7;font-variant-numeric:tabular-nums}
+.er-list{display:flex;flex-direction:column;gap:10px}
+.er-item{background:var(--surface);border-radius:var(--r-card);box-shadow:var(--shadow-1);overflow:hidden}
+.er-item .exp-row{width:100%}
+.er-acts{display:flex;justify-content:flex-end;gap:8px;padding:0 14px 14px}
+.er-acts .btn{min-width:84px}
+.er-why{margin:0;padding:0 16px 14px;font-size:13px;color:var(--bad);word-break:keep-all}
+.exp-from{display:flex;align-items:center;gap:8px;margin:-6px 0 12px;font-size:14px;color:var(--muted)}
+.exp-from b{color:var(--ink)}

@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-14";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-15";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -783,6 +783,7 @@ const val = id => document.getElementById(id)?.value.trim() ?? "";
 
 /* ---------- 부서 · 탭 · 메뉴 ---------- */
 const TAB_ICON = {
+  get expReview(){ return this.expenses; },
   expenses:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M6 3.5h12a1 1 0 0 1 1 1V21l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V4.5a1 1 0 0 1 1-1z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg>',
   dash:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>',
   schedule:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect class="fillable" x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
@@ -807,18 +808,19 @@ const DEPTS = {
             tabs:[["dash","홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
   care:   { name:"챙김부", desc:"러너스 생일 챙기기", icon:"cake", color:"#E0663E", home:"birth",
             tabs:[["birth","생일"],["births","전체"],["more","더보기"]] },
-  finance:{ name:"총무부", desc:"회비·헌금·지출 장부", icon:"wallet", color:"#1F9D6B", home:"ledger",
-            tabs:[["ledger","장부"],["ledgerSum","요약"],["more","더보기"]] },
+  finance:{ name:"총무부", desc:"장부·지출결의서 검토", icon:"wallet", color:"#1F9D6B", home:"ledger",
+            tabs:[["ledger","장부"],["expReview","결의서"],["ledgerSum","요약"],["more","더보기"]] },
   leaders:{ name:"리더단", desc:"팀별 출석·기도제목", icon:"users", color:"#7A5CE0", home:"lead",
             tabs:[["lead","이번 주"],["leadHist","출석부"],["more","더보기"]] },
 };
-const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", expenses:"home", expense:"home", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
+const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", expenses:"home", expense:"home", expReview:"finance", expCheck:"finance", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
 function renderTabs(r){
-  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r==="expense" ? "expenses" : r;
-  const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin;
+  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r==="expense" ? "expenses" : r==="expCheck" ? "expReview" : r;
+  const pend = S.dept==="finance" ? S.expenses.filter(e=>expStatus(e)==="submitted").length : 0;
+  const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin+"|"+pend;
   if(nav.dataset.key!==key){
-    nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}">${TAB_ICON[k]}<span>${l}</span></a>`).join("");
+    nav.innerHTML = DEPTS[S.dept].tabs.filter(t=>!t[2]||S.canEdit).map(([k,l])=>`<a href="#${k}"><span class="tab-ic">${TAB_ICON[k]}${k==="expReview"&&pend?`<i class="tab-badge" aria-label="검토 대기 ${pend}건">${pend>99?"99+":pend}</i>`:""}</span><span>${l}</span></a>`).join("");
     nav.dataset.key = key;
   }
   nav.querySelectorAll("a").forEach(a=>{ a.getAttribute("href")==="#"+cur ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"); });
@@ -1158,10 +1160,12 @@ function vExpenses(){
 }
 function vExpense(){
   const e = S.expenses.find(x=>x.id===S.expSel);
-  if(!e) return `${head("지출결의서")}<div class="card">${empty("지워졌거나 없는 지출결의서예요","","pray",`<a class="btn" href="#expenses">목록으로</a>`)}</div>`;
+  if(!e) return `${head("지출결의서")}<div class="card">${empty("지워졌거나 없는 지출결의서예요","","pray",`<a class="btn" href="${S.dept==="finance"?"#expReview":"#expenses"}">목록으로</a>`)}</div>`;
   const fin = can("finance"); const st = expStatus(e);
   const who = e.reviewedBy || e.checkedBy || "";
-  return `<div class="page-head"><div><p class="eyebrow"><a href="#expenses" class="back-link">${icon("chev","flip")}지출결의서</a></p><h1 class="post-title">${esc(e.title)}</h1></div></div>
+  const back = S.dept==="finance" ? ["#expReview","결의서 검토"] : ["#expenses","지출결의서"];
+  return `<div class="page-head"><div><p class="eyebrow"><a href="${back[0]}" class="back-link">${icon("chev","flip")}${back[1]}</a></p><h1 class="post-title">${esc(e.title)}</h1></div></div>
+    ${S.dept==="finance"?`<p class="exp-from">${av(e.name,"sm")}<b>${esc(e.name||"")}</b> 님이 냈어요 · ${ago(tsOf(e))}</p>`:""}
     <div class="exp-bar">
       ${EXP_CHIP[st].replace(" plain","")}${who&&st!=="submitted"?`<span class="exp-by">${esc(who)}</span>`:""}
       <span class="sp"></span>
@@ -1173,6 +1177,21 @@ function vExpense(){
       ? `<span class="exp-rv-t">${icon("wallet")}총무부 장부에 기록됐어요</span><a class="btn sm" href="#ledger" data-act="goLedgerOf" data-date="${e.date}">장부 보기</a><button class="btn sm" type="button" data-act="unapproveExp" data-id="${e.id}">승인 취소</button>`
       : `<span class="exp-rv-t">총무부 검토</span><button class="btn sm danger" type="button" data-act="rejectExp" data-id="${e.id}">반려</button><button class="btn sm ok" type="button" data-act="approveExp" data-id="${e.id}">${icon("check")}승인</button>`}</div>`:""}
     <div class="exp-paper">${expDoc(e, S.expFiles)}</div>`;
+}
+// 총무부: 결의서 검토
+const ER_TABS = [["submitted","검토 대기"],["approved","승인"],["rejected","반려"],["all","전체"]];
+function vExpReview(){
+  const f = S.erF || "submitted"; const all = sortedExp();
+  const cnt = k => k==="all" ? all.length : all.filter(e=>expStatus(e)===k).length;
+  const list = f==="all" ? all : all.filter(e=>expStatus(e)===f);
+  const fin = can("finance"); const pend = cnt("submitted");
+  const sumPend = all.filter(e=>expStatus(e)==="submitted").reduce((t,e)=>t+(+e.amount||0),0);
+  const item = e => `<div class="er-item">${expRow(e)}
+    ${fin && expStatus(e)==="submitted" ? `<div class="er-acts"><button class="btn sm danger" type="button" data-act="rejectExp" data-id="${e.id}">반려</button><button class="btn sm ok" type="button" data-act="approveExp" data-id="${e.id}">${icon("check")}승인</button></div>` : ""}
+    ${expStatus(e)==="rejected"&&e.rejectReason?`<p class="er-why">반려 사유 · ${esc(e.rejectReason)}</p>`:""}</div>`;
+  return `${head("결의서 검토", pend?`검토 대기 ${pend}건 · ${won(sumPend)}원`:"검토할 결의서가 없어요", "", "총무부")}
+    <div class="seg er-seg" role="group" aria-label="상태">${ER_TABS.map(([k,l])=>`<button type="button" data-act="erF" data-v="${k}" aria-pressed="${f===k}">${l}${cnt(k)?` <small>${cnt(k)}</small>`:""}</button>`).join("")}</div>
+    <div class="er-list">${list.map(item).join("") || `<div class="card">${empty(f==="submitted"?"검토할 결의서가 없어요":"해당하는 결의서가 없어요","","wave")}</div>`}</div>`;
 }
 let expUnsub = null;
 function watchExpFiles(id){
@@ -1584,7 +1603,7 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, expenses:vExpenses, expense:vExpense};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense};
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 function route(){ const h=location.hash.slice(1);
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
@@ -1620,7 +1639,7 @@ function render(){
   if(need==="care" && !S.got.b){ main.innerHTML=skeleton(); return; }
   if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
   if(need==="home" && (!S.got.o || !S.got.t)){ main.innerHTML=skeleton(); return; }
-  if((r==="expenses"||r==="expense") && !S.got.e){ main.innerHTML=skeleton(); return; }
+  if(["expenses","expense","expReview","expCheck"].includes(r) && !S.got.e){ main.innerHTML=skeleton(); return; }
   if(need==="home") watchMyWeek();
   if(need==="leaders" && !S.got.t){ main.innerHTML=skeleton(); return; }
   if(r==="members" && !S.got.m){ main.innerHTML=skeleton(); return; }
@@ -1677,7 +1696,9 @@ document.addEventListener("click", async e => {
     try{ await S.db.doc("profiles/"+S.user.uid).set(body); S.profiles[S.user.uid]=body; indexProfiles(); toast("프로필을 바꿨어요"); closeSheet(); render(); }
     catch{ t.disabled=false; toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } return; }
   if(a==="newExp"){ expSheet(); return; }
-  if(a==="openExp"){ S.expSel=t.dataset.id; watchExpFiles(S.expSel); if(location.hash==="#expense"){ window.scrollTo(0,0); render(); } else location.hash="#expense"; return; }
+  if(a==="openExp"){ S.expSel=t.dataset.id; watchExpFiles(S.expSel); const h = S.dept==="finance" ? "#expCheck" : "#expense";
+    if(location.hash===h){ closeSheet(); window.scrollTo(0,0); render(); } else location.hash=h; return; }
+  if(a==="erF"){ S.erF=t.dataset.v; render(); return; }
   if(a==="editExp"){ expSheet(t.dataset.id); return; }
   if(a==="printExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(e) printExp(e); return; }
   if(a==="sigClear"){ if(sig){ sig.x.save(); sig.x.setTransform(1,0,0,1,0,0); sig.x.clearRect(0,0,sig.c.width,sig.c.height); sig.x.restore(); sig.has=false; sig.dirty=true; sig.c.parentElement.classList.remove("has"); } return; }
@@ -1696,11 +1717,11 @@ document.addEventListener("click", async e => {
     }, d.id?(expStatus(S.expenses.find(x=>x.id===d.id))==="rejected"?"고쳐서 다시 냈어요":"고쳤어요"):"지출결의서를 냈어요");
     if(!ok){ t.disabled=false; return; }
     closeSheet(); S.expSel=id; watchExpFiles(id); if(!FB) S.expFiles=d.files.map((f,i)=>({id:String(i),...f}));
-    if(location.hash==="#expense") render(); else location.hash="#expense"; return; }
+    { const h = S.dept==="finance" ? "#expCheck" : "#expense"; if(location.hash===h) render(); else location.hash=h; } return; }
   if(a==="delExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return;
     if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 지울까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="지우기"; t.classList.remove("solid"); } }, 3000); return; }
     if(expStatus(e)==="approved"){ toast("승인된 결의서는 먼저 승인을 취소해 주세요"); return; }
-    if(await write(async()=>{ for(let i=0;i<(e.files||0);i++) await S.db.doc(`expenses/${e.id}/files/${i}`).delete(); await S.db.doc("expenses/"+e.id).delete(); }, "지웠어요")){ watchExpFiles(null); S.expSel=null; location.hash="#expenses"; } return; }
+    if(await write(async()=>{ for(let i=0;i<(e.files||0);i++) await S.db.doc(`expenses/${e.id}/files/${i}`).delete(); await S.db.doc("expenses/"+e.id).delete(); }, "지웠어요")){ watchExpFiles(null); S.expSel=null; location.hash = S.dept==="finance" ? "#expReview" : "#expenses"; } return; }
   if(a==="viewExp"){ expViewSheet(t.dataset.id); return; }
   if(a==="rejectExp"){ rejectSheet(t.dataset.id); return; }
   if(a==="doRejectExp"){ const reason=val("ex-reason"); if(!reason){ toast("반려 사유를 적어 주세요"); document.getElementById("ex-reason")?.focus(); return; }
