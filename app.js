@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-12";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.18-13";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -33,6 +33,8 @@ const ALERTS = [
   {k:"bdToday",  dept:"care",   t:"오늘 생일",         d:"고른 요일에 그날 생일인 사람이 있으면",              days:[0,1,2,3,4,5,6], hour:9},
   {k:"bdWeek",   dept:"care",   t:"이번 주 생일 미리보기", d:"앞으로 7일 안의 생일을 한 번에 알려 드려요",       days:[1], hour:9},
   {k:"join",     admin:true, instant:true, t:"가입 신청 도착", d:"누가 가입을 신청하면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"expense",  dept:"finance", edit:true, instant:true, t:"지출결의서 도착", d:"누가 지출결의서를 내면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
+  {k:"expResult", instant:true, t:"내 지출결의서 결과", d:"내가 낸 지출결의서가 승인·반려되면 바로 알려 드려요", days:[0,1,2,3,4,5,6], hour:0},
   {k:"request",  admin:true, instant:true, t:"수정 요청 도착", d:"멤버가 수정 요청을 보내면 바로 알려 드려요 (보통 5분 안팎)", days:[0,1,2,3,4,5,6], hour:0},
 ];
 const DAYS = ["일","월","화","수","목","금","토"];
@@ -1125,7 +1127,9 @@ const wonLine = a => `금 ${wonKo(a)}원정 (₩${won(a)})`;
 const koDate = d => d ? `${+d.slice(0,4)}년 ${+d.slice(5,7)}월 ${+d.slice(8,10)}일` : "";
 const sortedExp = () => [...S.expenses].sort((a,b)=>(tsOf(b)||new Date())-(tsOf(a)||new Date()));
 const expMine = e => e?.uid===S.user?.uid;
-const expEditable = e => expMine(e) && e.status!=="checked";
+const expStatus = e => e?.status==="checked" ? "approved" : (e?.status || "submitted");
+const expEditable = e => expMine(e) && expStatus(e)!=="approved";
+const EXP_CHIP = { submitted:`<span class="chip warn plain">검토 중</span>`, approved:`<span class="chip ok plain">승인</span>`, rejected:`<span class="chip bad plain">반려</span>` };
 function expDoc(e, files){
   return `<div class="exp-doc">
     <h1 class="exp-h">지출결의서</h1>
@@ -1139,14 +1143,14 @@ function expDoc(e, files){
         <p class="d">${koDate(e.date)}</p>
         <p class="who"><span>영수자</span><b>${esc(e.payee||"")}</b><span class="sig">${e.sign?`<img src="${e.sign}" alt="${esc(e.payee||"")} 서명">`:""}<i>(서명)</i></span></p></td></tr>
     </tbody></table>
-    ${files.length?`<section class="exp-files"><h2>영수증 첨부</h2><div class="exp-imgs n${Math.min(files.length,2)}">${files.map((f,i)=>`<figure><img src="${f.data}" alt="영수증 ${i+1}"><figcaption>영수증 ${i+1}</figcaption></figure>`).join("")}</div></section>`:""}
+    ${files.length?`<section class="exp-files"><h2>영수증 첨부</h2><div class="exp-imgs n${Math.min(files.length,2)}">${files.map((f,i)=>`<figure><img src="${f.data}" alt="영수증 ${i+1}"><figcaption>영수증 ${i+1} · ${esc(e.title||"")}</figcaption></figure>`).join("")}</div></section>`:""}
   </div>`;
 }
 function expRow(e){
   return `<button type="button" class="row exp-row" data-act="openExp" data-id="${e.id}">
     <span class="exp-ic">${icon("receipt")}</span><span class="main"><span class="t">${esc(e.title||"")}</span>
     <span class="s">${sees("finance")&&!expMine(e)?`${esc(e.name||"")} · `:""}${e.date?`${+e.date.slice(5,7)}/${+e.date.slice(8)}`:""} · ${won(e.amount)}원${e.files?` · ${icon("image")}${e.files}`:""}</span></span>
-    ${e.status==="checked"?`<span class="chip ok plain">확인</span>`:`<span class="chip mute plain">제출</span>`}${icon("chev","chev")}</button>`;
+    ${EXP_CHIP[expStatus(e)]}${icon("chev","chev")}</button>`;
 }
 function vExpenses(){
   const list = sortedExp(); const sum = list.reduce((t,e)=>t+(+e.amount||0),0);
@@ -1156,22 +1160,37 @@ function vExpenses(){
 function vExpense(){
   const e = S.expenses.find(x=>x.id===S.expSel);
   if(!e) return `${head("지출결의서")}<div class="card">${empty("지워졌거나 없는 지출결의서예요","","pray",`<a class="btn" href="#expenses">목록으로</a>`)}</div>`;
-  const fin = can("finance");
+  const fin = can("finance"); const st = expStatus(e);
+  const who = e.reviewedBy || e.checkedBy || "";
   return `<div class="page-head"><div><p class="eyebrow"><a href="#expenses" class="back-link">${icon("chev","flip")}지출결의서</a></p><h1 class="post-title">${esc(e.title)}</h1></div></div>
     <div class="exp-bar">
-      ${e.status==="checked"?`<span class="chip ok">${icon("check")}총무부 확인${e.checkedBy?` · ${esc(e.checkedBy)}`:""}</span>`:`<span class="chip mute">제출됨</span>`}
+      ${EXP_CHIP[st].replace(" plain","")}${who&&st!=="submitted"?`<span class="exp-by">${esc(who)}</span>`:""}
       <span class="sp"></span>
-      ${expEditable(e)?`<button class="btn sm" type="button" data-act="editExp" data-id="${e.id}">고치기</button>`:""}
-      ${expEditable(e)||fin?`<button class="btn sm danger" type="button" data-act="delExp" data-id="${e.id}">지우기</button>`:""}
+      ${expEditable(e)?`<button class="btn sm" type="button" data-act="editExp" data-id="${e.id}">${st==="rejected"?"고쳐서 다시 내기":"고치기"}</button>`:""}
+      ${(expEditable(e)||fin)&&st!=="approved"?`<button class="btn sm danger" type="button" data-act="delExp" data-id="${e.id}">지우기</button>`:""}
       <button class="btn sm pri" type="button" data-act="printExp" data-id="${e.id}">${icon("print")}인쇄</button></div>
-    ${fin?`<div class="exp-bar fin"><button class="btn sm" type="button" data-act="checkExp" data-id="${e.id}">${e.status==="checked"?"확인 취소":`${icon("check")}확인`}</button>
-      ${e.ledger?`<span class="chip ok plain">장부에 넣음</span>`:`<button class="btn sm" type="button" data-act="ledgerExp" data-id="${e.id}">${icon("wallet")}장부에 넣기</button>`}</div>`:""}
+    ${st==="rejected"&&e.rejectReason?`<div class="exp-reject"><b>반려 사유</b><p>${esc(e.rejectReason)}</p></div>`:""}
+    ${fin?`<div class="exp-review">${st==="approved"
+      ? `<span class="exp-rv-t">${icon("wallet")}총무부 장부에 기록됐어요</span><a class="btn sm" href="#ledger" data-act="goLedgerOf" data-date="${e.date}">장부 보기</a><button class="btn sm" type="button" data-act="unapproveExp" data-id="${e.id}">승인 취소</button>`
+      : `<span class="exp-rv-t">총무부 검토</span><button class="btn sm danger" type="button" data-act="rejectExp" data-id="${e.id}">반려</button><button class="btn sm ok" type="button" data-act="approveExp" data-id="${e.id}">${icon("check")}승인</button>`}</div>`:""}
     <div class="exp-paper">${expDoc(e, S.expFiles)}</div>`;
 }
 let expUnsub = null;
 function watchExpFiles(id){
   expUnsub?.(); expUnsub=null; S.expFiles=[]; if(!FB || !id) return;
-  expUnsub = FB.m.onSnapshot(FB.m.collection(FB.fs,"expenses",id,"files"), s=>{ S.expFiles=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(+a.id)-(+b.id)); render(); }, ()=>{});
+  expUnsub = FB.m.onSnapshot(FB.m.collection(FB.fs,"expenses",id,"files"), s=>{ S.expFiles=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(+a.id)-(+b.id)); render(); syncExpSheet(); }, ()=>{});
+}
+// 장부에서 결의서 보기 (시트)
+function syncExpSheet(){ const el=document.getElementById("exp-sheet-doc"); const e=S.expenses.find(x=>x.id===el?.dataset.id); if(el && e) el.innerHTML = expDoc(e, S.expFiles); }
+function expViewSheet(id){
+  const e = S.expenses.find(x=>x.id===id); if(!e){ toast("지출결의서를 찾지 못했어요"); return; }
+  watchExpFiles(id);
+  openSheet(esc(e.title), `<div class="exp-paper in-sheet" id="exp-sheet-doc" data-id="${e.id}">${expDoc(e, S.expFiles)}</div>`,
+    `<button class="btn" type="button" data-act="openExp" data-id="${e.id}">결의서 화면으로</button><button class="btn pri" type="button" data-act="printExp" data-id="${e.id}">${icon("print")}인쇄</button>`);
+}
+function rejectSheet(id){
+  openSheet("반려하기", `<div class="fields"><label class="field"><span>반려 사유</span><textarea id="ex-reason" rows="3" maxlength="300" placeholder="예: 영수증 사진이 흐려요. 다시 찍어 올려 주세요"></textarea></label></div>`,
+    `<button class="btn danger block" type="button" data-act="doRejectExp" data-id="${id}">반려</button>`);
 }
 function expSheet(id){
   const e = id ? S.expenses.find(x=>x.id===id) : null;
@@ -1424,7 +1443,7 @@ function vLedger(){
   const rowsHtml = shown.map(r=>`<tr ${edit?`data-act="lgEdit" data-id="${r.id}" tabindex="0"`:""} class="${r.type}">
       <td class="c-date tnum">${+r.date.slice(5,7)}.${pad(+r.date.slice(8,10))}</td>
       <td class="c-cat"><span class="tag ${r.type}">${esc(r.cat||"-")}</span></td>
-      <td class="c-memo"><span class="tag ${r.type} m-only">${esc(r.cat||"-")}</span>${esc(r.memo||"")}${r.who?`<small>${esc(r.who)}</small>`:""}</td>
+      <td class="c-memo"><span class="tag ${r.type} m-only">${esc(r.cat||"-")}</span>${esc(r.memo||"")}${r.expId?`<button type="button" class="lg-att" data-act="viewExp" data-id="${r.expId}" aria-label="지출결의서 보기">${icon("receipt")}결의서</button>`:""}${r.who?`<small>${esc(r.who)}</small>`:""}</td>
       <td class="c-num in d-only">${r.type==="in"?won(r.amount):""}</td>
       <td class="c-num out d-only">${r.type==="out"?won(r.amount):""}</td>
       <td class="c-num amt m-only ${r.type}">${r.type==="in"?"+":"−"}${won(r.amount)}</td>
@@ -1671,23 +1690,32 @@ document.addEventListener("click", async e => {
     if(!body.date || !body.payee){ toast("영수일과 영수자를 적어 주세요"); return; }
     t.disabled=true; let id=d.id;
     const ok = await write(async()=>{
-      if(id) await S.db.doc("expenses/"+id).update(body);
-      else { const ref=S.db.collection("expenses").doc(); id=ref.id; await ref.set({...body, uid:S.user.uid, status:"submitted", createdAt:FB?FB.m.serverTimestamp():new Date()}); }
+      if(id) await S.db.doc("expenses/"+id).update({...body, status:"submitted", notified:false, rejectReason:""});
+      else { const ref=S.db.collection("expenses").doc(); id=ref.id; await ref.set({...body, uid:S.user.uid, status:"submitted", notified:false, createdAt:FB?FB.m.serverTimestamp():new Date()}); }
       for(let i=0;i<d.files.length;i++) await S.db.doc(`expenses/${id}/files/${i}`).set({data:d.files[i].data});
       for(let i=d.files.length;i<d.oldFiles;i++) await S.db.doc(`expenses/${id}/files/${i}`).delete();
-    }, d.id?"고쳤어요":"지출결의서를 냈어요");
+    }, d.id?(expStatus(S.expenses.find(x=>x.id===d.id))==="rejected"?"고쳐서 다시 냈어요":"고쳤어요"):"지출결의서를 냈어요");
     if(!ok){ t.disabled=false; return; }
     closeSheet(); S.expSel=id; watchExpFiles(id); if(!FB) S.expFiles=d.files.map((f,i)=>({id:String(i),...f}));
     if(location.hash==="#expense") render(); else location.hash="#expense"; return; }
   if(a==="delExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return;
     if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 지울까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="지우기"; t.classList.remove("solid"); } }, 3000); return; }
+    if(expStatus(e)==="approved"){ toast("승인된 결의서는 먼저 승인을 취소해 주세요"); return; }
     if(await write(async()=>{ for(let i=0;i<(e.files||0);i++) await S.db.doc(`expenses/${e.id}/files/${i}`).delete(); await S.db.doc("expenses/"+e.id).delete(); }, "지웠어요")){ watchExpFiles(null); S.expSel=null; location.hash="#expenses"; } return; }
-  if(a==="checkExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return; const on=e.status!=="checked";
-    await write(()=>S.db.doc("expenses/"+e.id).update({status:on?"checked":"submitted", checkedBy:on?myName():"", checkedAt:FB?FB.m.serverTimestamp():new Date()}), on?"확인했어요":"확인을 취소했어요"); return; }
-  if(a==="ledgerExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return; t.disabled=true;
-    const ok = await write(async()=>{ await S.db.collection("ledger").doc().set({date:e.date, type:"out", cat:"기타 지출", memo:(e.title||"").slice(0,80), amount:e.amount, who:e.payee||e.name||"", by:S.user.uid, createdAt:FB?FB.m.serverTimestamp():new Date()});
-      await S.db.doc("expenses/"+e.id).update({ledger:true}); }, `총무부 장부에 지출 ${won(e.amount)}원을 적었어요`);
+  if(a==="viewExp"){ expViewSheet(t.dataset.id); return; }
+  if(a==="rejectExp"){ rejectSheet(t.dataset.id); return; }
+  if(a==="doRejectExp"){ const reason=val("ex-reason"); if(!reason){ toast("반려 사유를 적어 주세요"); document.getElementById("ex-reason")?.focus(); return; }
+    if(await write(()=>S.db.doc("expenses/"+t.dataset.id).update({status:"rejected", rejectReason:reason, reviewedBy:myName(), reviewedAt:FB?FB.m.serverTimestamp():new Date(), resultNotified:false}), "반려했어요")) closeSheet(); return; }
+  if(a==="approveExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return; t.disabled=true;
+    const ok = await write(async()=>{ const ref=S.db.collection("ledger").doc();
+      await ref.set({date:e.date, type:"out", cat:"지출결의", memo:(e.title||"").slice(0,80), amount:e.amount, who:e.payee||e.name||"", expId:e.id, by:S.user.uid, createdAt:FB?FB.m.serverTimestamp():new Date()});
+      await S.db.doc("expenses/"+e.id).update({status:"approved", rejectReason:"", reviewedBy:myName(), reviewedAt:FB?FB.m.serverTimestamp():new Date(), ledgerId:ref.id, resultNotified:false}); },
+      `승인했어요 · 장부에 지출 ${won(e.amount)}원을 적었어요`);
     if(!ok) t.disabled=false; return; }
+  if(a==="unapproveExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(!e) return;
+    if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="장부 기록도 지워요. 한 번 더"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="승인 취소"; t.classList.remove("solid"); } }, 3000); return; }
+    await write(async()=>{ if(e.ledgerId) await S.db.doc("ledger/"+e.ledgerId).delete(); await S.db.doc("expenses/"+e.id).update({status:"submitted", ledgerId:"", reviewedBy:"", reviewedAt:FB?FB.m.serverTimestamp():new Date()}); }, "승인을 취소했어요"); return; }
+  if(a==="goLedgerOf"){ const [yy,mm]=(t.dataset.date||TODAY).split("-").map(Number); S.lgYM={y:yy,m:mm}; return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="goRequests") location.hash="#requests";
   if(a==="reqTab"){ S.reqTab=t.dataset.v; render(); }

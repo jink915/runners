@@ -764,26 +764,56 @@ textarea,.tm-pray,.tm-why,.fields textarea{resize:none;overflow:hidden}
 .exp-imgs figcaption{font-size:12px;color:#555;margin-top:4px;text-align:center}
 @media (max-width:420px){ .exp-t{font-size:14px} .exp-t col.c1{width:64px} .exp-t col.c2{width:54px} .exp-t th,.exp-t td{padding:10px 7px} }
 
-#print-root{display:none}
-@media print{
-  @page{size:A4;margin:16mm 15mm}
-  body.printing{background:#fff!important}
-  body.printing > *:not(#print-root){display:none!important}
-  body.printing #print-root{display:block}
-  #print-root .exp-doc{font-size:11pt}
-  #print-root .exp-h{font-size:24pt;margin:6mm 0 9mm}
-  #print-root .exp-t{font-size:11.5pt}
-  #print-root .exp-t col.c1{width:27mm} #print-root .exp-t col.c2{width:20mm}
-  #print-root .exp-t th,#print-root .exp-t td{padding:4.5mm 3mm;border-color:#000}
-  #print-root .exp-t th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  #print-root .exp-sign{padding:8mm 3mm!important}
-  #print-root .exp-sign .d{margin:7mm 0 6mm}
-  #print-root .exp-files{break-before:page;margin-top:0}
-  #print-root .exp-imgs img{max-height:225mm;background:none;outline:none}
-  #print-root .exp-imgs.n2 img{max-height:110mm}
-}
+
 .exp-t th{white-space:nowrap;padding-left:4px;padding-right:4px}
 .exp-sign .who{white-space:nowrap;flex-wrap:nowrap}
 .exp-sign .who b{letter-spacing:.08em}
 @media (max-width:420px){ .exp-t col.c1{width:70px} .exp-t col.c2{width:56px} .exp-t th{font-size:13.5px} .exp-sign .who{gap:8px} .exp-sign .sig{min-width:64px} }
-@media print{ html:has(body.printing),body.printing{height:auto!important;min-height:0!important;padding:0!important;margin:0!important;overflow:visible!important} }
+
+/* 결의서 상태·검토 */
+.exp-by{font-size:13px;font-weight:700;color:var(--muted)}
+.exp-reject{margin:0 0 12px;padding:12px 14px;border-radius:14px;background:var(--bad-soft);color:var(--ink)}
+.exp-reject b{display:block;font-size:13px;color:var(--bad);margin-bottom:4px}
+.exp-reject p{margin:0;white-space:pre-wrap;word-break:keep-all}
+.exp-review{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.exp-rv-t{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:var(--ink-2)}
+.exp-rv-t .i{width:18px;height:18px;color:var(--ok)}
+.btn.ok{background:var(--ok);color:#fff}
+.exp-paper.in-sheet{box-shadow:inset 0 0 0 1px var(--line);padding:22px 14px}
+.lg-att{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 8px 2px 6px;border-radius:999px;font:inherit;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);border:0;cursor:pointer;vertical-align:1px}
+.lg-att .i{width:13px;height:13px}
+
+/* 인쇄: A6(105×148mm) 한 장에 결의서를 꽉 채우고, 영수증은 한 장에 하나씩 */
+#print-root{display:none}
+@media print{
+  @page{size:105mm 148mm;margin:6mm}
+  html:has(body.printing),body.printing{background:#fff!important;height:auto!important;min-height:0!important;padding:0!important;margin:0!important;overflow:visible!important}
+  body.printing > *:not(#print-root){display:none!important}
+  body.printing #print-root{display:block}
+  #print-root *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #print-root .exp-doc{display:flex;flex-direction:column;height:135mm;font-size:9pt}
+  #print-root .exp-h{flex:none;font-size:17pt;margin:0 0 4mm;letter-spacing:.45em}
+  #print-root .exp-t{flex:1;height:100%;font-size:9.5pt}
+  #print-root .exp-t col.c1{width:15mm} #print-root .exp-t col.c2{width:12.5mm}
+  #print-root .exp-t th,#print-root .exp-t td{padding:1.5mm 2mm;border:.3mm solid #000}
+  #print-root .exp-t th{background:#eee!important;font-size:8.5pt}
+  #print-root .exp-t th.sub{font-size:8pt}
+  #print-root .exp-t tr:nth-child(1),#print-root .exp-t tr:nth-child(2){height:13%}
+  #print-root .exp-t tr:nth-child(3){height:17%}
+  #print-root .exp-t tr:nth-child(4){height:12%}
+  #print-root .exp-t tr:nth-child(5){height:45%}
+  #print-root .exp-t td.amt{font-size:9pt}
+  #print-root .exp-sign{padding:2mm!important}
+  #print-root .exp-sign p{font-size:9.5pt}
+  #print-root .exp-sign .d{margin:5mm 0 4mm}
+  #print-root .exp-sign .who b{font-size:11pt}
+  #print-root .exp-sign .sig{min-width:16mm;height:10mm}
+  #print-root .exp-sign .sig img{height:14mm;max-width:34mm}
+  #print-root .exp-files{margin:0}
+  #print-root .exp-files h2{display:none}
+  #print-root .exp-imgs{display:block}
+  #print-root .exp-imgs figure{break-before:page;height:135mm;display:flex;flex-direction:column;gap:2mm}
+  #print-root .exp-imgs figcaption{order:-1;margin:0;font-size:8pt;text-align:left;color:#333}
+  #print-root .exp-imgs img{flex:1;min-height:0;width:100%;max-height:none!important;object-fit:contain;background:none;outline:none}
+}
+@media print{ #print-root .exp-doc{display:block;height:auto} #print-root .exp-t{height:121mm} }
