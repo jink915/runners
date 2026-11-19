@@ -56,7 +56,7 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 header.top{position:sticky;top:0;z-index:var(--z-header);padding-top:env(safe-area-inset-top,0px);background:transparent;transition:background-color 150ms ease,box-shadow 150ms ease}
 header.top.scrolled{background:color-mix(in oklab,var(--bg) 86%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(16px);backdrop-filter:saturate(1.6) blur(16px);box-shadow:0 1px 0 var(--line)}
 .top .wrap{display:flex;align-items:center;gap:8px;min-height:var(--header-h)}
-.brand{display:flex;align-items:center;gap:9px;font-family:var(--f-display);font-size:22px;color:var(--navy);margin-right:auto;text-decoration:none}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--f-display);font-size:22px;color:var(--navy);text-decoration:none}
 .brand img{width:32px;height:32px;border-radius:11px;display:block;box-shadow:0 2px 8px rgb(47 120 208 / .22)}
 .icon-btn{position:relative;display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:13px;background:var(--surface);color:var(--ink-2);box-shadow:var(--shadow-1);cursor:pointer;
   transition:scale 150ms var(--ease-out),background-color 150ms ease}
@@ -1222,3 +1222,42 @@ button.bc-e:hover{background:var(--sunken)}
 .hero-top .date{word-break:keep-all}
 @media (max-width:420px){ .hero.care .hero-top .date{font-size:36px;white-space:nowrap} }
 @media (min-width:1100px){ .army-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px} }
+
+/* ---------- 맨 위 줄: 안암UBF 바로가기 · 이번 주일 · 할 일 ---------- */
+.top-x{flex:1;display:flex;align-items:center;gap:12px;min-width:0}
+.ubf-link{display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 10px 0 11px;border-radius:999px;
+  font:700 12.5px/1 var(--f-body,inherit);color:var(--ink-2);background:var(--sunken);text-decoration:none;white-space:nowrap;flex:none;
+  transition:background-color 150ms ease,color 150ms ease}
+.ubf-link .i{width:14px;height:14px;stroke-width:2.2}
+.ubf-link:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){ .ubf-link:hover{background:var(--accent-soft);color:var(--accent)} }
+.brand-sm .ubf-link{margin-left:6px;height:26px;font-size:12px}
+.top-mid{display:none}
+@media (max-width:720px){ body:not(.is-portal) .top-x .ubf-link{display:none} }
+.pnl.flash{animation:pnlFlash 1.2s ease-out}
+@keyframes pnlFlash{0%,30%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 3px transparent}}
+@media (min-width:1100px){
+  .top .wrap{min-height:64px}
+  .top-x{gap:18px}
+  .top-x .ubf-link{position:relative;margin-left:4px}
+  .top-x .ubf-link::before{content:"";position:absolute;left:-12px;top:6px;bottom:6px;width:1px;background:var(--line)}
+  .top-mid{flex:1;display:flex;align-items:center;gap:10px;min-width:0}
+  .tm-gap{flex:1}
+  .tm-svc{display:flex;align-items:center;gap:7px;min-width:0;height:38px;padding:0 6px 0 16px;border-radius:999px;background:var(--surface-2);
+    box-shadow:0 0 0 1px var(--line);color:var(--ink);text-decoration:none;font-size:13.5px;white-space:nowrap;transition:box-shadow 150ms ease}
+  .tm-svc .tm-k{color:var(--muted);font-size:12.5px}
+  .tm-svc b{font-weight:700;margin-right:6px}
+  .tm-sep{width:1px;height:14px;background:var(--line);margin:0 6px 0 0}
+  .tm-dd{height:26px;line-height:26px;padding:0 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:12px}
+  .tm-dd.warn{background:#FFF1D6;color:#B86E00}
+  .tm-todo{position:relative;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;color:var(--ink-2);text-decoration:none}
+  .tm-todo .i{width:21px;height:21px}
+  .tm-todo i{position:absolute;top:3px;right:2px;min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:#E5484D;color:#fff;
+    font:800 10.5px/17px var(--f-body,inherit);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--bg)}
+  .tm-me{color:var(--ink-2);font-size:14px;text-decoration:none;white-space:nowrap}
+  .tm-me b{color:var(--ink);font-weight:700}
+  @media (hover:hover) and (pointer:fine){ .tm-svc:hover{box-shadow:0 0 0 1px var(--accent)} .tm-todo:hover{background:var(--sunken)} .tm-me:hover b{color:var(--accent)} }
+}
+@media (min-width:1100px) and (max-width:1240px){ .tm-svc .tm-sep{display:none} }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .tm-dd.warn{background:rgb(255 170 40 / .16);color:#FFC266} }
+:root[data-theme="dark"] .tm-dd.warn{background:rgb(255 170 40 / .16);color:#FFC266}

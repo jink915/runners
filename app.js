@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-10";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-11";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -123,6 +123,7 @@ const ICON = {
   share:'<path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M7 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-1"/>',
   plusSq:'<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/>',
   dots:'<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
+  ext:'<path d="M8 16 16 8M9.5 8H16v6.5"/>',
   bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
   upload:'<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
@@ -949,7 +950,7 @@ function openDrawer(){
   const depts = deptOrder().filter(d=>d!=="home" && sees(d));
   root.innerHTML = `<div class="scrim" data-act="closeDrawer"></div>
     <nav class="drawer" id="drawer" aria-label="메뉴">
-      <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스</span>
+      <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스<a class="ubf-link" href="http://anamubf.org/" target="_blank" rel="noopener" aria-label="안암UBF 홈페이지 (새 창)"><span>안암UBF</span>${icon("ext")}</a></span>
         <button class="btn icon sm" type="button" data-act="closeDrawer" aria-label="메뉴 닫기">${icon("x")}</button></div>
       ${link("portal","grid","#22438E","포털")}
       <p class="drawer-label">전자결재</p>${link("eapp","receipt","#E85D8A","지출결의")}
@@ -1261,6 +1262,26 @@ function sectionOf(r){
   return null;
 }
 function pageTitle(r){ if(["more","members","myteam","mhome"].includes(r)) return ({more:"설정",members:"멤버 관리",myteam:"우리 팀",mhome:"우리 팀"})[r]; if(r==="expForm") return S.expFormId ? "지출결의서 고치기" : "지출결의서 작성"; return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"결재하기", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
+// 맨 위 줄 (PC): 이번 주일 · 할 일 · 이름
+function todoCount(){
+  let n = sortedExp().filter(e=>expMine(e) && expStatus(e)!=="approved").length;
+  if(can("finance")) n += S.expenses.filter(e=>expStatus(e)==="submitted").length;
+  if(S.isAdmin) n += S.members.filter(m=>m.status==="pending").length + S.requests.filter(r=>r.status!=="done").length;
+  return n;
+}
+function renderTopInfo(r){
+  const el = document.getElementById("topmid"); if(!el) return;
+  const nx = nextService(); const n = todoCount();
+  let svc = "";
+  if(nx){ const dd = dday(nx.date);
+    svc = `<a class="tm-svc" href="${sees("social")?"#schedule":"#cal"}"><span class="tm-k">이번 주일</span><b class="tnum">${pmd(nx.date)} (${WD[parse(nx.date).getDay()]})</b>
+      <span class="tm-sep"></span><span class="tm-k">사회</span><b>${esc(nx.mc||"미정")}</b><span class="tm-k">대표기도</span><b>${esc(nx.prayer||"미정")}</b>
+      <span class="tm-dd tnum ${dd<=3?"warn":""}">${dd===0?"오늘":`D-${dd}`}</span></a>`; }
+  const html = `<span class="tm-gap"></span>${svc}<span class="tm-gap"></span>
+    <a class="tm-todo" href="#portal" data-act="goTodo" aria-label="나의 할 일 ${n}건">${icon("bell")}${n?`<i class="tnum">${n>99?"99+":n}</i>`:""}</a>
+    <a class="tm-me" href="#more"><b>${esc(myName()||"")}</b>님</a>`;
+  if(el.dataset.html !== html){ el.innerHTML = html; el.dataset.html = html; }
+}
 function renderDeskMenu(r){
   const nav = document.getElementById("deskmenu"); if(!nav) return;
   const secs = deskSections(); const cur = r==="portal" ? "portal" : sectionOf(r);
@@ -2137,7 +2158,7 @@ function render(){
   if(!S.memberReady){ document.body.classList.add("gate"); main.innerHTML=splash(); return; }
   if(!S.approved){ document.body.classList.add("gate"); const ae=document.activeElement?.id; main.innerHTML = vPending(); syncThemeButtons(); if(ae) document.getElementById(ae)?.focus({preventScroll:true}); return; }
   const r=route();
-  renderTabs(r); renderDeskMenu(r); renderQuick();
+  renderTabs(r); renderDeskMenu(r); renderQuick(); renderTopInfo(r);
   document.body.classList.toggle("is-portal", r==="portal");
   const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(myName()||S.user.email,"",true);
   syncThemeButtons();
@@ -2262,6 +2283,8 @@ document.addEventListener("click", async e => {
     if(ok){ closeSheet(); if(!FB){ id ? Object.assign(S.soldiers.find(x=>x.id===id), f) : S.soldiers.push({id:"s"+Date.now(), ...f}); render(); } } else t.disabled=false; return; }
   if(a==="delSoldier"){ if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 삭제할까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="삭제"; t.classList.remove("solid"); } }, 3000); return; }
     if(await write(()=>S.db.doc("soldiers/"+t.dataset.id).delete(), "삭제했어요")){ closeSheet(); if(!FB){ S.soldiers=S.soldiers.filter(x=>x.id!==t.dataset.id); render(); } } return; }
+  if(a==="goTodo"){ const go=()=>{ const el=document.querySelector(".pnl.todo"); if(el){ el.scrollIntoView({behavior:"smooth",block:"center"}); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); } };
+    if(route()==="portal") go(); else setTimeout(go,120); return; }
   if(a==="ptTab"){ S.ptTab=t.dataset.v; render(); return; }
   if(a==="psTab"){ S.psTab=t.dataset.v; render(); return; }
   if(a==="pcDay"){ S.pcSel=t.dataset.d; const dt=parse(t.dataset.d); if(dt.getMonth()+1!==S.pcYM.m) S.pcYM={y:dt.getFullYear(), m:dt.getMonth()+1}; render(); return; }
