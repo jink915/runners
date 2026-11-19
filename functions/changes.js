@@ -66,7 +66,9 @@ export async function notifyChange(col, ev) {
   if (!tokens.length) return;
   const res = await getMessaging().sendEach(tokens.map(t => ({ token: t.token,
     data: { title: `${DEPT_NAME[dept]} · ${w.what}`, body: `${body} — ${who}`, link: APP + LINK[dept], tag: `runners-chg-${col}-${ev.params.id}` },
-    webpush: { headers: { Urgency: "high", TTL: "21600" } } })));
+    webpush: { headers: { Urgency: "high", TTL: "21600" },
+      notification: { title: `${DEPT_NAME[dept]} · ${w.what}`, body: `${body} — ${who}`, icon: APP + "icons/icon-192.png", badge: APP + "icons/icon-192.png", tag: `runners-chg-${col}-${ev.params.id}`, renotify: true },
+      fcmOptions: { link: APP + LINK[dept] } } })));
   const dead = ["messaging/registration-token-not-registered", "messaging/invalid-registration-token"];
   await Promise.all(res.responses.map((r, i) => !r.success && dead.includes(r.error?.code) ? db.doc(`pushTokens/${tokens[i].token}`).delete().catch(() => {}) : null));
   console.log(`변경 알림 ${col}/${ev.params.id} → ${res.successCount}/${tokens.length}`);

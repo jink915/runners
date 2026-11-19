@@ -144,9 +144,12 @@ export async function runRemind({ instantOnly = false, test = false, notice = nu
     const okKeys = new Set(), okMarks = new Map(), deadTokens = new Set(); let ok = 0, fail = 0;
     for (let i = 0; i < msgs.length; i += 500) {
       const chunk = msgs.slice(i, i + 500);
+      // 표시용 알림(notification)을 같이 넣어야 아이폰·안드로이드가 화면 꺼진 상태에서도 바로(높은 우선순위로) 전달해요
       const res = await fcm.sendEach(chunk.map(m => ({ token: m.d.token,
         data: { title: m.title, body: m.body, link: APP + m.link, tag: `runners-${m.tag}` },
-        webpush: { headers: { Urgency: "high", TTL: "21600" } } })));
+        webpush: { headers: { Urgency: "high", TTL: "21600" },
+          notification: { title: m.title, body: m.body, icon: APP + "icons/icon-192.png", badge: APP + "icons/icon-192.png", tag: `runners-${m.tag}`, renotify: true },
+          fcmOptions: { link: APP + m.link } } })));
       res.responses.forEach((r, k) => { const m = chunk[k];
         if (r.success) { ok++; if (m.key) okKeys.add(m.key); if (m.mark) okMarks.set(m.mark.join("|"), m.mark); }
         else { fail++; console.log("실패:", r.error?.code); if (dead.includes(r.error?.code)) deadTokens.add(m.d.token); } });
