@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-3";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-4";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1224,13 +1224,13 @@ function deskSections(){
   ];
 }
 function sectionOf(r){
-  if(["eapp","expense","expCheck","expenses","expReview"].includes(r)) return "eapp";
+  if(["eapp","expense","expCheck","expenses","expReview","expForm"].includes(r)) return "eapp";
   if(r==="cal") return "sched";
   if(["notice","post","board","reqboard","requests"].includes(r)) return "comm";
   const d = ROUTE_DEPT[r]; if(d && d!=="home") return "dept";
   return null;
 }
-function pageTitle(r){ return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"지출결의", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
+function pageTitle(r){ if(r==="expForm") return S.expFormId ? "지출결의서 고치기" : "지출결의서 작성"; return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"지출결의", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
 function renderDeskMenu(r){
   const nav = document.getElementById("deskmenu"); if(!nav) return;
   const secs = deskSections(); const cur = r==="portal" ? "portal" : sectionOf(r);
@@ -1570,6 +1570,29 @@ function expViewSheet(id){
 function rejectSheet(id){
   openSheet("반려하기", `<div class="fields"><label class="field"><span>반려 사유</span><textarea id="ex-reason" rows="3" maxlength="300" placeholder="예: 영수증 사진이 흐려요. 다시 찍어 올려 주세요"></textarea></label></div>`,
     `<button class="btn danger block" type="button" data-act="doRejectExp" data-id="${id}">반려</button>`);
+}
+// PC: 창 대신 페이지 안에 결재 문서 양식으로
+function vExpForm(){
+  const id = S.expFormId; const e = id ? S.expenses.find(x=>x.id===id) : null;
+  if(id && !e) return `<div class="card">${empty("지워졌거나 없는 지출결의서예요","","pray",`<a class="btn" href="#eapp">목록으로</a>`)}</div>`;
+  S.expDraft = { id:e?.id||null, sign:e?.sign||"", files: e ? S.expFiles.map(f=>({data:f.data})) : [], oldFiles: e?.files||0 };
+  requestAnimationFrame(bindSig);
+  const row = (label, body, req=false, cls="") => `<tr class="${cls}"><th>${req?`<i class="req">*</i>`:""}${label}</th><td colspan="3">${body}</td></tr>`;
+  return `<div class="dsec-h"><h2>지출결의서 (일반)</h2><div class="dbtns"><a class="btn sm" href="#eapp">${icon("menu")}목록</a></div></div>
+    <form class="dform" id="exp-form" data-id="${id||""}" onsubmit="return false">
+    <table class="dform-t"><colgroup><col style="width:150px"><col><col style="width:150px"><col></colgroup><tbody>
+      <tr><th>기안자</th><td>${esc(myName()||"")}</td><th>기안일자</th><td class="tnum">${e&&tsOf(e)?iso(new Date(tsOf(e))):TODAY.replace(/-/g,".")}</td></tr>
+      ${row("지출명", `<input id="ex-title" maxlength="80" autocomplete="off" placeholder="어떤 일로 썼나요 · 예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}">`, true)}
+      ${row("지출처", `<input id="ex-place" maxlength="80" autocomplete="off" placeholder="어디에 썼나요 · 예: 안암동 ○○식당" value="${esc(e?.place||"")}">`, true)}
+      ${row("참여자", `<input id="ex-people" maxlength="300" autocomplete="off" placeholder="예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">`, true)}
+      ${row("금액", `<div class="dform-amt"><div class="won-in"><input id="ex-amt" inputmode="numeric" autocomplete="off" placeholder="0" value="${e?.amount?won(e.amount):""}"><span>원</span></div><span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span></div>`, true)}
+      ${row("상세내역", `<textarea id="ex-detail" rows="4" maxlength="500" placeholder="한 줄에 하나씩 · 예: 김밥 10줄 30,000원">${esc(e?.detail||"")}</textarea>`)}
+      ${row("영수확인", `<p class="dform-stmt">상기 금액을 정히 영수합니다.</p>
+        <div class="dform-sign"><label><span>영수일</span><input type="date" id="ex-date" value="${e?.date||TODAY}"></label><label><span>영수자</span><input id="ex-payee" maxlength="20" autocomplete="off" value="${esc(e?.payee||myName()||"")}"></label>
+          <div class="sig-pad ${S.expDraft.sign?"has":""}"><canvas id="ex-sig" aria-label="서명란"></canvas><span class="sig-ph">여기에 서명해 주세요</span><button class="btn sm" type="button" data-act="sigClear">지우기</button></div></div>`, true)}
+      ${row("영수증 첨부", `<div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div>`)}
+    </tbody></table>
+    <div class="dform-foot"><a class="btn" href="#eapp">취소</a><button class="btn pri" type="button" data-act="saveExp">${icon("check")}${e?"저장":"제출"}</button></div></form>`;
 }
 function expSheet(id){
   const e = id ? S.expenses.find(x=>x.id===id) : null;
@@ -1965,7 +1988,7 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, portal:vPortal, eapp:vEapp, cal:vCal, notice:vNotice, reqboard:vReqBoard, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, portal:vPortal, eapp:vEapp, expForm:vExpForm, cal:vCal, notice:vNotice, reqboard:vReqBoard, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 const isDesk = () => matchMedia("(min-width: 1100px)").matches;
 function route(){ const h=location.hash.slice(1);
@@ -2025,6 +2048,7 @@ function render(){
   if(r==="people" && !S.got.p){ main.innerHTML=skeleton(); return; }
   const ae=document.activeElement; const aid=ae?.id && main.contains(ae) ? ae.id : null; const sel=aid&&"selectionStart" in ae?[ae.selectionStart,ae.selectionEnd]:null;
   const keep = aid && ae.classList.contains("keep-val") ? ae.value : null;
+  if(r==="expForm" && isDesk()){ const f=document.getElementById("exp-form"); if(f && f.dataset.id===(S.expFormId||"")) return; }
   const body = ROUTES[r]();
   document.body.classList.toggle("has-side", isDesk() && !!sectionOf(r));
   main.innerHTML = (S.mode==="slow"?`<div class="banner">연결이 느려서 최신 내용이 아닐 수 있어요.</div>`:"") + (isDesk() ? deskLayout(r, body) : body);
@@ -2076,11 +2100,11 @@ document.addEventListener("click", async e => {
     t.disabled=true;
     try{ await S.db.doc("profiles/"+S.user.uid).set(body); S.profiles[S.user.uid]=body; indexProfiles(); toast("프로필을 바꿨어요"); closeSheet(); render(); }
     catch{ t.disabled=false; toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요"); } return; }
-  if(a==="newExp"){ expSheet(); return; }
+  if(a==="newExp"){ if(isDesk()){ S.expFormId=null; S.expFormKey=Date.now(); if(location.hash==="#expForm"){ document.getElementById("exp-form")?.remove(); render(); } else location.hash="#expForm"; return; } expSheet(); return; }
   if(a==="openExp"){ S.expSel=t.dataset.id; watchExpFiles(S.expSel); const h = S.dept==="finance" ? "#expCheck" : "#expense";
     if(location.hash===h){ closeSheet(); window.scrollTo(0,0); render(); } else location.hash=h; return; }
   if(a==="erF"){ S.erF=t.dataset.v; render(); return; }
-  if(a==="editExp"){ expSheet(t.dataset.id); return; }
+  if(a==="editExp"){ if(isDesk()){ S.expFormId=t.dataset.id; location.hash="#expForm"; return; } expSheet(t.dataset.id); return; }
   if(a==="printExp"){ const e=S.expenses.find(x=>x.id===t.dataset.id); if(e) printExp(e); return; }
   if(a==="sigClear"){ if(sig){ sig.x.save(); sig.x.setTransform(1,0,0,1,0,0); sig.x.clearRect(0,0,sig.c.width,sig.c.height); sig.x.restore(); sig.has=false; sig.dirty=true; sig.c.parentElement.classList.remove("has"); } return; }
   if(a==="expRmFile"){ S.expDraft.files.splice(+t.dataset.i,1); document.getElementById("ex-thumbs").innerHTML=expThumbs(); return; }

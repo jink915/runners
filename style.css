@@ -1161,3 +1161,26 @@ button.bc-e:hover{background:var(--sunken)}
 .bc-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bc-e.miss .bc-t{color:var(--warn);font-weight:700}
 @media (min-width:1100px){ body:not(.gate) #dept{display:none} }
+
+/* PC: 지출결의서 작성 양식 (페이지 안) */
+.dform{display:flex;flex-direction:column;gap:14px}
+.dform-t{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13.5px}
+.dform-t th{background:var(--sunken);text-align:left;font-weight:800;color:var(--ink-2);padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+.dform-t td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--ink);vertical-align:middle}
+.dform-t td + th{border-left:1px solid var(--line)}
+.dform-t tr:last-child th,.dform-t tr:last-child td{border-bottom:0}
+.dform-t .req{color:var(--bad);font-style:normal;margin-right:3px}
+.dform-t input:not([type="date"]),.dform-t textarea,.dform-t input[type="date"]{width:100%;max-width:none;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);padding:9px 12px;font:inherit;font-size:14px;color:var(--ink);box-shadow:none}
+.dform-t textarea{resize:vertical;min-height:96px;line-height:1.5}
+.dform-t input:focus,.dform-t textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);border-color:var(--accent)}
+.dform-amt{display:flex;align-items:center;gap:14px}
+.dform-amt .won-in{width:220px;flex:none}
+.dform-amt .exp-ko{margin:0}
+.dform-stmt{margin:2px 0 8px;font-weight:700}
+.dform-sign{display:grid;grid-template-columns:180px 180px minmax(240px,420px);gap:10px;align-items:end}
+.dform-sign label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted)}
+.dform-sign .sig-pad{margin:0;height:110px}
+.dform .exp-thumbs{grid-template-columns:repeat(4,110px)}
+.dform-foot{display:flex;justify-content:flex-end;gap:8px}
+.dform-foot .btn{min-width:110px}
+.dform-t .won-in input{padding-right:38px!important;text-align:right}
