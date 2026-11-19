@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.18-28";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-1";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1118,6 +1118,122 @@ function syncSoldierCalc(){
   el.textContent = `전역 ${f.end?"":"예정 "}${dotDate(st.end)} · 총 ${st.total}일` + (st.done ? " · 전역했어요" : st.before ? ` · 입대까지 ${dayDiff(TODAY,f.start)}일` : ` · 복무 ${st.served}일째, 남은 ${st.left}일`);
 }
 
+/* ---------- PC: 포털 (인트라넷처럼 한 화면에 모아 보기) ---------- */
+const pmd = d => d ? `${pad(+d.slice(5,7))}.${pad(+d.slice(8,10))}` : "";
+const WD = ["일","월","화","수","목","금","토"];
+const isNew = x => { const t=tsOf(x); return t && Date.now()-t < 864e5; };
+function panel(title, body, more="", cls=""){ return `<section class="pnl ${cls}"><header class="pnl-h"><h2>${title}</h2>${more}</header><div class="pnl-b">${body}</div></section>`; }
+const moreLink = (href, act="") => `<a class="pnl-more" href="${href}" ${act}>더보기 ${icon("plus")}</a>`;
+function pNotice(){
+  const ps = [...S.posts].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0) || (tsOf(b)||0)-(tsOf(a)||0)).slice(0,8);
+  return panel("공지사항 · 게시판", ps.length ? `<ul class="plist">${ps.map(p=>`<li><button type="button" data-act="openPost" data-id="${p.id}">
+      ${p.pinned?`<span class="ptag">공지</span>`:`<span class="pdot"></span>`}<span class="pt">${esc(p.title||"")}</span>${p.commentCount?`<span class="pc">[${p.commentCount}]</span>`:""}${isNew(p)?`<span class="pnew">N</span>`:""}
+      <span class="pd">${pmd(new Date(tsOf(p)||Date.now()+0).toISOString().slice(0,10))}</span></button></li>`).join("")}</ul>` : `<p class="pempty">아직 글이 없어요</p>`, moreLink("#board"));
+}
+function pService(){
+  const nx = nextService(); if(!nx) return panel("이번 주일", `<p class="pempty">앞으로 잡힌 예배가 없어요</p>`, moreLink("#schedule"));
+  const dd = dday(nx.date); const row = (k,v) => `<div class="kv"><span>${k}</span><b class="${v?"":"none"}">${v||"미정"}</b></div>`;
+  return panel("이번 주일", `<div class="psvc-top"><b>${fmtKo(nx.date)} (${WD[parse(nx.date).getDay()]})</b><span class="chip ${dd<=3?"warn":"acc"} plain tnum">${dd===0?"오늘":`D-${dd}`}</span></div>
+    ${row("사회", esc(nx.mc||""))}${row("대표기도", esc(nx.prayer||""))}${row("본문", nx.book?esc(verseText(nx)):"")}${row("헌금찬송", nx.hymn?`${esc(nx.hymn)}장`:"")}
+    <div class="psvc-act"><a class="btn sm pri" href="#script" data-act="openScript" data-date="${nx.date}">${icon("doc")}사회 원고</a>${can("social")?`<button class="btn sm" type="button" data-act="editWeek" data-date="${nx.date}">${icon("edit")}배정 수정</button>`:""}</div>`,
+    sees("social") ? moreLink("#schedule") : "");
+}
+function pTodo(){
+  const tabs = [];
+  if(can("finance")){ const xs=sortedExp().filter(e=>expStatus(e)==="submitted"); tabs.push(["exp","결의서 검토",xs.map(e=>`<li><button type="button" data-act="pOpenExp" data-id="${e.id}"><span class="pt">${esc(e.title)}</span><span class="pm">${esc(e.name||"")}</span><span class="pd tnum">${won(e.amount)}원</span></button></li>`)]); }
+  if(S.isAdmin){ const xs=S.members.filter(m=>m.status==="pending"); tabs.push(["join","가입 신청",xs.map(m=>`<li><button type="button" data-act="editMember" data-id="${m.id}"><span class="pt">${esc(m.name||m.email)}</span><span class="pm">${esc(m.email||"")}</span><span class="pd">승인하기</span></button></li>`)]); }
+  if(S.isAdmin){ const xs=S.requests.filter(r=>r.status!=="done"); tabs.push(["req","수정 요청",xs.map(r=>`<li><button type="button" data-act="openReq" data-id="${r.id}"><span class="pt">${esc(String(r.text||"").split("\n")[0])}</span><span class="pm">${esc(r.name||"")}</span><span class="pd">${r.status==="doing"?"진행 중":"새 요청"}</span></button></li>`)]); }
+  { const xs=sortedExp().filter(e=>expMine(e) && expStatus(e)!=="approved"); tabs.push(["mine","내 결의서",xs.map(e=>`<li><button type="button" data-act="openExp" data-id="${e.id}"><span class="pt">${esc(e.title)}</span><span class="pm">${expStatus(e)==="rejected"?"반려":"검토 중"}</span><span class="pd tnum">${won(e.amount)}원</span></button></li>`)]); }
+  const cur = tabs.find(t=>t[0]===S.ptTab) || tabs.find(t=>t[2].length) || tabs[0];
+  return panel("나의 할 일", `<div class="ptabs" role="tablist">${tabs.map(t=>`<button type="button" role="tab" data-act="ptTab" data-v="${t[0]}" aria-selected="${t===cur}">${t[1]} <b class="tnum">(${t[2].length})</b></button>`).join("")}</div>
+    ${cur[2].length ? `<ul class="plist todo">${cur[2].join("")}</ul>` : `<p class="pempty">처리할 일이 없어요</p>`}`, "", "todo");
+}
+function pStrip(){
+  const nx = nextService(); const bd = (sees("care")||S.births.length) ? births().filter(b=>b.dd===0) : [];
+  const pin = [...S.posts].filter(p=>p.pinned).sort((a,b)=>(tsOf(b)||0)-(tsOf(a)||0))[0];
+  const parts = [];
+  if(bd.length) parts.push(`🎂 오늘 생일 · ${bd.map(b=>esc(honor(b))).join(", ")}`);
+  if(pin) parts.push(`<button type="button" data-act="openPost" data-id="${pin.id}">[공지] ${esc(pin.title)}</button>`);
+  if(nx) parts.push(`다음 주일 ${fmtKo(nx.date)} · 사회 ${esc(nx.mc||"미정")} · 대표기도 ${esc(nx.prayer||"미정")}`);
+  return `<div class="pstrip"><span class="pstrip-dot"></span>${parts.join(`<i class="sep"></i>`) || "오늘도 수고 많으세요"}</div>`;
+}
+function dayItems(d){
+  const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate();
+  const w = S.all?.[d] || S.weeks.find(x=>x.date===d);
+  if(w) out.push(w.event ? ["ev","행사", esc(w.event)] : ["svc","주일 예배", `사회 ${esc(w.mc||"미정")} · 대표기도 ${esc(w.prayer||"미정")}${w.book?` · ${esc(verseText(w))}`:""}`]);
+  if(sees("care")||S.births.length) S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push(["bd","생일", esc(honor(b))]));
+  if(sees("care")) S.soldiers.forEach(x=>{ if(x.start===d) out.push(["army","입대", `${esc(x.name)} (${esc(BRANCH[x.branch]?.[0]||"")})`]); if(x.start && dischargeOf(x)===d) out.push(["army","전역", esc(x.name)]); });
+  if(sees("finance")) S.ledger.filter(r=>r.date===d).forEach(r=>out.push(["lg", r.type==="in"?"수입":"지출", `${won(r.amount)}원 · ${esc(r.memo||r.cat||"")}`]));
+  return out;
+}
+function pCalendar(){
+  if(!S.pcYM){ const t=parse(TODAY); S.pcYM={y:t.getFullYear(), m:t.getMonth()+1}; }
+  const {y,m} = S.pcYM; const sel = S.pcSel || TODAY;
+  const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
+  const cells = Array.from({length:42},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
+  const dots = d => { const it = dayItems(d); const k = new Set(it.map(x=>x[0])); const w = S.all?.[d]; const svcMiss = w && !w.event && !w.prayer;
+    return `${k.has("svc")?`<i class="dt ${svcMiss?"warn":"svc"}"></i>`:""}${k.has("ev")?`<i class="dt ev"></i>`:""}${k.has("bd")?`<i class="dt bd"></i>`:""}${k.has("army")?`<i class="dt army"></i>`:""}${k.has("lg")?`<i class="dt lg"></i>`:""}`; };
+  const cal = `<div class="pcal">
+    <div class="pcal-nav"><button class="btn icon sm" type="button" data-act="pcMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b>
+      <button class="btn icon sm" type="button" data-act="pcMonth" data-d="1" aria-label="다음 달">${icon("chev")}</button><button class="btn sm" type="button" data-act="pcToday">오늘</button></div>
+    <div class="pcal-g">${WD.map((w,i)=>`<span class="wd ${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}
+      ${cells.map(d=>{ const dt=parse(d); const out=dt.getMonth()+1!==m; return `<button type="button" class="pday ${out?"out":""} ${d===TODAY?"today":""} ${d===sel?"sel":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}" data-act="pcDay" data-d="${d}" aria-label="${dt.getMonth()+1}월 ${dt.getDate()}일"><span>${dt.getDate()}</span><span class="dts">${dots(d)}</span></button>`; }).join("")}</div>
+    <div class="pcal-legend"><span><i class="dt svc"></i>주일</span><span><i class="dt warn"></i>기도 미정</span>${sees("care")||S.births.length?`<span><i class="dt bd"></i>생일</span>`:""}${sees("care")?`<span><i class="dt army"></i>군</span>`:""}${sees("finance")?`<span><i class="dt lg"></i>장부</span>`:""}</div></div>`;
+  const it = dayItems(sel); const sd = parse(sel);
+  const list = `<div class="pday-list"><h3><b class="tnum">${sel.slice(0,4)}.${pad(sd.getMonth()+1)}.${pad(sd.getDate())}</b> (${WD[sd.getDay()]}) 일정안내</h3>
+    ${it.length ? `<ul>${it.map(([k,l,v])=>`<li><span class="ptag k-${k}">${l}</span><span>${v}</span></li>`).join("")}</ul>` : `<p class="pempty">등록된 일정이 없어요</p>`}</div>`;
+  return panel("달력", `<div class="pcal-wrap">${cal}${list}</div>`, sees("social")?moreLink("#schedule"):"", "cal");
+}
+function pStatus(){
+  const tabs = [];
+  if(sees("care")||S.births.length){ const bs = births().filter(b=>b.dd<=14).sort((a,b)=>a.dd-b.dd).slice(0,8);
+    tabs.push(["bd","다가오는 생일", bs.length?`<ul class="plist">${bs.map(b=>`<li><div><span class="pt">${esc(honor(b))}</span><span class="pd tnum">${b.month}/${b.day}</span>${ddChip(b.dd)}</div></li>`).join("")}</ul>`:`<p class="pempty">2주 안에 생일이 없어요</p>`]); }
+  if(sees("care")){ const xs = S.soldiers.filter(x=>x.start).map(x=>({x, st:armyStat(x)})).filter(o=>!o.st.done).sort((a,b)=>a.st.left-b.st.left);
+    tabs.push(["army","군복무", xs.length?`<ul class="plist">${xs.map(({x,st})=>`<li><div><span class="pt">${esc(x.name)} <small>${esc(BRANCH[x.branch]?.[0]||"")}</small></span><span class="pbar"><i style="width:${st.pct}%"></i></span><span class="pd tnum">${st.before?`입대 D-${dayDiff(TODAY,x.start)}`:`D-${st.left}`}</span></div></li>`).join("")}</ul>`:`<p class="pempty">복무 중인 사람이 없어요</p>`]); }
+  if(sees("finance")){ const all = ledgerRows(); const key = TODAY.slice(0,7); const mo = all.filter(r=>r.date.startsWith(key));
+    const bal = all.length ? all[all.length-1].bal : 0;
+    tabs.push(["lg","이번 달 장부", `<div class="plg"><div><span>수입</span><b class="in tnum">+${won(sumOf(mo,"in"))}</b></div><div><span>지출</span><b class="out tnum">−${won(sumOf(mo,"out"))}</b></div><div><span>잔액</span><b class="tnum">${won(bal)}</b></div></div>
+      <ul class="plist">${mo.slice(-5).reverse().map(r=>`<li><div><span class="pd tnum">${pmd(r.date)}</span><span class="pt">${esc(r.memo||r.cat||"")}</span><span class="pd tnum ${r.type}">${r.type==="in"?"+":"−"}${won(r.amount)}</span></div></li>`).join("")}</ul>`]); }
+  if(sees("leaders")){ const sun = sundayOn(TODAY);
+    const rows = TEAMS.map(t=>{ const ms=teamMembers(t.id); const w=S.tweeks?.[sun+"_"+t.id]; const on = ms.filter(n=>["o","on"].includes(w?.att?.[n])).length; return {t, ms, on}; }).filter(x=>x.ms.length);
+    tabs.push(["att","이번 주 출석", `<ul class="plist">${rows.map(({t,ms,on})=>`<li><div><span class="pt" style="--tc:${t.c}"><span class="team-dot"></span> ${t.name}</span><span class="pbar"><i style="width:${Math.round(on/ms.length*100)}%;background:${t.c}"></i></span><span class="pd tnum">${on}/${ms.length}</span></div></li>`).join("")}</ul>`]); }
+  if(!tabs.length) return "";
+  const cur = tabs.find(t=>t[0]===S.psTab) || tabs[0];
+  return panel("현황", `<div class="ptabs" role="tablist">${tabs.map(t=>`<button type="button" role="tab" data-act="psTab" data-v="${t[0]}" aria-selected="${t===cur}">${t[1]}</button>`).join("")}</div>${cur[2]}`, "", "status");
+}
+function vPortal(){
+  const name = firstName(myName());
+  return `<div class="portal">
+    <div class="portal-hi"><b>${esc(name||"러너스")}님</b>, 안녕하세요 <span>${TODAY.slice(0,4)}.${TODAY.slice(5,7)}.${TODAY.slice(8)} (${WD[parse(TODAY).getDay()]})</span></div>
+    <div class="pg">${pNotice()}${pService()}${pTodo()}</div>
+    ${pStrip()}
+    <div class="pg two">${pCalendar()}${pStatus()}</div>
+  </div>`;
+}
+// PC 상단 부서 메뉴 (마우스를 올리면 그 부서의 화면 목록)
+function renderDeskMenu(r){
+  const nav = document.getElementById("deskmenu"); if(!nav) return;
+  const depts = (isPlainMember() ? ["home"] : deptOrder()).filter(sees);
+  const curDept = r==="portal" ? "portal" : (ROUTE_DEPT[r] || S.dept);
+  const key = depts.join() + "|" + curDept + "|" + S.isAdmin + "|" + depts.map(d=>can(d)).join();
+  if(nav.dataset.key === key) return; nav.dataset.key = key;
+  nav.innerHTML = `<div class="wrap"><ul>
+    <li class="${curDept==="portal"?"on":""}"><a href="#portal">${icon("grid")}포털</a></li>
+    ${depts.map(d=>{ const tabs = DEPTS[d].tabs.filter(t=>t[0]!=="more" && (!t[2]||can(d)));
+      return `<li class="${curDept===d?"on":""}"><a href="#${DEPTS[d].home}" data-act="deskDept" data-d="${d}">${DEPTS[d].name}</a>
+        <div class="dm-drop">${tabs.map(([k,l])=>`<a href="#${k}" data-act="deskDept" data-d="${d}">${TAB_ICON[k]||""}<span>${l}</span></a>`).join("")}</div></li>`; }).join("")}
+    <li class="${r==="more"||r==="members"||r==="requests"?"on":""}"><a href="#more">더보기</a></li></ul></div>`;
+}
+function renderQuick(){
+  const q = document.getElementById("quick"); if(!q) return;
+  const items = [["newExp","receipt","결의서"], ["openReq","edit","수정 요청"]];
+  if(sees("social")) items.push(["qScript","doc","사회 원고"]);
+  if(sees("finance")) items.push(["qLedger","wallet","장부"]);
+  items.push(["notify","bell","알림"]);
+  const key = items.map(x=>x[0]).join(); if(q.dataset.key===key) return; q.dataset.key = key;
+  q.innerHTML = `<b class="q-h">QUICK</b>${items.map(([a,i,l])=>`<button type="button" data-act="${a}" aria-label="${l}">${icon(i)}<span>${l}</span></button>`).join("")}<button type="button" class="q-top" data-act="qTop" aria-label="맨 위로">${icon("up")}</button>`;
+}
+
 /* ---------- 멤버 홈 (러너스) ---------- */
 const myTeamId = () => myTeam()?.id || null;
 function myTurns(){
@@ -1716,9 +1832,11 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, portal:vPortal, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
+const isDesk = () => matchMedia("(min-width: 1100px)").matches;
 function route(){ const h=location.hash.slice(1);
+  if((h==="portal" || (!h && isDesk())) && S.approved) return "portal";
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
   if(h==="members" && !S.isAdmin) return homeRoute();
   if(h==="people" && !can("social")) return homeRoute();
@@ -1751,7 +1869,8 @@ function render(){
   if(!S.memberReady){ document.body.classList.add("gate"); main.innerHTML=splash(); return; }
   if(!S.approved){ document.body.classList.add("gate"); const ae=document.activeElement?.id; main.innerHTML = vPending(); syncThemeButtons(); if(ae) document.getElementById(ae)?.focus({preventScroll:true}); return; }
   const r=route();
-  renderTabs(r);
+  renderTabs(r); renderDeskMenu(r); renderQuick();
+  document.body.classList.toggle("is-portal", r==="portal");
   const me=document.getElementById("me"); me.hidden=false; me.innerHTML=av(myName()||S.user.email,"",true);
   syncThemeButtons();
   S.all = mergedWeeks();
@@ -1761,6 +1880,7 @@ function render(){
   if(r==="army" && !S.got.a){ main.innerHTML=skeleton(); return; }
   if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
   if(need==="home" && (!S.got.o || !S.got.t)){ main.innerHTML=skeleton(); return; }
+  if(r==="portal" && !S.got.o){ main.innerHTML=skeleton(); return; }
   if(["expenses","expense","expReview","expCheck"].includes(r) && !S.got.e){ main.innerHTML=skeleton(); return; }
   if(need==="home") watchMyWeek();
   if(need==="leaders" && !S.got.t){ main.innerHTML=skeleton(); return; }
@@ -1775,6 +1895,8 @@ function render(){
   growAll(main);
   if(r==="schedule" && !S.schedScrolled){ S.schedScrolled=true; document.getElementById("next-row")?.scrollIntoView({block:"center"}); }
 }
+// PC ↔ 좁은 화면을 오가면 메뉴·첫 화면을 다시 그려요
+matchMedia("(min-width: 1100px)").addEventListener?.("change", ()=>{ const n=document.getElementById("deskmenu"); if(n) n.dataset.key=""; render(); });
 window.addEventListener("hashchange", ()=>{ closeSheet(); closeDrawer(); window.scrollTo(0,0); if(route()==="schedule") S.schedScrolled=false; render(); });
 window.addEventListener("scroll", ()=>document.getElementById("top").classList.toggle("scrolled", scrollY>4), {passive:true});
 
@@ -1868,6 +1990,16 @@ document.addEventListener("click", async e => {
     if(ok){ closeSheet(); if(!FB){ id ? Object.assign(S.soldiers.find(x=>x.id===id), f) : S.soldiers.push({id:"s"+Date.now(), ...f}); render(); } } else t.disabled=false; return; }
   if(a==="delSoldier"){ if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 삭제할까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="삭제"; t.classList.remove("solid"); } }, 3000); return; }
     if(await write(()=>S.db.doc("soldiers/"+t.dataset.id).delete(), "삭제했어요")){ closeSheet(); if(!FB){ S.soldiers=S.soldiers.filter(x=>x.id!==t.dataset.id); render(); } } return; }
+  if(a==="ptTab"){ S.ptTab=t.dataset.v; render(); return; }
+  if(a==="psTab"){ S.psTab=t.dataset.v; render(); return; }
+  if(a==="pcDay"){ S.pcSel=t.dataset.d; const dt=parse(t.dataset.d); if(dt.getMonth()+1!==S.pcYM.m) S.pcYM={y:dt.getFullYear(), m:dt.getMonth()+1}; render(); return; }
+  if(a==="pcMonth"){ let {y,m}=S.pcYM; m+=+t.dataset.d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.pcYM={y,m}; render(); return; }
+  if(a==="pcToday"){ S.pcSel=TODAY; const dt=parse(TODAY); S.pcYM={y:dt.getFullYear(), m:dt.getMonth()+1}; render(); return; }
+  if(a==="pOpenExp"){ setDept("finance"); S.expSel=t.dataset.id; watchExpFiles(S.expSel); location.hash="#expCheck"; return; }
+  if(a==="deskDept"){ setDept(t.dataset.d); return; }
+  if(a==="qScript"){ const nx=nextService(); if(nx) syncScript(nx.date); S.scriptTab="script"; location.hash="#script"; return; }
+  if(a==="qLedger"){ location.hash="#ledger"; return; }
+  if(a==="qTop"){ window.scrollTo({top:0, behavior:"smooth"}); return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="goRequests") location.hash="#requests";
   if(a==="reqTab"){ S.reqTab=t.dataset.v; render(); }
