@@ -931,3 +931,4 @@ button.card.army{cursor:pointer}
 .ag-body .alert + .alert{border-top:1px solid var(--line)}
 .ag-body .row.toggle .s{display:block;font-size:12px;color:var(--muted);margin-top:1px;word-break:keep-all}
 .alert-groups{margin:0 18px}
+@media (min-width:761px){ .tab-badge{top:-7px;right:-9px;min-width:16px;height:16px;line-height:16px;font-size:10px;padding:0 4px} nav.tabs a .tab-ic{margin-right:4px} }
