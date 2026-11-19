@@ -168,7 +168,7 @@ const isDark = () => document.documentElement.dataset.theme==="dark";
 function setTheme(dark){
   if(dark) document.documentElement.dataset.theme="dark"; else delete document.documentElement.dataset.theme;
   try{ localStorage.setItem("runners-theme", dark?"dark":"light"); }catch{}
-  document.getElementById("theme-color").content = dark ? "#132B55" : "#BFE4FB";
+  document.getElementById("theme-color").content = dark ? "#132B55" : "#FFFFFF";
   syncThemeButtons();
 }
 function syncThemeButtons(){
