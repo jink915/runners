@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-6";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-7";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1150,15 +1150,22 @@ function pTodo(){
   return panel("나의 할 일", `<div class="ptabs" role="tablist">${tabs.map(t=>`<button type="button" role="tab" data-act="ptTab" data-v="${t[0]}" aria-selected="${t===cur}">${t[1]} <b class="tnum">(${t[2].length})</b></button>`).join("")}</div>
     ${cur[2].length ? `<ul class="plist todo">${cur[2].join("")}</ul>` : `<p class="pempty">처리할 일이 없어요</p>`}`, "", "todo");
 }
+// 오늘 생일자만. 여러 명이면 3초마다 위로 밀려 올라가며 한 명씩 (없으면 줄을 안 보여요)
 function pStrip(){
-  const nx = nextService(); const bd = (sees("care")||S.births.length) ? births().filter(b=>b.dd===0) : [];
-  const pin = [...S.posts].filter(p=>p.pinned).sort((a,b)=>(tsOf(b)||0)-(tsOf(a)||0))[0];
-  const parts = [];
-  if(bd.length) parts.push(`🎂 오늘 생일 · ${bd.map(b=>esc(honor(b))).join(", ")}`);
-  if(pin) parts.push(`<button type="button" data-act="openPost" data-id="${pin.id}">[공지] ${esc(pin.title)}</button>`);
-  if(nx) parts.push(`다음 주일 ${fmtKo(nx.date)} · 사회 ${esc(nx.mc||"미정")} · 대표기도 ${esc(nx.prayer||"미정")}`);
-  return `<div class="pstrip"><span class="pstrip-dot"></span>${parts.join(`<i class="sep"></i>`) || "오늘도 수고 많으세요"}</div>`;
+  const bd = (sees("care")||S.births.length) ? births().filter(b=>b.dd===0).sort((a,b)=>a.name.localeCompare(b.name,"ko")) : [];
+  if(!bd.length) return "";
+  const n = bd.length; const cur = (S.tkIdx||0) % n;
+  return `<div class="pstrip" role="status" aria-label="오늘 생일: ${esc(bd.map(honor).join(", "))}"><span class="pstrip-dot"></span><span class="pst-l">🎂 오늘 생일</span>${n>1?`<span class="pst-n tnum" aria-hidden="true">${n}명</span>`:""}
+    <div class="ticker" aria-hidden="true">${bd.map((b,i)=>`<div class="tk-item ${i===cur?"on":""}"><b>${esc(b.name)}</b> ${esc((HONOR[b.role]||"님").replace(/^님$/,"님"))} 생일을 축하해요!</div>`).join("")}</div></div>`;
 }
+// 생일 줄 넘기기 (화면이 다시 그려져도 순서를 이어 가요)
+setInterval(()=>{
+  const tk = document.querySelector(".ticker"); if(!tk) return; const items = [...tk.children]; if(items.length < 2) return;
+  const i = items.findIndex(x=>x.classList.contains("on")); const cur = items[i<0?0:i], next = items[((i<0?0:i)+1) % items.length];
+  next.classList.add("snap"); next.classList.remove("out"); void next.offsetWidth; next.classList.remove("snap");
+  cur.classList.remove("on"); cur.classList.add("out"); next.classList.add("on");
+  S.tkIdx = items.indexOf(next);
+}, 3000);
 function dayItems(d){
   const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate();
   const w = weekOn(d);

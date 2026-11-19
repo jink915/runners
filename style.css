@@ -1191,3 +1191,16 @@ button.bc-e:hover{background:var(--sunken)}
 /* 밝은 화면: 하늘색 배경 대신 흰색 (로그인 화면은 그대로) */
 :root:not([data-theme="dark"]) body:not(.gate)::before{display:none}
 :root:not([data-theme="dark"]) .card, :root:not([data-theme="dark"]) .pnl{box-shadow:0 0 0 1px var(--line),0 6px 18px -14px rgba(15,27,51,.25)}
+
+/* 포털: 오늘 생일 줄 (위로 넘어가는 효과) */
+.pstrip{flex-wrap:nowrap}
+.pst-l{flex:none;font-weight:800}
+.pst-n{flex:none;font-size:12px;font-weight:800;background:rgba(255,255,255,.18);padding:1px 8px;border-radius:999px}
+.ticker{position:relative;flex:1;min-width:0;height:22px;overflow:hidden}
+.tk-item{position:absolute;inset:0;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:translateY(100%);opacity:0;transition:transform .5s cubic-bezier(.22,.8,.24,1),opacity .5s ease}
+.tk-item b{font-weight:800}
+.tk-item.on{transform:translateY(0);opacity:1}
+.tk-item.out{transform:translateY(-100%);opacity:0}
+.tk-item.snap{transition:none}
+@media (prefers-reduced-motion:reduce){ .tk-item{transition:opacity .2s ease;transform:none!important} }
+@media (max-width:1099px){ .pstrip > *{flex-basis:auto} .pst-l{font-size:13px} }
