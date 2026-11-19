@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-2";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-3";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1122,14 +1122,15 @@ function syncSoldierCalc(){
 /* ---------- PC: 포털 (인트라넷처럼 한 화면에 모아 보기) ---------- */
 const pmd = d => d ? `${pad(+d.slice(5,7))}.${pad(+d.slice(8,10))}` : "";
 const WD = ["일","월","화","수","목","금","토"];
+const weekOn = d => allWeeks().find(w=>w.date===d);   // 그날 일정이 있을 때만 (없으면 undefined)
 const isNew = x => { const t=tsOf(x); return t && Date.now()-t < 864e5; };
 function panel(title, body, more="", cls=""){ return `<section class="pnl ${cls}"><header class="pnl-h"><h2>${title}</h2>${more}</header><div class="pnl-b">${body}</div></section>`; }
 const moreLink = (href, act="") => `<a class="pnl-more" href="${href}" ${act}>더보기 ${icon("plus")}</a>`;
 function pNotice(){
   const ps = [...S.posts].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0) || (tsOf(b)||0)-(tsOf(a)||0)).slice(0,8);
-  return panel("공지사항 · 게시판", ps.length ? `<ul class="plist">${ps.map(p=>`<li><button type="button" data-act="openPost" data-id="${p.id}">
+  return panel("공지사항", ps.length ? `<ul class="plist">${ps.map(p=>`<li><button type="button" data-act="openPost" data-id="${p.id}">
       ${p.pinned?`<span class="ptag">공지</span>`:`<span class="pdot"></span>`}<span class="pt">${esc(p.title||"")}</span>${p.commentCount?`<span class="pc">[${p.commentCount}]</span>`:""}${isNew(p)?`<span class="pnew">N</span>`:""}
-      <span class="pd">${pmd(new Date(tsOf(p)||Date.now()+0).toISOString().slice(0,10))}</span></button></li>`).join("")}</ul>` : `<p class="pempty">아직 글이 없어요</p>`, moreLink("#board"));
+      <span class="pd">${pmd(new Date(tsOf(p)||Date.now()+0).toISOString().slice(0,10))}</span></button></li>`).join("")}</ul>` : `<p class="pempty">아직 글이 없어요</p>`, moreLink(isDesk()?"#notice":"#board"));
 }
 function pService(){
   const nx = nextService(); if(!nx) return panel("이번 주일", `<p class="pempty">앞으로 잡힌 예배가 없어요</p>`, moreLink("#schedule"));
@@ -1160,7 +1161,7 @@ function pStrip(){
 }
 function dayItems(d){
   const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate();
-  const w = S.all?.[d] || S.weeks.find(x=>x.date===d);
+  const w = weekOn(d);
   if(w) out.push(w.event ? ["ev","행사", esc(w.event)] : ["svc","주일 예배", `사회 ${esc(w.mc||"미정")} · 대표기도 ${esc(w.prayer||"미정")}${w.book?` · ${esc(verseText(w))}`:""}`]);
   if(sees("care")||S.births.length) S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push(["bd","생일", esc(honor(b))]));
   if(sees("care")) S.soldiers.forEach(x=>{ if(x.start===d) out.push(["army","입대", `${esc(x.name)} (${esc(BRANCH[x.branch]?.[0]||"")})`]); if(x.start && dischargeOf(x)===d) out.push(["army","전역", esc(x.name)]); });
@@ -1172,7 +1173,7 @@ function pCalendar(){
   const {y,m} = S.pcYM; const sel = S.pcSel || TODAY;
   const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
   const cells = Array.from({length:42},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
-  const dots = d => { const it = dayItems(d); const k = new Set(it.map(x=>x[0])); const w = S.all?.[d]; const svcMiss = w && !w.event && !w.prayer;
+  const dots = d => { const it = dayItems(d); const k = new Set(it.map(x=>x[0])); const w = weekOn(d); const svcMiss = w && !w.event && !w.prayer;
     return `${k.has("svc")?`<i class="dt ${svcMiss?"warn":"svc"}"></i>`:""}${k.has("ev")?`<i class="dt ev"></i>`:""}${k.has("bd")?`<i class="dt bd"></i>`:""}${k.has("army")?`<i class="dt army"></i>`:""}${k.has("lg")?`<i class="dt lg"></i>`:""}`; };
   const cal = `<div class="pcal">
     <div class="pcal-nav"><button class="btn icon sm" type="button" data-act="pcMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b>
@@ -1211,23 +1212,154 @@ function vPortal(){
     <div class="pg two">${pCalendar()}${pStatus()}</div>
   </div>`;
 }
-// PC 상단 부서 메뉴 (마우스를 올리면 그 부서의 화면 목록)
+// PC 메뉴: 전자결재 · 일정관리 · 부서관리 · 커뮤니티 (왼쪽엔 세부 메뉴)
+const DEPT_MENU = [["leaders","리더단"],["social","사회부"],["care","챙김부"],["finance","총무부"]];
+function deskSections(){
+  const depts = DEPT_MENU.filter(([d])=>sees(d)).map(([d,l])=>[DEPTS[d].home, l, d]);
+  return [
+    { id:"eapp", t:"전자결재", items:[["eapp","지출결의"]] },
+    { id:"sched", t:"일정관리", items:[["cal","안암일정"]] },
+    ...(depts.length ? [{ id:"dept", t:"부서관리", items:depts }] : []),
+    { id:"comm", t:"커뮤니티", items:[["notice","공지사항"],["reqboard","요청게시판"]] },
+  ];
+}
+function sectionOf(r){
+  if(["eapp","expense","expCheck","expenses","expReview"].includes(r)) return "eapp";
+  if(r==="cal") return "sched";
+  if(["notice","post","board","reqboard","requests"].includes(r)) return "comm";
+  const d = ROUTE_DEPT[r]; if(d && d!=="home") return "dept";
+  return null;
+}
+function pageTitle(r){ return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"지출결의", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
 function renderDeskMenu(r){
   const nav = document.getElementById("deskmenu"); if(!nav) return;
-  const depts = (isPlainMember() ? ["home"] : deptOrder()).filter(sees);
-  const curDept = r==="portal" ? "portal" : (ROUTE_DEPT[r] || S.dept);
-  const key = depts.join() + "|" + curDept + "|" + S.isAdmin + "|" + depts.map(d=>can(d)).join();
+  const secs = deskSections(); const cur = r==="portal" ? "portal" : sectionOf(r);
+  const key = secs.map(x=>x.id+x.items.length).join() + "|" + cur;
   if(nav.dataset.key === key) return; nav.dataset.key = key;
-  nav.innerHTML = `<div class="wrap"><ul>
-    <li class="${curDept==="portal"?"on":""}"><a href="#portal">${icon("grid")}포털</a></li>
-    ${depts.map(d=>{ const tabs = DEPTS[d].tabs.filter(t=>t[0]!=="more" && (!t[2]||can(d)));
-      return `<li class="${curDept===d?"on":""}"><a href="#${DEPTS[d].home}" data-act="deskDept" data-d="${d}">${DEPTS[d].name}</a>
-        <div class="dm-drop">${tabs.map(([k,l])=>`<a href="#${k}" data-act="deskDept" data-d="${d}">${TAB_ICON[k]||""}<span>${l}</span></a>`).join("")}</div></li>`; }).join("")}
-    <li class="${r==="more"||r==="members"||r==="requests"?"on":""}"><a href="#more">더보기</a></li></ul></div>`;
+  nav.innerHTML = `<div class="wrap"><ul>${secs.map(x=>`<li class="${cur===x.id?"on":""}"><a href="#${x.items[0][0]}" ${x.items[0][2]?`data-act="deskDept" data-d="${x.items[0][2]}"`:""}>${x.t}</a>
+      <div class="dm-drop">${x.items.map(([h,l,d])=>`<a href="#${h}" ${d?`data-act="deskDept" data-d="${d}"`:""}><span>${l}</span></a>`).join("")}</div></li>`).join("")}</ul></div>`;
 }
+// PC: 왼쪽 세부 메뉴 + 제목·위치 표시로 감싸기
+function deskLayout(r, html){
+  const sid = sectionOf(r); const sec = deskSections().find(x=>x.id===sid); if(!sec) return html;
+  const curDept = ROUTE_DEPT[r];
+  const side = sec.items.map(([h,l,d])=>{
+    const on = d ? curDept===d : (sectionOf(r)===sid && (h===r || pageTitle(r)===l));
+    const sub = d && on ? `<div class="dside-sub">${DEPTS[d].tabs.filter(t=>t[0]!=="more" && (!t[2]||can(d))).map(([k,lb])=>`<a href="#${k}" class="${k===r||(r==="team"&&k==="lead")?"on":""}">${lb}</a>`).join("")}</div>` : "";
+    return `<a href="#${h}" class="${on?"on":""}" ${d?`data-act="deskDept" data-d="${d}"`:""}>${l}</a>${sub}`; }).join("");
+  const title = sid==="dept" ? (DEPT_MENU.find(x=>x[0]===curDept)?.[1]||"") : pageTitle(r);
+  const showHead = sid!=="dept";
+  return `<div class="dlayout"><aside class="dside"><div class="dside-h">${sec.t}</div><nav>${side}</nav></aside>
+    <div class="dmain"><div class="dhead ${showHead?"":"slim"}">${showHead?`<h1>${title}</h1>`:""}<div class="crumb"><a href="#portal" aria-label="포털">${icon("grid")}</a> › ${sec.t} › <b>${title}</b></div></div>${html}</div></div>`;
+}
+
+/* ---------- PC: 전자결재 · 지출결의 문서함 ---------- */
+const EAPP_PER = 15;
+function eappRows(){
+  const f = S.eF || (S.eF = { box: can("finance") ? "todo" : "mine", st:"all", year: TODAY.slice(0,4), q:"" });
+  let xs = sortedExp();
+  // 문서번호: 해마다 낸 순서대로
+  const byYear = {}; [...S.expenses].sort((a,b)=>(tsOf(a)||0)-(tsOf(b)||0)).forEach(e=>{ const y=(e.date||TODAY).slice(0,4); byYear[y]=(byYear[y]||0)+1; e._no=`지출결의${y}-${String(byYear[y]).padStart(4,"0")}`; });
+  if(f.box==="mine") xs = xs.filter(expMine); else if(f.box==="todo") xs = xs.filter(e=>expStatus(e)==="submitted");
+  if(f.st!=="all") xs = xs.filter(e=>expStatus(e)===f.st);
+  if(f.year) xs = xs.filter(e=>(e.date||"").startsWith(f.year));
+  if(f.q) xs = xs.filter(e=>(e.title+" "+(e.place||"")+" "+(e.name||"")).toLowerCase().includes(f.q.toLowerCase()));
+  return xs;
+}
+const ST_TXT = { submitted:"검토 중", approved:"승인", rejected:"반려" };
+function vEapp(){
+  const f = S.eF || (eappRows(), S.eF); const xs = eappRows(); const fin = can("finance");
+  const pages = Math.max(1, Math.ceil(xs.length/EAPP_PER)); const pg = Math.min(S.ePage||1, pages); const slice = xs.slice((pg-1)*EAPP_PER, pg*EAPP_PER);
+  const years = [...new Set([TODAY.slice(0,4), ...S.expenses.map(e=>(e.date||"").slice(0,4)).filter(Boolean)])].sort().reverse();
+  const opt = (v,l,cur) => `<option value="${v}" ${v===cur?"selected":""}>${l}</option>`;
+  const boxes = [["mine","내 문서"], ...(fin?[["todo","결재할 문서"],["all","전체 문서"]]:[])];
+  return `<div class="dtool"><button type="button" data-act="newExp">${icon("receipt")}<span>지출결의서 작성</span></button>
+      ${fin?`<a href="#expReview" data-act="deskDept" data-d="finance">${icon("check")}<span>결재하기</span></a>`:""}</div>
+    <div class="dsec-h"><h2>지출결의 목록</h2><div class="dbtns"><button class="btn sm" type="button" data-act="eReset">${icon("upload","rot")}초기화</button><button class="btn sm ok" type="button" data-act="eCsv">${icon("download")}엑셀 다운로드</button></div></div>
+    <div class="dfilter">
+      <label><span>문서함</span><div class="select-wrap"><select data-ef="box">${boxes.map(([v,l])=>opt(v,l,f.box)).join("")}</select>${icon("down")}</div></label>
+      <label><span>결재상태</span><div class="select-wrap"><select data-ef="st">${opt("all","전체",f.st)}${opt("submitted","검토 중",f.st)}${opt("approved","승인",f.st)}${opt("rejected","반려",f.st)}</select>${icon("down")}</div></label>
+      <label><span>연도</span><div class="select-wrap"><select data-ef="year">${opt("","전체",f.year)}${years.map(y=>opt(y,y,f.year)).join("")}</select>${icon("down")}</div></label>
+      <label class="wide"><span>검색</span><input id="ef-q" class="keep-val" placeholder="제목·지출처·작성자" value="${esc(f.q)}" autocomplete="off"></label>
+    </div>
+    <div class="dtable-wrap"><table class="dtable"><thead><tr><th>순번</th><th>문서분류</th><th>문서번호</th><th class="l">제목</th><th>작성자</th><th class="r">금액</th><th>결재상태</th><th>결재자</th><th>지출일</th><th>등록일</th></tr></thead>
+      <tbody>${slice.map((e,i)=>`<tr data-act="${fin&&!expMine(e)?"pOpenExp":"openExp"}" data-id="${e.id}" tabindex="0"><td class="tnum">${xs.length-((pg-1)*EAPP_PER+i)}</td><td>지출결의서</td><td class="tnum">${e._no||""}</td>
+        <td class="l"><span class="dt-t">${esc(e.title)}</span>${e.files?`<span class="dt-clip">${icon("image")}${e.files}</span>`:""}</td><td>${esc(e.name||"")}</td><td class="r tnum">${won(e.amount)}</td>
+        <td><span class="dst st-${expStatus(e)}">${ST_TXT[expStatus(e)]}</span></td><td>${esc(e.reviewedBy||e.checkedBy||"")}</td><td class="tnum">${e.date||""}</td><td class="tnum">${tsOf(e)?iso(new Date(tsOf(e))):""}</td></tr>`).join("")
+        || `<tr><td colspan="10" class="dt-empty">해당하는 문서가 없어요</td></tr>`}</tbody></table></div>
+    ${pager(pg, pages, "ePage")}`;
+}
+function pager(pg, pages, key){
+  if(pages<=1) return "";
+  const nums = []; const a = Math.max(1, pg-4), b = Math.min(pages, a+9);
+  for(let i=a;i<=b;i++) nums.push(i);
+  return `<div class="dpager"><button type="button" data-act="pgGo" data-k="${key}" data-p="1" aria-label="처음">«</button><button type="button" data-act="pgGo" data-k="${key}" data-p="${Math.max(1,pg-1)}" aria-label="이전">‹</button>
+    ${nums.map(n=>`<button type="button" data-act="pgGo" data-k="${key}" data-p="${n}" class="${n===pg?"on":""}">${n}</button>`).join("")}
+    <button type="button" data-act="pgGo" data-k="${key}" data-p="${Math.min(pages,pg+1)}" aria-label="다음">›</button><button type="button" data-act="pgGo" data-k="${key}" data-p="${pages}" aria-label="끝">»</button></div>`;
+}
+function downloadCsv(name, rows){
+  const csv = "﻿" + rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"})); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+/* ---------- PC: 일정관리 · 안암일정 (큰 달력) ---------- */
+function calEntries(d){
+  const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate(); const F = S.calF || "all";
+  const w = weekOn(d);
+  if(w && (F==="all"||F==="svc")) out.push(w.event ? {k:"ev", tag:"행사", t:esc(w.event), act:can("social")?`data-act="editWeek" data-date="${d}"`:""}
+    : {k:"svc", tag:"주일", t:`사회 ${esc(w.mc||"미정")} · 기도 ${esc(w.prayer||"미정")}`, miss:!w.prayer, act:can("social")?`data-act="editWeek" data-date="${d}"`:`data-act="openScript" data-date="${d}"`});
+  if(F==="all"||F==="bd") S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push({k:"bd", tag:"생일", t:esc(honor(b)), act:can("care")&&b.id?`data-act="editBirth" data-id="${b.id}"`:""}));
+  if(sees("care") && (F==="all"||F==="army")) S.soldiers.forEach(x=>{ if(!x.start) return; if(x.start===d) out.push({k:"army", tag:"입대", t:esc(x.name), act:can("care")?`data-act="editSoldier" data-id="${x.id}"`:""}); if(dischargeOf(x)===d) out.push({k:"army", tag:"전역", t:esc(x.name), act:can("care")?`data-act="editSoldier" data-id="${x.id}"`:""}); });
+  return out;
+}
+function vCal(){
+  if(!S.calYM){ const t=parse(TODAY); S.calYM={y:t.getFullYear(), m:t.getMonth()+1}; }
+  const {y,m} = S.calYM; const F = S.calF || "all";
+  const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
+  const weeksN = Math.ceil((first.getDay() + new Date(y, m, 0).getDate())/7);
+  const cells = Array.from({length:weeksN*7},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
+  const filters = [["all","전체"],["svc","주일"],["bd","생일"], ...(sees("care")?[["army","군"]]:[])];
+  return `<div class="dsec-h cal-top"><div class="cal-f">${filters.map(([k,l])=>`<button type="button" class="${F===k?"on":""}" data-act="calF" data-v="${k}">${l}</button>`).join("")}</div>
+      <div class="cal-nav"><button class="btn icon sm" type="button" data-act="calMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b><button class="btn icon sm" type="button" data-act="calMonth" data-d="1" aria-label="다음 달">${icon("chev")}</button></div>
+      <div class="dbtns"><button class="btn sm" type="button" data-act="calToday">오늘</button></div></div>
+    <div class="bigcal"><div class="bc-h">${WD.map((w,i)=>`<span class="${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}</div>
+      <div class="bc-g">${cells.map(d=>{ const dt=parse(d); const out=dt.getMonth()+1!==m; const es=calEntries(d);
+        return `<div class="bc-c ${out?"out":""} ${d===TODAY?"today":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}"><span class="bc-d tnum">${dt.getDate()}</span>
+          <div class="bc-es">${es.map(e=>`<${e.act?"button type=\"button\"":"div"} class="bc-e k-${e.k} ${e.miss?"miss":""}" ${e.act}><span class="ptag k-${e.k}">${e.tag}</span><span class="bc-t">${e.t}</span></${e.act?"button":"div"}>`).join("")}</div></div>`; }).join("")}</div></div>`;
+}
+
+/* ---------- PC: 커뮤니티 · 공지사항 / 요청게시판 (표) ---------- */
+const BOARD_PER = 15;
+function vNotice(){
+  const q = (S.nQ||"").toLowerCase(); const xs = sortedPosts().filter(p=>!q || ((p.title||"")+" "+(p.name||"")).toLowerCase().includes(q));
+  const pages = Math.max(1, Math.ceil(xs.length/BOARD_PER)); const pg = Math.min(S.nPage||1, pages); const slice = xs.slice((pg-1)*BOARD_PER, pg*BOARD_PER);
+  let n = xs.filter(p=>!p.pinned).length;
+  return `<div class="dsec-h"><h2>공지사항 목록</h2><div class="dbtns"><button class="btn sm pri" type="button" data-act="newPost">${icon("edit")}글쓰기</button></div></div>
+    <div class="dfilter"><label class="wide"><span>검색어</span><input id="n-q" class="keep-val" placeholder="제목·작성자" value="${esc(S.nQ||"")}" autocomplete="off"></label></div>
+    <div class="dtable-wrap"><table class="dtable"><thead><tr><th style="width:80px">순번</th><th class="l">제목</th><th style="width:90px">댓글</th><th style="width:120px">작성자</th><th style="width:150px">등록일</th></tr></thead>
+      <tbody>${slice.map(p=>{ const no = p.pinned ? `<span class="pin-ic" aria-label="공지">📢</span>` : n--; const t = tsOf(p);
+        return `<tr data-act="openPost" data-id="${p.id}" tabindex="0" class="${p.pinned?"pinned":""}"><td class="tnum">${no}</td><td class="l"><span class="dt-t">${p.pinned?"[공지] ":""}${esc(p.title||"")}</span>${isNew(p)?`<span class="pnew">N</span>`:""}</td>
+          <td class="tnum">${p.commentCount||0}</td><td>${esc(p.name||"")}</td><td class="tnum">${t?`${iso(new Date(t))} ${pad(new Date(t).getHours())}:${pad(new Date(t).getMinutes())}`:""}</td></tr>`; }).join("")
+        || `<tr><td colspan="5" class="dt-empty">글이 없어요</td></tr>`}</tbody></table></div>
+    ${pager(pg, pages, "nPage")}`;
+}
+function vReqBoard(){
+  const admin = S.isAdmin; const st = S.rbSt || "all";
+  const xs = [...S.requests].filter(r=>admin || r.uid===S.user?.uid).filter(r=>st==="all" || (r.status||"open")===st).sort((a,b)=>(tsOf(b)||0)-(tsOf(a)||0));
+  const pages = Math.max(1, Math.ceil(xs.length/BOARD_PER)); const pg = Math.min(S.rbPage||1, pages); const slice = xs.slice((pg-1)*BOARD_PER, pg*BOARD_PER);
+  return `<div class="dsec-h"><h2>${admin?"요청 목록":"내가 보낸 요청"}</h2><div class="dbtns"><a class="btn sm pri" href="#requests">${icon("edit")}요청하기</a></div></div>
+    <div class="dfilter"><label><span>처리상태</span><div class="select-wrap"><select data-rb="st"><option value="all">전체</option>${Object.entries(REQ_ST).map(([k,[l]])=>`<option value="${k}" ${st===k?"selected":""}>${l}</option>`).join("")}</select>${icon("down")}</div></label></div>
+    <div class="dtable-wrap"><table class="dtable"><thead><tr><th style="width:70px">순번</th><th style="width:110px">분류</th><th class="l">내용</th><th style="width:170px">화면</th><th style="width:110px">작성자</th><th style="width:110px">처리상태</th><th style="width:120px">등록일</th></tr></thead>
+      <tbody>${slice.map((r,i)=>{ const [cl,cc]=REQ_CAT[r.cat]||REQ_CAT.etc; const [sl,sc]=REQ_ST[r.status||"open"]||REQ_ST.open; const t=tsOf(r);
+        return `<tr data-act="openReq" data-id="${r.id}" tabindex="0"><td class="tnum">${xs.length-((pg-1)*BOARD_PER+i)}</td><td><span class="ptag" style="background:color-mix(in srgb,${cc} 14%,transparent);color:${cc}">${cl}</span></td>
+          <td class="l"><span class="dt-t">${esc(String(r.text||"").split("\n")[0])}</span>${r.reply?`<span class="dt-re">답변</span>`:""}</td><td>${esc(r.where||"")}</td><td>${esc(r.name||"")}</td><td><span class="chip ${sc} plain">${sl}</span></td><td class="tnum">${t?iso(new Date(t)):""}</td></tr>`; }).join("")
+        || `<tr><td colspan="7" class="dt-empty">요청이 없어요</td></tr>`}</tbody></table></div>
+    ${pager(pg, pages, "rbPage")}`;
+}
+
 function renderQuick(){
   const q = document.getElementById("quick"); if(!q) return;
-  const items = [["newExp","receipt","결의서"], ["openReq","edit","수정 요청"]];
+  const items = [["newExp","receipt","결의서"], ["qReq","edit","수정 요청"]];
   if(sees("social")) items.push(["qScript","doc","사회 원고"]);
   if(sees("finance")) items.push(["qLedger","wallet","장부"]);
   items.push(["notify","bell","알림"]);
@@ -1833,7 +1965,7 @@ function reqSheet(id){
 }
 
 /* ---------- 렌더 ---------- */
-const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, portal:vPortal, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
+const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, portal:vPortal, eapp:vEapp, cal:vCal, notice:vNotice, reqboard:vReqBoard, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 const isDesk = () => matchMedia("(min-width: 1100px)").matches;
 function route(){ const h=location.hash.slice(1);
@@ -1883,6 +2015,7 @@ function render(){
   if(need==="finance" && !S.got.l){ main.innerHTML=skeleton(); return; }
   if(need==="home" && (!S.got.o || !S.got.t)){ main.innerHTML=skeleton(); return; }
   if(r==="portal" && !S.got.o){ main.innerHTML=skeleton(); return; }
+  if((r==="eapp" && !S.got.e) || (r==="notice" && !S.got.o) || (r==="reqboard" && !S.got.r)){ main.innerHTML=skeleton(); return; }
   if(["expenses","expense","expReview","expCheck"].includes(r) && !S.got.e){ main.innerHTML=skeleton(); return; }
   if(need==="home") watchMyWeek();
   if(need==="leaders" && !S.got.t){ main.innerHTML=skeleton(); return; }
@@ -1892,7 +2025,9 @@ function render(){
   if(r==="people" && !S.got.p){ main.innerHTML=skeleton(); return; }
   const ae=document.activeElement; const aid=ae?.id && main.contains(ae) ? ae.id : null; const sel=aid&&"selectionStart" in ae?[ae.selectionStart,ae.selectionEnd]:null;
   const keep = aid && ae.classList.contains("keep-val") ? ae.value : null;
-  main.innerHTML = (S.mode==="slow"?`<div class="banner">연결이 느려서 최신 내용이 아닐 수 있어요.</div>`:"") + ROUTES[r]();
+  const body = ROUTES[r]();
+  document.body.classList.toggle("has-side", isDesk() && !!sectionOf(r));
+  main.innerHTML = (S.mode==="slow"?`<div class="banner">연결이 느려서 최신 내용이 아닐 수 있어요.</div>`:"") + (isDesk() ? deskLayout(r, body) : body);
   if(aid){ const el=document.getElementById(aid); if(el){ if(keep!==null) el.value=keep; el.focus({preventScroll:true}); if(sel) try{el.setSelectionRange(...sel);}catch{} } }
   growAll(main);
   if(r==="schedule" && !S.schedScrolled){ S.schedScrolled=true; document.getElementById("next-row")?.scrollIntoView({block:"center"}); }
@@ -2001,6 +2136,13 @@ document.addEventListener("click", async e => {
   if(a==="deskDept"){ setDept(t.dataset.d); return; }
   if(a==="qScript"){ const nx=nextService(); if(nx) syncScript(nx.date); S.scriptTab="script"; location.hash="#script"; return; }
   if(a==="qLedger"){ location.hash="#ledger"; return; }
+  if(a==="qReq"){ location.hash="#requests"; return; }
+  if(a==="pgGo"){ S[t.dataset.k]=+t.dataset.p; render(); document.querySelector(".dmain")?.scrollIntoView({block:"start"}); return; }
+  if(a==="eReset"){ S.eF=null; S.ePage=1; render(); return; }
+  if(a==="eCsv"){ const xs=eappRows(); downloadCsv(`지출결의_${TODAY}.csv`, [["문서번호","제목","지출처","참여자","금액","지출일","작성자","결재상태","결재자","상세내역"], ...xs.map(e=>[e._no, e.title, e.place, e.people, e.amount, e.date, e.name, ST_TXT[expStatus(e)], e.reviewedBy||e.checkedBy||"", e.detail||""])]); toast("엑셀(CSV) 파일을 받았어요"); return; }
+  if(a==="calF"){ S.calF=t.dataset.v; render(); return; }
+  if(a==="calMonth"){ let {y,m}=S.calYM; m+=+t.dataset.d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.calYM={y,m}; render(); return; }
+  if(a==="calToday"){ const dt=parse(TODAY); S.calYM={y:dt.getFullYear(), m:dt.getMonth()+1}; render(); return; }
   if(a==="qTop"){ window.scrollTo({top:0, behavior:"smooth"}); return; }
   if(a==="goMembers") location.hash="#members";
   if(a==="goRequests") location.hash="#requests";
@@ -2190,6 +2332,8 @@ document.addEventListener("click", async e => {
 });
 document.addEventListener("change", async e => {
   if(e.target.id==="so-own"){ const w=document.getElementById("so-end-wrap"); if(w) w.hidden=!e.target.checked; if(e.target.checked && !val("so-end")){ const f=soldierForm(); if(f.start){ const el=document.getElementById("so-end"); el.value=dischargeOf({...f,end:""}); } } syncSoldierCalc(); return; }
+  if(e.target.dataset?.ef){ S.eF[e.target.dataset.ef]=e.target.value; S.ePage=1; render(); return; }
+  if(e.target.dataset?.rb){ S.rbSt=e.target.value; S.rbPage=1; render(); return; }
   if(e.target.id==="s-date"){ syncScript(e.target.value); render(); return; }
   if(e.target.id==="ex-file" && e.target.files.length){ const fs=[...e.target.files]; e.target.value="";
     for(const f of fs){ if(S.expDraft.files.length>=EXP_MAX){ toast(`영수증은 ${EXP_MAX}장까지 붙일 수 있어요`); break; }
@@ -2209,6 +2353,8 @@ document.addEventListener("input", e => {
   if(e.target.tagName==="TEXTAREA") grow(e.target);
   const id=e.target.id;
   if(id==="so-start"||id==="so-end"){ syncSoldierCalc(); return; }
+  if(id==="ef-q"){ clearTimeout(S._qt); S._qt=setTimeout(()=>{ S.eF.q=e.target.value; S.ePage=1; render(); }, 250); return; }
+  if(id==="n-q"){ clearTimeout(S._qt); S._qt=setTimeout(()=>{ S.nQ=e.target.value; S.nPage=1; render(); }, 250); return; }
   if(id==="ex-amt"){ const n=parseWon(e.target.value); const ko=document.getElementById("ex-ko"); if(ko) ko.textContent = n ? wonLine(n) : ""; return; }
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-group-switch]")){ const box=e.target.closest(".ag"); box.querySelectorAll("[data-pref]").forEach(x=>{ x.checked=e.target.checked; const cfg=x.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!x.checked; }); syncAlertGroup(box); return; }
