@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-1";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-2";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -934,6 +934,7 @@ function openDrawer(){
     <nav class="drawer" id="drawer" aria-label="부서 메뉴">
       <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스</span>
         <button class="btn icon sm" type="button" data-act="closeDrawer" aria-label="메뉴 닫기">${icon("x")}</button></div>
+      <a class="dept-item ${location.hash==="#portal"||!location.hash?"on":""}" href="#portal" data-act="closeDrawer"><span class="set-ic" style="--c:#22438E">${icon("grid")}</span><span class="main"><span class="t">포털</span></span></a>
       <p class="drawer-label">부서</p>
       <div class="dept-list">${deptOrder().filter(sees).map(item).join("")}</div>
       <div class="drawer-sep"></div>
@@ -1836,7 +1837,8 @@ const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, 
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 const isDesk = () => matchMedia("(min-width: 1100px)").matches;
 function route(){ const h=location.hash.slice(1);
-  if((h==="portal" || (!h && isDesk())) && S.approved) return "portal";
+  // 앱을 처음 열면(주소에 화면이 없으면) 포털부터 — PC·휴대폰 모두
+  if((h==="portal" || !h) && S.approved) return "portal";
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
   if(h==="members" && !S.isAdmin) return homeRoute();
   if(h==="people" && !can("social")) return homeRoute();
