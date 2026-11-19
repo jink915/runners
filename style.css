@@ -1205,3 +1205,20 @@ button.bc-e:hover{background:var(--sunken)}
 @media (prefers-reduced-motion:reduce){ .tk-item{transition:opacity .2s ease;transform:none!important} }
 @media (max-width:1099px){ .pstrip > *{flex-basis:auto} .pst-l{font-size:13px} }
 .bc-e .bc-t small{display:block;font-size:11px;color:var(--muted);font-weight:600}
+
+/* 휴대폰: 새 화면 (지출결의·커뮤니티·안암일정) */
+.seg a{flex:1;display:flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;border-radius:11px;color:var(--muted);font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap}
+.seg a.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(34 67 142 / .12)}
+.chips-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-14px 0 0;padding:2px 0}
+.chips-row::-webkit-scrollbar{display:none}
+.fchip{flex:none;padding:7px 14px;border-radius:999px;border:0;background:var(--sunken);font:inherit;font-size:13px;font-weight:700;color:var(--ink-2);cursor:pointer}
+.fchip.on{background:var(--navy);color:#fff}
+:root[data-theme="dark"] .fchip.on{background:var(--accent);color:var(--accent-ink)}
+.mcal{padding:14px}
+.mcal .pday{height:46px;font-size:14px}
+.mcal-e{gap:10px;text-align:left}
+.mcal-e .t small{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:1px}
+.mcal-e .ptag{flex:none}
+.hero-top .date{word-break:keep-all}
+@media (max-width:420px){ .hero.care .hero-top .date{font-size:36px;white-space:nowrap} }
+@media (min-width:1100px){ .army-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px} }

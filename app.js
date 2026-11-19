@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-9";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-10";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -579,7 +579,7 @@ function vMore(){
   const u = S.user;
   const setRow = (c, ic, t, s, right="", act="") => `<${act?"button":"div"} ${act?`type="button" ${act}`:""} class="row"><span class="set-ic" style="--c:${c}">${icon(ic)}</span><span class="main"><span class="t">${t}</span>${s?`<span class="s" style="white-space:normal">${s}</span>`:""}</span>${right}</${act?"button":"div"}>`;
   const noDept = !ALL_DEPTS.some(sees);
-  return `${head("더보기")}${noDept?`<div class="banner">아직 볼 수 있는 부서가 없어요. 관리자에게 부서를 열어 달라고 해 주세요.</div>`:""}
+  return `${head("더보기")}
     <button type="button" class="card profile-card" data-act="editProfile" aria-label="내 프로필 꾸미기"><div class="profile">${av(myName()||u?.email||"?","lg")}<div class="main"><div class="t">${esc(myName()||"러너스 멤버")}</div><div class="s">${esc(S.profiles[S.user?.uid]?.bio || u?.email || "")}</div></div>${isOwnerUser()?`<span class="chip acc">최고 관리자</span>`:`<span class="chip ${S.isAdmin||editOf(S.member).length?"acc":"mute"}">${S.isAdmin?"관리자":editOf(S.member).length?"운영자":"멤버"}</span>`}${icon("chev","chev")}</div></button>
     ${section("설정", `<div class="card list">
       ${setRow("#5B6CF0","moon","화면 모드","",`<div class="seg mini" role="group" aria-label="화면 모드"><button type="button" data-act="themeSet" data-v="light" aria-pressed="${!isDark()}">밝게</button><button type="button" data-act="themeSet" data-v="dark" aria-pressed="${isDark()}">어둡게</button></div>`)}
@@ -836,6 +836,7 @@ const val = id => document.getElementById(id)?.value.trim() ?? "";
 
 /* ---------- 부서 · 탭 · 메뉴 ---------- */
 const TAB_ICON = {
+  get portal(){ return this.dash; }, get eapp(){ return this.expenses; }, get cal(){ return this.schedule; }, get notice(){ return this.board; },
   army:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M12 3.5 5 6v5.5c0 4.3 3 7.7 7 9 4-1.3 7-4.7 7-9V6z"/><path d="m12 8.2 1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z"/></svg>',
   get expReview(){ return this.expenses; },
   expenses:'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path class="fillable" d="M6 3.5h12a1 1 0 0 1 1 1V21l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V4.5a1 1 0 0 1 1-1z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg>',
@@ -869,8 +870,21 @@ const DEPTS = {
 };
 const ROUTE_DEPT = { mhome:"home", board:"home", post:"home", myteam:"home", expenses:"home", expense:"home", expReview:"finance", expCheck:"finance", dash:"social", schedule:"social", people:"social", script:"social", birth:"care", births:"care", army:"care", ledger:"finance", ledgerSum:"finance", lead:"leaders", team:"leaders", leadHist:"leaders" };
 function setDept(d){ if(S.dept===d) return; S.dept=d; store.set("runners-dept", d); }
+const GLOBAL_TABS = [["portal","홈"],["eapp","결재"],["cal","일정"],["notice","커뮤니티"],["more","더보기"]];
+const isDeptRoute = r => { const d = ROUTE_DEPT[r]; return !!d && d!=="home"; };
+function globalCur(r){ const sec = sectionOf(r); return r==="portal" ? "portal" : sec==="eapp" ? "eapp" : sec==="sched" ? "cal" : sec==="comm" ? "notice" : "more"; }
 function renderTabs(r){
-  const nav=document.getElementById("tabs"); const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r==="expense" ? "expenses" : r==="expCheck" ? "expReview" : r;
+  const nav=document.getElementById("tabs");
+  if(!isDeptRoute(r)){
+    const key = "global|" + (S.isAdmin?1:0);
+    if(nav.dataset.key!==key){ nav.innerHTML = GLOBAL_TABS.map(([k,l])=>`<a href="#${k}"><span class="tab-ic">${TAB_ICON[k]||""}</span><span>${l}</span></a>`).join(""); nav.dataset.key = key; }
+    const cur = globalCur(r);
+    nav.querySelectorAll("a").forEach(a=>{ a.getAttribute("href")==="#"+cur ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"); });
+    const dl=document.getElementById("dept"); if(dl) dl.textContent = r==="portal" ? "" : ({eapp:"전자결재", sched:"일정관리", comm:"커뮤니티", my:"더보기"})[sectionOf(r)] || "";
+    if(dl) dl.hidden = r==="portal";
+    return;
+  }
+  { const dl=document.getElementById("dept"); if(dl) dl.hidden = false; } const cur = (r==="members"||r==="requests") ? "more" : r==="team" ? "lead" : r==="post" ? "board" : r==="expense" ? "expenses" : r==="expCheck" ? "expReview" : r;
   const pend = S.dept==="finance" ? S.expenses.filter(e=>expStatus(e)==="submitted").length : 0;
   const key = S.dept+"|"+S.canEdit+"|"+S.isAdmin+"|"+pend;
   if(nav.dataset.key!==key){
@@ -930,18 +944,24 @@ function openDrawer(){
   const item = (k) => { const d=DEPTS[k]; const on=S.dept===k;
     return `<a class="dept-item ${on?"on":""}" href="#${d.home}" data-act="goDept" data-dept="${k}" ${on?'aria-current="true"':""}>
       <span class="set-ic" style="--c:${d.color}">${icon(d.icon)}</span><span class="main"><span class="t">${d.name}</span></span>${on?icon("check","ck"):""}</a>`; };
+  const link = (h, ic, c, l, act='data-act="closeDrawer"') => { const on = location.hash==="#"+h || (h==="portal" && !location.hash);
+    return `<a class="dept-item ${on?"on":""}" href="#${h}" ${act}><span class="set-ic" style="--c:${c}">${icon(ic)}</span><span class="main"><span class="t">${l}</span></span>${on?icon("check","ck"):""}</a>`; };
+  const depts = deptOrder().filter(d=>d!=="home" && sees(d));
   root.innerHTML = `<div class="scrim" data-act="closeDrawer"></div>
-    <nav class="drawer" id="drawer" aria-label="부서 메뉴">
+    <nav class="drawer" id="drawer" aria-label="메뉴">
       <div class="drawer-h"><span class="brand-sm"><img src="icons/icon-192.png" alt="" width="28" height="28">러너스</span>
         <button class="btn icon sm" type="button" data-act="closeDrawer" aria-label="메뉴 닫기">${icon("x")}</button></div>
-      <a class="dept-item ${location.hash==="#portal"||!location.hash?"on":""}" href="#portal" data-act="closeDrawer"><span class="set-ic" style="--c:#22438E">${icon("grid")}</span><span class="main"><span class="t">포털</span></span></a>
-      <p class="drawer-label">부서</p>
-      <div class="dept-list">${deptOrder().filter(sees).map(item).join("")}</div>
+      ${link("portal","grid","#22438E","포털")}
+      <p class="drawer-label">전자결재</p>${link("eapp","receipt","#E85D8A","지출결의")}
+      <p class="drawer-label">일정관리</p>${link("cal","dash","#2F78D0","안암일정")}
+      ${depts.length?`<p class="drawer-label">부서관리</p><div class="dept-list">${depts.map(item).join("")}</div>`:""}
+      <p class="drawer-label">커뮤니티</p>${link("notice","doc","#F0A020","공지사항")}${link("reqboard","edit","#14A3A0","요청게시판")}
       <div class="drawer-sep"></div>
+      ${link("myteam","users","#7A5CE0","우리 팀")}
       <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span></span></a>
       <div class="drawer-foot">${av(myName()||S.user?.email||"?","sm",true)}<span>${esc(myName()||"")}</span></div>
     </nav>`;
-  bindDeptSort(root.querySelector(".dept-list"));
+  const dl = root.querySelector(".dept-list"); if(dl) bindDeptSort(dl);
   drawerOpen=true; document.body.style.overflow="hidden";
   document.querySelector(".menu-btn")?.setAttribute("aria-expanded","true");
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ root.className="open"; root.querySelector(".dept-item.on, .dept-item")?.focus({preventScroll:true}); }));
@@ -1278,7 +1298,7 @@ function eappRows(){
   return xs;
 }
 const ST_TXT = { submitted:"검토 중", approved:"승인", rejected:"반려" };
-function vEapp(){
+function vEapp(){ if(!isDesk()) return vEappM();
   const f = S.eF || (eappRows(), S.eF); const xs = eappRows(); const fin = can("finance");
   const pages = Math.max(1, Math.ceil(xs.length/EAPP_PER)); const pg = Math.min(S.ePage||1, pages); const slice = xs.slice((pg-1)*EAPP_PER, pg*EAPP_PER);
   const years = [...new Set([TODAY.slice(0,4), ...S.expenses.map(e=>(e.date||"").slice(0,4)).filter(Boolean)])].sort().reverse();
@@ -1354,7 +1374,7 @@ function eventView(id){
     <div class="field"><span>등록</span><span class="readout">${esc(ev.byName||"")}</span></div></div>`,
     canEditEvent(ev) ? `<button class="btn pri block" type="button" data-act="editEvent" data-id="${ev.id}">${icon("edit")}고치기</button>` : "");
 }
-function vCal(){
+function vCal(){ if(!isDesk()) return vCalM();
   if(!S.calYM){ const t=parse(TODAY); S.calYM={y:t.getFullYear(), m:t.getMonth()+1}; }
   const {y,m} = S.calYM; const F = S.calF || "all";
   const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
@@ -1370,9 +1390,48 @@ function vCal(){
           <div class="bc-es">${es.map(e=>`<${e.act?"button type=\"button\"":"div"} class="bc-e k-${e.k} ${e.miss?"miss":""}" ${e.act}><span class="ptag k-${e.k}" ${e.color?`style="background:color-mix(in srgb,${e.color} 14%,transparent);color:${e.color}"`:""}>${e.tag}</span><span class="bc-t">${e.t}</span></${e.act?"button":"div"}>`).join("")}</div></div>`; }).join("")}</div></div>`;
 }
 
+/* ---------- 휴대폰: 지출결의 · 커뮤니티 · 안암일정 ---------- */
+function vEappM(){
+  const f = S.eF || (eappRows(), S.eF); const xs = eappRows(); const fin = can("finance");
+  const boxes = [["mine","내 문서"], ...(fin?[["todo","결재할 문서"],["all","전체"]]:[])];
+  const sts = [["all","전체"],["submitted","검토 중"],["approved","승인"],["rejected","반려"]];
+  return `${head("지출결의", xs.length?`${xs.length}건 · ${won(xs.reduce((t,e)=>t+(+e.amount||0),0))}원`:"", `<button class="btn pri" type="button" data-act="newExp">${icon("edit")}작성</button>`, "전자결재")}
+    ${boxes.length>1?`<div class="seg" role="group" aria-label="문서함">${boxes.map(([v,l])=>`<button type="button" data-act="eBox" data-v="${v}" aria-pressed="${f.box===v}">${l}</button>`).join("")}</div>`:""}
+    <div class="chips-row">${sts.map(([v,l])=>`<button type="button" class="fchip ${f.st===v?"on":""}" data-act="eSt" data-v="${v}">${l}</button>`).join("")}</div>
+    <div class="er-list">${xs.map(e=>`<div class="er-item">${expRow(e)}${fin && expStatus(e)==="submitted" && !expMine(e) ? `<div class="er-acts"><button class="btn sm danger" type="button" data-act="rejectExp" data-id="${e.id}">반려</button><button class="btn sm ok" type="button" data-act="approveExp" data-id="${e.id}">${icon("check")}승인</button></div>` : ""}</div>`).join("")
+      || `<div class="card">${empty(f.box==="todo"?"결재할 문서가 없어요":"해당하는 결의서가 없어요","","wave",`<button class="btn pri" type="button" data-act="newExp">작성하기</button>`)}</div>`}</div>`;
+}
+function vCommM(tab){
+  const seg = `<div class="seg" role="group" aria-label="커뮤니티"><a href="#notice" class="${tab==="notice"?"on":""}" aria-current="${tab==="notice"?"page":"false"}">공지사항</a><a href="#reqboard" class="${tab==="req"?"on":""}" aria-current="${tab==="req"?"page":"false"}">요청게시판</a></div>`;
+  if(tab==="notice") return `${head("공지사항", `${S.posts.length}개의 글`, `<button class="btn pri" type="button" data-act="newPost">${icon("edit")}글쓰기</button>`, "커뮤니티")}${seg}
+    <div class="card list">${sortedPosts().map(postRow).join("") || `<div style="padding:8px">${empty("첫 글을 남겨 주세요","","wave",`<button class="btn pri" type="button" data-act="newPost">글쓰기</button>`)}</div>`}</div>`;
+  const xs = [...S.requests].filter(r=>S.isAdmin || r.uid===S.user?.uid).sort((a,b)=>(tsOf(b)||0)-(tsOf(a)||0));
+  return `${head("요청게시판", xs.length?`${xs.length}건`:"", `<a class="btn pri" href="#requests">${icon("edit")}요청하기</a>`, "커뮤니티")}${seg}
+    <div class="card list">${xs.map(r=>reqRow(r, S.isAdmin)).join("") || `<div style="padding:8px">${empty("아직 요청이 없어요","","wave",`<a class="btn pri" href="#requests">요청하기</a>`)}</div>`}</div>`;
+}
+function vCalM(){
+  if(!S.calYM){ const t=parse(TODAY); S.calYM={y:t.getFullYear(), m:t.getMonth()+1}; }
+  const {y,m} = S.calYM; const sel = S.calSel || TODAY; const F = S.calF || "all";
+  const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
+  const weeksN = Math.ceil((first.getDay() + new Date(y, m, 0).getDate())/7);
+  const cells = Array.from({length:weeksN*7},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
+  const filters = [["all","전체"],["svc","예배"],["evt","일정"],["bd","생일"], ...(sees("care")?[["army","군"]]:[])];
+  const it = calEntries(sel); const sd = parse(sel);
+  return `${head("안암일정", "", canAddEvent()?`<button class="btn pri" type="button" data-act="newEvent" data-date="${sel}">${icon("plus")}일정 등록</button>`:"", "일정관리")}
+    <div class="chips-row">${filters.map(([k,l])=>`<button type="button" class="fchip ${F===k?"on":""}" data-act="calF" data-v="${k}">${l}</button>`).join("")}</div>
+    <div class="card mcal">
+      <div class="pcal-nav"><button class="btn icon sm" type="button" data-act="calMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b>
+        <button class="btn icon sm" type="button" data-act="calMonth" data-d="1" aria-label="다음 달">${icon("chev")}</button><button class="btn sm" type="button" data-act="calToday">오늘</button></div>
+      <div class="pcal-g">${WD.map((w,i)=>`<span class="wd ${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}
+        ${cells.map(d=>{ const dt=parse(d); const out=dt.getMonth()+1!==m; const ks=new Set(calEntries(d).map(e=>e.k));
+          return `<button type="button" class="pday ${out?"out":""} ${d===TODAY?"today":""} ${d===sel?"sel":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}" data-act="calSel" data-d="${d}" aria-label="${dt.getMonth()+1}월 ${dt.getDate()}일"><span>${dt.getDate()}</span><span class="dts">${[...ks].map(k=>`<i class="dt ${k}"></i>`).join("")}</span></button>`; }).join("")}</div>
+    </div>
+    ${section(`${sd.getMonth()+1}월 ${sd.getDate()}일 (${WD[sd.getDay()]})`, `<div class="card list">${it.length ? it.map(e=>`<${e.act?"button type=\"button\"":"div"} class="row mcal-e" ${e.act}><span class="ptag k-${e.k}" ${e.color?`style="background:color-mix(in srgb,${e.color} 14%,transparent);color:${e.color}"`:""}>${e.tag}</span><span class="main"><span class="t">${e.t}</span></span>${e.act?icon("chev","chev"):""}</${e.act?"button":"div"}>`).join("") : `<p class="pempty">등록된 일정이 없어요</p>`}</div>`)}`;
+}
+
 /* ---------- PC: 커뮤니티 · 공지사항 / 요청게시판 (표) ---------- */
 const BOARD_PER = 15;
-function vNotice(){
+function vNotice(){ if(!isDesk()) return vCommM("notice");
   const q = (S.nQ||"").toLowerCase(); const xs = sortedPosts().filter(p=>!q || ((p.title||"")+" "+(p.name||"")).toLowerCase().includes(q));
   const pages = Math.max(1, Math.ceil(xs.length/BOARD_PER)); const pg = Math.min(S.nPage||1, pages); const slice = xs.slice((pg-1)*BOARD_PER, pg*BOARD_PER);
   let n = xs.filter(p=>!p.pinned).length;
@@ -1385,7 +1444,7 @@ function vNotice(){
         || `<tr><td colspan="5" class="dt-empty">글이 없어요</td></tr>`}</tbody></table></div>
     ${pager(pg, pages, "nPage")}`;
 }
-function vReqBoard(){
+function vReqBoard(){ if(!isDesk()) return vCommM("req");
   const admin = S.isAdmin; const st = S.rbSt || "all";
   const xs = [...S.requests].filter(r=>admin || r.uid===S.user?.uid).filter(r=>st==="all" || (r.status||"open")===st).sort((a,b)=>(tsOf(b)||0)-(tsOf(a)||0));
   const pages = Math.max(1, Math.ceil(xs.length/BOARD_PER)); const pg = Math.min(S.rbPage||1, pages); const slice = xs.slice((pg-1)*BOARD_PER, pg*BOARD_PER);
@@ -2031,7 +2090,7 @@ function reqSheet(id){
 
 /* ---------- 렌더 ---------- */
 const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, portal:vPortal, eapp:vEapp, expForm:vExpForm, cal:vCal, notice:vNotice, reqboard:vReqBoard, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
-function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
+function homeRoute(){ if(S.approved) return "portal"; if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 const isDesk = () => matchMedia("(min-width: 1100px)").matches;
 // 앱을 처음 열면 항상 메인 홈(포털)부터. 새로고침이거나 알림을 눌러 들어온 경우(?go)만 그 화면 그대로
 let firstLanding = (()=>{ try{ const nav = performance.getEntriesByType("navigation")[0]?.type; const go = new URLSearchParams(location.search).has("go");
@@ -2042,8 +2101,10 @@ function route(){
   const h=location.hash.slice(1);
   // 앱을 처음 열면(주소에 화면이 없으면) 포털부터 — PC·휴대폰 모두
   if((h==="portal" || !h) && S.approved) return "portal";
+  // 휴대폰에서 작성 양식 주소로 들어오면 목록 + 작성 창으로
+  if(h==="expForm" && !isDesk() && S.approved){ history.replaceState(null, "", "#eapp"); const id=S.expFormId; setTimeout(()=>expSheet(id), 0); return "eapp"; }
   // PC에선 휴대폰용 목록 대신 표 화면으로
-  if(isDesk() && S.approved && (h==="board" || h==="expenses")){ const to = h==="board" ? "notice" : "eapp"; history.replaceState(null, "", "#"+to); return to; }
+  if(S.approved && (h==="board" || h==="expenses" || h==="mhome")){ const to = ({board:"notice", expenses:"eapp", mhome:"portal"})[h]; history.replaceState(null, "", "#"+to); return to; }
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
   if(h==="members" && !S.isAdmin) return homeRoute();
   if(h==="people" && !can("social")) return homeRoute();
@@ -2226,6 +2287,9 @@ document.addEventListener("click", async e => {
     if(ok){ closeSheet(); if(!FB){ id ? Object.assign(S.events.find(x=>x.id===id), f) : S.events.push({id:"ev"+Date.now(), ...f, by:S.user.uid, byName:myName()}); render(); } } else t.disabled=false; return; }
   if(a==="delEvent"){ if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 삭제할까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="삭제"; t.classList.remove("solid"); } }, 3000); return; }
     if(await write(()=>S.db.doc("events/"+t.dataset.id).delete(), "삭제했어요")){ closeSheet(); if(!FB){ S.events=S.events.filter(x=>x.id!==t.dataset.id); render(); } } return; }
+  if(a==="calSel"){ S.calSel=t.dataset.d; const dt=parse(t.dataset.d); if(dt.getMonth()+1!==S.calYM.m) S.calYM={y:dt.getFullYear(), m:dt.getMonth()+1}; render(); return; }
+  if(a==="eBox"){ (S.eF || (eappRows(), S.eF)).box=t.dataset.v; render(); return; }
+  if(a==="eSt"){ (S.eF || (eappRows(), S.eF)).st=t.dataset.v; render(); return; }
   if(a==="calF"){ S.calF=t.dataset.v; render(); return; }
   if(a==="calMonth"){ let {y,m}=S.calYM; m+=+t.dataset.d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.calYM={y,m}; render(); return; }
   if(a==="calToday"){ const dt=parse(TODAY); S.calYM={y:dt.getFullYear(), m:dt.getMonth()+1}; render(); return; }
