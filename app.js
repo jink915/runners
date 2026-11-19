@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-5";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-6";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -2023,7 +2023,13 @@ function reqSheet(id){
 const ROUTES = {dash:vDash, schedule:vSchedule, people:vPeople, script:vScript, more:vMore, members:vMembers, birth:vBirth, births:vBirths, ledger:vLedger, ledgerSum:vLedgerSum, mhome:vMHome, board:vBoard, post:vPost, myteam:vMyTeam, lead:vLead, team:vTeam, leadHist:vLeadHist, requests:vRequests, portal:vPortal, eapp:vEapp, expForm:vExpForm, cal:vCal, notice:vNotice, reqboard:vReqBoard, expenses:vExpenses, expense:vExpense, expReview:vExpReview, expCheck:vExpense, army:vArmy};
 function homeRoute(){ if(!DEPTS[S.dept] || !sees(S.dept)){ const d=(isPlainMember()?["home"]:deptOrder()).find(sees); if(d) setDept(d); else return "more"; } return DEPTS[S.dept].home; }
 const isDesk = () => matchMedia("(min-width: 1100px)").matches;
-function route(){ const h=location.hash.slice(1);
+// 앱을 처음 열면 항상 메인 홈(포털)부터. 새로고침이거나 알림을 눌러 들어온 경우(?go)만 그 화면 그대로
+let firstLanding = (()=>{ try{ const nav = performance.getEntriesByType("navigation")[0]?.type; const go = new URLSearchParams(location.search).has("go");
+  if(go){ const u = new URL(location.href); u.searchParams.delete("go"); history.replaceState(null, "", u.pathname + u.search + u.hash); }
+  return nav !== "reload" && !go; }catch{ return true; } })();
+function route(){
+  if(firstLanding && S.approved){ firstLanding = false; if(location.hash && location.hash!=="#portal") history.replaceState(null, "", location.pathname + location.search + "#portal"); return "portal"; }
+  const h=location.hash.slice(1);
   // 앱을 처음 열면(주소에 화면이 없으면) 포털부터 — PC·휴대폰 모두
   if((h==="portal" || !h) && S.approved) return "portal";
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
