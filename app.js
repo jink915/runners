@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-4";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-5";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -62,7 +62,7 @@ const S = {
   member:null, memberReady:false, members:[], births:[], birthQ:"", posts:[], postSel:null, comments:[], myWeekKey:"", profiles:{}, profByName:{}, profDraft:null, teams:{}, tweeks:{}, ldSun:null, teamSel:null, histTeam:"all", ledger:[], lgYM:null, lgType:"all", lgQ:"", lgNew:"out", sumYear:null, requests:[], reqTab:"inbox", reqCat:"bug",
   dept: store.get("runners-dept") || "social",
   db:null, fbReady:false, authReady:false, canEdit:false, mode:"loading", user:null, installEvt:null,
-  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false,o:false,e:false,a:false}, soldiers:[], expenses:[], expSel:null, expFiles:[], expDraft:null,
+  sermons:{}, weeks:[], people:[], topics:null, all:[], got:{p:false,w:false,s:false,m:false,b:false,r:false,l:false,t:false,o:false,e:false,a:false,v:false}, soldiers:[], events:[], expenses:[], expSel:null, expFiles:[], expDraft:null,
   schedYear:null, schedScrolled:false, peopleFilter:"all", peopleQ:"", scriptTab:"script",
   script:{date:null, honor:"형제님", prayer:"", book:"", ch:"", v1:"", v2:"", hymn:"", mukdo:"", offering:""}
 };
@@ -1162,7 +1162,8 @@ function pStrip(){
 function dayItems(d){
   const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate();
   const w = weekOn(d);
-  if(w) out.push(w.event ? ["ev","행사", esc(w.event)] : ["svc","주일 예배", `사회 ${esc(w.mc||"미정")} · 대표기도 ${esc(w.prayer||"미정")}${w.book?` · ${esc(verseText(w))}`:""}`]);
+  if(w) out.push(w.event ? ["ev","통합예배", esc(w.event!=="통합예배"?w.event:"")] : ["svc","러너스예배", `사회 ${esc(w.mc||"미정")} · 대표기도 ${esc(w.prayer||"미정")}${w.book?` · ${esc(verseText(w))}`:""}`]);
+  eventsOn(d).forEach(ev=>out.push(["evt", (EV_CAT[ev.cat]||EV_CAT.etc)[0], `${ev.time?ev.time+" ":""}${esc(ev.title)}${ev.place?` · ${esc(ev.place)}`:""}`]));
   if(sees("care")||S.births.length) S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push(["bd","생일", esc(honor(b))]));
   if(sees("care")) S.soldiers.forEach(x=>{ if(x.start===d) out.push(["army","입대", `${esc(x.name)} (${esc(BRANCH[x.branch]?.[0]||"")})`]); if(x.start && dischargeOf(x)===d) out.push(["army","전역", esc(x.name)]); });
   if(sees("finance")) S.ledger.filter(r=>r.date===d).forEach(r=>out.push(["lg", r.type==="in"?"수입":"지출", `${won(r.amount)}원 · ${esc(r.memo||r.cat||"")}`]));
@@ -1174,13 +1175,13 @@ function pCalendar(){
   const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
   const cells = Array.from({length:42},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
   const dots = d => { const it = dayItems(d); const k = new Set(it.map(x=>x[0])); const w = weekOn(d); const svcMiss = w && !w.event && !w.prayer;
-    return `${k.has("svc")?`<i class="dt ${svcMiss?"warn":"svc"}"></i>`:""}${k.has("ev")?`<i class="dt ev"></i>`:""}${k.has("bd")?`<i class="dt bd"></i>`:""}${k.has("army")?`<i class="dt army"></i>`:""}${k.has("lg")?`<i class="dt lg"></i>`:""}`; };
+    return `${k.has("svc")?`<i class="dt ${svcMiss?"warn":"svc"}"></i>`:""}${k.has("ev")?`<i class="dt ev"></i>`:""}${k.has("evt")?`<i class="dt evt"></i>`:""}${k.has("bd")?`<i class="dt bd"></i>`:""}${k.has("army")?`<i class="dt army"></i>`:""}${k.has("lg")?`<i class="dt lg"></i>`:""}`; };
   const cal = `<div class="pcal">
     <div class="pcal-nav"><button class="btn icon sm" type="button" data-act="pcMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b>
       <button class="btn icon sm" type="button" data-act="pcMonth" data-d="1" aria-label="다음 달">${icon("chev")}</button><button class="btn sm" type="button" data-act="pcToday">오늘</button></div>
     <div class="pcal-g">${WD.map((w,i)=>`<span class="wd ${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}
       ${cells.map(d=>{ const dt=parse(d); const out=dt.getMonth()+1!==m; return `<button type="button" class="pday ${out?"out":""} ${d===TODAY?"today":""} ${d===sel?"sel":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}" data-act="pcDay" data-d="${d}" aria-label="${dt.getMonth()+1}월 ${dt.getDate()}일"><span>${dt.getDate()}</span><span class="dts">${dots(d)}</span></button>`; }).join("")}</div>
-    <div class="pcal-legend"><span><i class="dt svc"></i>주일</span><span><i class="dt warn"></i>기도 미정</span>${sees("care")||S.births.length?`<span><i class="dt bd"></i>생일</span>`:""}${sees("care")?`<span><i class="dt army"></i>군</span>`:""}${sees("finance")?`<span><i class="dt lg"></i>장부</span>`:""}</div></div>`;
+    <div class="pcal-legend"><span><i class="dt svc"></i>러너스예배</span><span><i class="dt ev"></i>통합예배</span><span><i class="dt evt"></i>일정</span><span><i class="dt warn"></i>기도 미정</span>${sees("care")||S.births.length?`<span><i class="dt bd"></i>생일</span>`:""}${sees("care")?`<span><i class="dt army"></i>군</span>`:""}${sees("finance")?`<span><i class="dt lg"></i>장부</span>`:""}</div></div>`;
   const it = dayItems(sel); const sd = parse(sel);
   const list = `<div class="pday-list"><h3><b class="tnum">${sel.slice(0,4)}.${pad(sd.getMonth()+1)}.${pad(sd.getDate())}</b> (${WD[sd.getDay()]}) 일정안내</h3>
     ${it.length ? `<ul>${it.map(([k,l,v])=>`<li><span class="ptag k-${k}">${l}</span><span>${v}</span></li>`).join("")}</ul>` : `<p class="pempty">등록된 일정이 없어요</p>`}</div>`;
@@ -1303,14 +1304,45 @@ function downloadCsv(name, rows){
 }
 
 /* ---------- PC: 일정관리 · 안암일정 (큰 달력) ---------- */
+// 등록 일정: 운영자(어느 부서든)와 관리자가 등록, 승인된 멤버 모두 봐요
+const EV_CAT = { meet:["모임","#2F78D0"], event:["행사","#7A5CE0"], edu:["교육","#14A3A0"], etc:["기타","#6A7A95"] };
+const canAddEvent = () => S.isAdmin || editOf(S.member).length > 0;
+const canEditEvent = ev => S.isAdmin || ev.by === S.user?.uid;
+const eventsOn = d => S.events.filter(ev=>ev.date && d >= ev.date && d <= (ev.end || ev.date)).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
+// 주일: 러너스예배 / 통합예배 두 가지로만
+const svcKind = w => w.event ? "통합예배" : "러너스예배";
 function calEntries(d){
   const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate(); const F = S.calF || "all";
   const w = weekOn(d);
-  if(w && (F==="all"||F==="svc")) out.push(w.event ? {k:"ev", tag:"행사", t:esc(w.event), act:can("social")?`data-act="editWeek" data-date="${d}"`:""}
-    : {k:"svc", tag:"주일", t:`사회 ${esc(w.mc||"미정")} · 기도 ${esc(w.prayer||"미정")}`, miss:!w.prayer, act:can("social")?`data-act="editWeek" data-date="${d}"`:`data-act="openScript" data-date="${d}"`});
+  if(w && (F==="all"||F==="svc")) out.push(w.event ? {k:"ev", tag:"통합예배", t:esc(w.event && w.event!=="통합예배" ? w.event : ""), act:can("social")?`data-act="editWeek" data-date="${d}"`:""}
+    : {k:"svc", tag:"러너스예배", t:`사회 ${esc(w.mc||"미정")} · 기도 ${esc(w.prayer||"미정")}`, miss:!w.prayer, act:can("social")?`data-act="editWeek" data-date="${d}"`:`data-act="openScript" data-date="${d}"`});
+  if(F==="all"||F==="evt") eventsOn(d).forEach(ev=>{ const [cl,cc]=EV_CAT[ev.cat]||EV_CAT.etc; out.push({k:"evt", tag:cl, color:cc, t:`${ev.time?`<b class="tnum">${ev.time}</b> `:""}${esc(ev.title)}`, act:`data-act="viewEvent" data-id="${ev.id}"`}); });
   if(F==="all"||F==="bd") S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push({k:"bd", tag:"생일", t:esc(honor(b)), act:can("care")&&b.id?`data-act="editBirth" data-id="${b.id}"`:""}));
   if(sees("care") && (F==="all"||F==="army")) S.soldiers.forEach(x=>{ if(!x.start) return; if(x.start===d) out.push({k:"army", tag:"입대", t:esc(x.name), act:can("care")?`data-act="editSoldier" data-id="${x.id}"`:""}); if(dischargeOf(x)===d) out.push({k:"army", tag:"전역", t:esc(x.name), act:can("care")?`data-act="editSoldier" data-id="${x.id}"`:""}); });
   return out;
+}
+function eventSheet(id, date){
+  const ev = id ? S.events.find(x=>x.id===id) : null; const cat = ev?.cat || "meet";
+  openSheet(ev?"일정 고치기":"일정 등록", `<div class="fields">
+    <label class="field"><span>제목</span><input id="ev-title" maxlength="60" autocomplete="off" placeholder="예: 리더 모임, 가을 MT" value="${esc(ev?.title||"")}"></label>
+    <div class="field"><span class="lab" id="lab-evc">분류</span><div class="seg" role="radiogroup" aria-labelledby="lab-evc">${Object.entries(EV_CAT).map(([k,[l]])=>`<button type="button" role="radio" data-act="evCat" data-v="${k}" aria-pressed="${cat===k}" aria-checked="${cat===k}">${l}</button>`).join("")}</div></div>
+    <div class="ev-two"><label class="field"><span>날짜</span><input type="date" id="ev-date" value="${ev?.date||date||TODAY}"></label>
+      <label class="field"><span>시간 (선택)</span><input type="time" id="ev-time" value="${ev?.time||""}"></label></div>
+    <label class="field"><span>끝나는 날 (여러 날일 때만)</span><input type="date" id="ev-end" value="${ev?.end||""}"></label>
+    <label class="field"><span>장소 (선택)</span><input id="ev-place" maxlength="60" autocomplete="off" value="${esc(ev?.place||"")}"></label>
+    <label class="field"><span>메모 (선택)</span><textarea id="ev-memo" rows="3" maxlength="300">${esc(ev?.memo||"")}</textarea></label>
+  </div>`, `${ev?`<button class="btn danger" type="button" data-act="delEvent" data-id="${ev.id}">삭제</button>`:""}<button class="btn pri ${ev?"":"block"}" type="button" data-act="saveEvent" data-id="${ev?.id||""}">${ev?"저장":"등록"}</button>`);
+}
+function eventView(id){
+  const ev = S.events.find(x=>x.id===id); if(!ev) return; const [cl,cc]=EV_CAT[ev.cat]||EV_CAT.etc;
+  const when = `${dotDate(ev.date)}${ev.end&&ev.end!==ev.date?` ~ ${dotDate(ev.end)}`:""}${ev.time?` ${ev.time}`:""}`;
+  openSheet(esc(ev.title), `<div class="fields ev-view">
+    <div class="field"><span>분류</span><span class="readout"><span class="ptag" style="background:color-mix(in srgb,${cc} 14%,transparent);color:${cc}">${cl}</span></span></div>
+    <div class="field"><span>언제</span><span class="readout tnum">${when}</span></div>
+    ${ev.place?`<div class="field"><span>장소</span><span class="readout">${esc(ev.place)}</span></div>`:""}
+    ${ev.memo?`<div class="field"><span>메모</span><span class="readout" style="white-space:pre-wrap">${esc(ev.memo)}</span></div>`:""}
+    <div class="field"><span>등록</span><span class="readout">${esc(ev.byName||"")}</span></div></div>`,
+    canEditEvent(ev) ? `<button class="btn pri block" type="button" data-act="editEvent" data-id="${ev.id}">${icon("edit")}고치기</button>` : "");
 }
 function vCal(){
   if(!S.calYM){ const t=parse(TODAY); S.calYM={y:t.getFullYear(), m:t.getMonth()+1}; }
@@ -1318,14 +1350,14 @@ function vCal(){
   const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
   const weeksN = Math.ceil((first.getDay() + new Date(y, m, 0).getDate())/7);
   const cells = Array.from({length:weeksN*7},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
-  const filters = [["all","전체"],["svc","주일"],["bd","생일"], ...(sees("care")?[["army","군"]]:[])];
+  const filters = [["all","전체"],["svc","예배"],["evt","일정"],["bd","생일"], ...(sees("care")?[["army","군"]]:[])];
   return `<div class="dsec-h cal-top"><div class="cal-f">${filters.map(([k,l])=>`<button type="button" class="${F===k?"on":""}" data-act="calF" data-v="${k}">${l}</button>`).join("")}</div>
       <div class="cal-nav"><button class="btn icon sm" type="button" data-act="calMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b><button class="btn icon sm" type="button" data-act="calMonth" data-d="1" aria-label="다음 달">${icon("chev")}</button></div>
-      <div class="dbtns"><button class="btn sm" type="button" data-act="calToday">오늘</button></div></div>
+      <div class="dbtns"><button class="btn sm" type="button" data-act="calToday">오늘</button>${canAddEvent()?`<button class="btn sm pri" type="button" data-act="newEvent">${icon("plus")}일정 등록</button>`:""}</div></div>
     <div class="bigcal"><div class="bc-h">${WD.map((w,i)=>`<span class="${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}</div>
       <div class="bc-g">${cells.map(d=>{ const dt=parse(d); const out=dt.getMonth()+1!==m; const es=calEntries(d);
-        return `<div class="bc-c ${out?"out":""} ${d===TODAY?"today":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}"><span class="bc-d tnum">${dt.getDate()}</span>
-          <div class="bc-es">${es.map(e=>`<${e.act?"button type=\"button\"":"div"} class="bc-e k-${e.k} ${e.miss?"miss":""}" ${e.act}><span class="ptag k-${e.k}">${e.tag}</span><span class="bc-t">${e.t}</span></${e.act?"button":"div"}>`).join("")}</div></div>`; }).join("")}</div></div>`;
+        return `<div class="bc-c ${out?"out":""} ${d===TODAY?"today":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}" ${canAddEvent()?`data-act="newEvent" data-date="${d}" title="이 날 일정 등록"`:""}><span class="bc-d tnum">${dt.getDate()}</span>
+          <div class="bc-es">${es.map(e=>`<${e.act?"button type=\"button\"":"div"} class="bc-e k-${e.k} ${e.miss?"miss":""}" ${e.act}><span class="ptag k-${e.k}" ${e.color?`style="background:color-mix(in srgb,${e.color} 14%,transparent);color:${e.color}"`:""}>${e.tag}</span><span class="bc-t">${e.t}</span></${e.act?"button":"div"}>`).join("")}</div></div>`; }).join("")}</div></div>`;
 }
 
 /* ---------- PC: 커뮤니티 · 공지사항 / 요청게시판 (표) ---------- */
@@ -2164,6 +2196,18 @@ document.addEventListener("click", async e => {
   if(a==="pgGo"){ S[t.dataset.k]=+t.dataset.p; render(); document.querySelector(".dmain")?.scrollIntoView({block:"start"}); return; }
   if(a==="eReset"){ S.eF=null; S.ePage=1; render(); return; }
   if(a==="eCsv"){ const xs=eappRows(); downloadCsv(`지출결의_${TODAY}.csv`, [["문서번호","제목","지출처","참여자","금액","지출일","작성자","결재상태","결재자","상세내역"], ...xs.map(e=>[e._no, e.title, e.place, e.people, e.amount, e.date, e.name, ST_TXT[expStatus(e)], e.reviewedBy||e.checkedBy||"", e.detail||""])]); toast("엑셀(CSV) 파일을 받았어요"); return; }
+  if(a==="newEvent"){ if(!canAddEvent()) return; if(t.classList.contains("bc-c") && e.target.closest(".bc-e")) return; eventSheet(null, t.dataset.date); return; }
+  if(a==="viewEvent"){ eventView(t.dataset.id); return; }
+  if(a==="editEvent"){ closeSheetQuiet(); eventSheet(t.dataset.id); return; }
+  if(a==="evCat"){ t.parentElement.querySelectorAll("button").forEach(b=>{ b.setAttribute("aria-pressed", String(b===t)); b.setAttribute("aria-checked", String(b===t)); }); return; }
+  if(a==="saveEvent"){ const f={ title:val("ev-title"), cat:document.querySelector('[data-act="evCat"][aria-pressed="true"]')?.dataset.v||"meet", date:val("ev-date"), end:val("ev-end"), time:val("ev-time"), place:val("ev-place"), memo:(document.getElementById("ev-memo")?.value||"").trim() };
+    if(!f.title){ toast("제목을 적어 주세요"); return; } if(!f.date){ toast("날짜를 골라 주세요"); return; }
+    if(f.end && f.end<f.date){ toast("끝나는 날이 시작보다 빨라요"); return; } if(f.end===f.date) f.end="";
+    const id=t.dataset.id; t.disabled=true;
+    const ok = await write(()=> id ? S.db.doc("events/"+id).update(f) : S.db.collection("events").doc().set({...f, by:S.user.uid, byName:myName(), createdAt:FB?FB.m.serverTimestamp():new Date()}), id?"일정을 고쳤어요":"일정을 등록했어요");
+    if(ok){ closeSheet(); if(!FB){ id ? Object.assign(S.events.find(x=>x.id===id), f) : S.events.push({id:"ev"+Date.now(), ...f, by:S.user.uid, byName:myName()}); render(); } } else t.disabled=false; return; }
+  if(a==="delEvent"){ if(t.dataset.confirm!=="1"){ t.dataset.confirm="1"; t.textContent="정말 삭제할까요?"; t.classList.add("solid"); setTimeout(()=>{ if(document.contains(t)){ t.dataset.confirm=""; t.textContent="삭제"; t.classList.remove("solid"); } }, 3000); return; }
+    if(await write(()=>S.db.doc("events/"+t.dataset.id).delete(), "삭제했어요")){ closeSheet(); if(!FB){ S.events=S.events.filter(x=>x.id!==t.dataset.id); render(); } } return; }
   if(a==="calF"){ S.calF=t.dataset.v; render(); return; }
   if(a==="calMonth"){ let {y,m}=S.calYM; m+=+t.dataset.d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} S.calYM={y,m}; render(); return; }
   if(a==="calToday"){ const dt=parse(TODAY); S.calYM={y:dt.getFullYear(), m:dt.getMonth()+1}; render(); return; }
@@ -2460,7 +2504,7 @@ async function startFirebase(){
     for(let i=0;i<ops.length;i+=400){ const b = writeBatch(fs); ops.slice(i,i+400).forEach(([r,d])=>r.parent.id==="weeks" ? b.set(r,d,{merge:true}) : b.set(r,d)); await b.commit(); }
   };
   let unsubs = [], memberUnsub = null, slow = null, started = false;
-  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false; myWeekUnsub?.(); myWeekUnsub=null; S.myWeekKey=""; postUnsub?.(); postUnsub=null; expUnsub?.(); expUnsub=null; S.expenses=[]; S.got.e=false; S.expFiles=[]; S.soldiers=[]; S.got.a=false;
+  const stopData = () => { unsubs.forEach(f=>f()); unsubs=[]; clearTimeout(slow); started=false; myWeekUnsub?.(); myWeekUnsub=null; S.myWeekKey=""; postUnsub?.(); postUnsub=null; expUnsub?.(); expUnsub=null; S.expenses=[]; S.got.e=false; S.expFiles=[]; S.soldiers=[]; S.got.a=false; S.events=[]; S.got.v=false;
     S.people=[]; S.weeks=[]; S.members=[]; S.births=[]; S.requests=[]; S.posts=[]; S.got.o=false; S.profiles={}; S.profByName={}; S.ledger=[]; S.got.l=false; S.teams={}; S.tweeks={}; S.got.t=false; S.got.p=false; S.got.w=false; S.got.m=false; S.got.b=false; S.got.r=false; S.topics=null; };
   // 승인된 멤버만 데이터를 읽기 시작 (관리자는 명단·기도제목·멤버 목록까지)
   const startData = () => {
@@ -2481,6 +2525,7 @@ async function startFirebase(){
       unsubs.push(onSnapshot(collection(fs,"teamWeeks"), s=>{ S.tweeks=Object.fromEntries(s.docs.map(d=>[d.id,d.data()])); b=true; done(); }, ()=>{ b=true; done(); }));
     }
     if(sees("finance")) unsubs.push(onSnapshot(collection(fs,"ledger"), s=>{ S.ledger=s.docs.map(d=>({id:d.id,...d.data()})); S.got.l=true; render(); }, ()=>{ S.got.l=true; render(); }));
+    unsubs.push(onSnapshot(collection(fs,"events"), s=>{ S.events=s.docs.map(d=>({id:d.id,...d.data()})); S.got.v=true; render(); }, ()=>{ S.got.v=true; render(); }));
     if(sees("care")) unsubs.push(onSnapshot(collection(fs,"soldiers"), s=>{ S.soldiers=s.docs.map(d=>({id:d.id,...d.data()})); S.got.a=true; render(); }, ()=>{ S.got.a=true; render(); }));
     if(sees("care") || sees("social")) unsubs.push(onSnapshot(collection(fs,"birthdays"), s=>{ S.births=s.docs.map(d=>({id:d.id,...d.data()})); S.got.b=true; render(); }, ()=>{ S.got.b=true; render(); }));
     if(can("social")){

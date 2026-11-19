@@ -1184,3 +1184,9 @@ button.bc-e:hover{background:var(--sunken)}
 .dform-foot{display:flex;justify-content:flex-end;gap:8px}
 .dform-foot .btn{min-width:110px}
 .dform-t .won-in input{padding-right:38px!important;text-align:right}
+.dt.evt{background:#F0A020}
+.ev-two{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.bc-c[data-act="newEvent"]{cursor:copy}
+.bc-c[data-act="newEvent"]:hover{background:color-mix(in srgb,var(--sunken) 55%,transparent)}
+.bc-e b{font-weight:800;color:var(--ink-2)}
+.bc-e.k-svc{align-items:flex-start}.bc-e.k-svc .bc-t{white-space:normal;line-height:1.35}
