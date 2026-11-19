@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-11";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-12";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -123,6 +123,7 @@ const ICON = {
   share:'<path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M7 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-1"/>',
   plusSq:'<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/>',
   dots:'<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
+  list:'<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
   ext:'<path d="M8 16 16 8M9.5 8H16v6.5"/>',
   bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
@@ -1252,7 +1253,7 @@ function deskSections(){
     { id:"comm", t:"커뮤니티", items:[["notice","공지사항"],["reqboard","요청게시판"]] },
   ];
 }
-const MY_SECTION = () => ({ id:"my", t:"더보기", items:[["more","설정"],["myteam","우리 팀"], ...(S.isAdmin?[["members","멤버 관리"]]:[])] });
+const MY_SECTION = () => ({ id:"my", t:"마이페이지", items:[["more","설정"],["myteam","우리 팀"], ...(S.isAdmin?[["members","멤버 관리"]]:[])] });
 function sectionOf(r){
   if(["more","members","myteam","mhome"].includes(r)) return "my";
   if(["eapp","expense","expCheck","expenses","expReview","expForm"].includes(r)) return "eapp";
@@ -1279,7 +1280,7 @@ function renderTopInfo(r){
       <span class="tm-dd tnum ${dd<=3?"warn":""}">${dd===0?"오늘":`D-${dd}`}</span></a>`; }
   const html = `<span class="tm-gap"></span>${svc}<span class="tm-gap"></span>
     <a class="tm-todo" href="#portal" data-act="goTodo" aria-label="나의 할 일 ${n}건">${icon("bell")}${n?`<i class="tnum">${n>99?"99+":n}</i>`:""}</a>
-    <a class="tm-me" href="#more"><b>${esc(myName()||"")}</b>님</a>`;
+    <a class="tm-me" href="#more"><b>${esc(myName()||"")}</b>님</a><button class="tm-out" type="button" data-act="logout" aria-label="로그아웃" title="로그아웃">${icon("logout")}</button>`;
   if(el.dataset.html !== html){ el.innerHTML = html; el.dataset.html = html; }
 }
 function renderDeskMenu(r){
@@ -1287,6 +1288,8 @@ function renderDeskMenu(r){
   const secs = deskSections(); const cur = r==="portal" ? "portal" : sectionOf(r);
   const key = secs.map(x=>x.id+x.items.length).join() + "|" + cur;
   if(nav.dataset.key === key) return; nav.dataset.key = key;
+  const mx = Math.max(...secs.map(x=>x.items.length)); nav.style.setProperty("--mm-h", (mx*36+28)+"px");
+  if(!nav.dataset.bound){ nav.dataset.bound = 1; nav.addEventListener("click", e=>{ if(e.target.closest(".dm-drop a, li > a")) nav.classList.add("mm-off"); }); nav.addEventListener("mouseleave", ()=>nav.classList.remove("mm-off")); }
   nav.innerHTML = `<div class="wrap"><ul>${secs.map(x=>`<li class="${cur===x.id?"on":""}"><a href="#${x.items[0][0]}" ${x.items[0][2]?`data-act="deskDept" data-d="${x.items[0][2]}"`:""}>${x.t}</a>
       <div class="dm-drop">${x.items.map(([h,l,d])=>`<a href="#${h}" ${d?`data-act="deskDept" data-d="${d}"`:""}><span>${l}</span></a>`).join("")}</div></li>`).join("")}</ul></div>`;
 }
@@ -1300,7 +1303,7 @@ function deskLayout(r, html){
     return `<a href="#${h}" class="${on?"on":""}" ${d?`data-act="deskDept" data-d="${d}"`:""}>${l}</a>${sub}`; }).join("");
   const title = sid==="dept" ? (DEPT_MENU.find(x=>x[0]===curDept)?.[1]||"") : pageTitle(r);
   // 화면 안에 자기 제목이 있는 곳은 위치 표시만
-  const showHead = sid!=="dept" && sid!=="my" && !["requests","expReview","expense","expCheck","post"].includes(r);
+  const showHead = sid!=="dept" && sid!=="my" && !["requests","expReview","expense","expCheck"].includes(r);
   return `<div class="dlayout"><aside class="dside"><div class="dside-h">${sec.t}</div><nav>${side}</nav></aside>
     <div class="dmain"><div class="dhead ${showHead?"":"slim"}">${showHead?`<h1>${title}</h1>`:""}<div class="crumb"><a href="#portal" aria-label="포털">${icon("grid")}</a> › ${sec.t} › <b>${title}</b></div></div>${html}</div></div>`;
 }
@@ -1538,6 +1541,7 @@ function vPost(){
   const p = S.posts.find(x=>x.id===S.postSel);
   if(!p) return `${head("게시판")}<div class="card">${empty("지워졌거나 없는 글이에요","","pray",`<a class="btn" href="#board">게시판으로</a>`)}</div>`;
   const mine = p.uid===S.user?.uid; const d = tsOf(p);
+  if(isDesk()) return vPostDesk(p, mine, d);
   return `<div class="page-head"><div><p class="eyebrow"><a href="${isDesk()?"#notice":"#board"}" class="back-link">${icon("chev","flip")}${isDesk()?"공지사항":"게시판"}</a></p><h1 class="post-title">${esc(p.title)}</h1></div></div>
     <article class="card post-card">
       <div class="post-meta">${av(p.name)}<div><b>${esc(p.name||"")}</b><span>${d?`${d.getMonth()+1}월 ${d.getDate()}일 ${pad(d.getHours())}:${pad(d.getMinutes())}`:"방금"}${p.updatedAt?" · 수정됨":""}</span></div>
@@ -1551,6 +1555,25 @@ function vPost(){
         ${c.uid===S.user?.uid||S.isAdmin?`<button class="btn icon sm" type="button" data-act="delCmt" data-id="${c.id}" aria-label="댓글 지우기">${icon("x")}</button>`:""}</div>`).join("")}
         <div class="cmt-add"><label class="sr-only" for="cmt-new">댓글</label><textarea id="cmt-new" class="keep-val" rows="1" maxlength="1000" placeholder="댓글 달기"></textarea><button class="btn sm pri" type="button" data-act="addCmt">등록</button></div></div>
     </section>`;
+}
+// PC: 게시판 글 보기 (표 모양)
+function vPostDesk(p, mine, d){
+  const when = d ? `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` : "방금";
+  const xs = sortedPosts(); const i = xs.findIndex(x=>x.id===p.id); const prev = xs[i-1], next = xs[i+1];
+  const navRow = (k, x) => `<tr><th>${k}</th><td>${x?`<button type="button" data-act="openPost" data-id="${x.id}">${x.pinned?`<span class="ptag">공지</span>`:""}${esc(x.title||"")}</button>`:`<span class="none">${k}이 없어요</span>`}</td><td class="d tnum">${x&&tsOf(x)?(d=>`${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`)(new Date(tsOf(x))):""}</td></tr>`;
+  return `<div class="bview">
+    <h2 class="bv-title">${p.pinned?`<span class="ptag">공지</span>`:""}${esc(p.title)}</h2>
+    <table class="bv-meta"><tr><th>작성자</th><td>${esc(p.name||"")}</td><th>등록일</th><td class="tnum">${when}${p.updatedAt?" <small>(수정됨)</small>":""}</td><th>댓글</th><td class="tnum">${S.comments.length}</td></tr></table>
+    <div class="bv-body">${esc(p.body||"").replace(/\n/g,"<br>")}</div>
+    ${S.comments.length?`<ul class="bv-cmts">${S.comments.map(c=>`<li><b>${esc(c.name||"")}</b><span class="t">${esc(c.text)}</span><small>${ago(tsOf(c))}</small>
+      ${c.uid===S.user?.uid||S.isAdmin?`<button class="btn icon sm" type="button" data-act="delCmt" data-id="${c.id}" aria-label="댓글 지우기">${icon("x")}</button>`:""}</li>`).join("")}</ul>`:""}
+    <div class="bv-cadd"><label for="cmt-new">댓글등록</label><textarea id="cmt-new" class="keep-val" rows="2" maxlength="1000" placeholder="댓글을 남겨 주세요"></textarea><button class="btn sm" type="button" data-act="addCmt">${icon("edit")}댓글저장</button></div>
+    <div class="bv-foot"><div>${S.isAdmin?`<button class="btn sm" type="button" data-act="pinPost" data-id="${p.id}">${p.pinned?"공지 해제":"공지로"}</button>`:""}
+      ${mine?`<button class="btn sm" type="button" data-act="editPost" data-id="${p.id}">${icon("edit")}고치기</button>`:""}
+      ${mine||S.isAdmin?`<button class="btn sm danger" type="button" data-act="delPost" data-id="${p.id}">지우기</button>`:""}</div>
+      <a class="btn sm" href="#notice">${icon("list")}목록</a></div>
+    <table class="bv-nav">${navRow("이전글", prev)}${navRow("다음글", next)}</table>
+  </div>`;
 }
 function postSheet(id){
   const p = id ? S.posts.find(x=>x.id===id) : null;
