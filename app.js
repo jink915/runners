@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-7";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.19-9";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -1137,7 +1137,7 @@ function pService(){
   const dd = dday(nx.date); const row = (k,v) => `<div class="kv"><span>${k}</span><b class="${v?"":"none"}">${v||"미정"}</b></div>`;
   return panel("이번 주일", `<div class="psvc-top"><b>${fmtKo(nx.date)} (${WD[parse(nx.date).getDay()]})</b><span class="chip ${dd<=3?"warn":"acc"} plain tnum">${dd===0?"오늘":`D-${dd}`}</span></div>
     ${row("사회", esc(nx.mc||""))}${row("대표기도", esc(nx.prayer||""))}${row("본문", nx.book?esc(verseText(nx)):"")}${row("헌금찬송", nx.hymn?`${esc(nx.hymn)}장`:"")}
-    <div class="psvc-act"><a class="btn sm pri" href="#script" data-act="openScript" data-date="${nx.date}">${icon("doc")}사회 원고</a>${can("social")?`<button class="btn sm" type="button" data-act="editWeek" data-date="${nx.date}">${icon("edit")}배정 수정</button>`:""}</div>`,
+    <div class="psvc-act">${sees("social")?`<a class="btn sm pri" href="#script" data-act="openScript" data-date="${nx.date}">${icon("doc")}사회 원고</a>`:""}${can("social")?`<button class="btn sm" type="button" data-act="editWeek" data-date="${nx.date}">${icon("edit")}배정 수정</button>`:""}</div>`,
     sees("social") ? moreLink("#schedule") : "");
 }
 function pTodo(){
@@ -1169,7 +1169,7 @@ setInterval(()=>{
 function dayItems(d){
   const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate();
   const w = weekOn(d);
-  if(w) out.push(w.event ? ["ev","통합예배", esc(w.event!=="통합예배"?w.event:"")] : ["svc","러너스예배", `사회 ${esc(w.mc||"미정")} · 대표기도 ${esc(w.prayer||"미정")}${w.book?` · ${esc(verseText(w))}`:""}`]);
+  if(w) out.push(w.event ? ["ev","예배", `통합예배${w.event!=="통합예배"?` · ${esc(w.event)}`:""}`] : ["svc","예배", `러너스예배 · 사회 ${esc(w.mc||"미정")} · 대표기도 ${esc(w.prayer||"미정")}${w.book?` · ${esc(verseText(w))}`:""}`]);
   eventsOn(d).forEach(ev=>out.push(["evt", (EV_CAT[ev.cat]||EV_CAT.etc)[0], `${ev.time?ev.time+" ":""}${esc(ev.title)}${ev.place?` · ${esc(ev.place)}`:""}`]));
   if(sees("care")||S.births.length) S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push(["bd","생일", esc(honor(b))]));
   if(sees("care")) S.soldiers.forEach(x=>{ if(x.start===d) out.push(["army","입대", `${esc(x.name)} (${esc(BRANCH[x.branch]?.[0]||"")})`]); if(x.start && dischargeOf(x)===d) out.push(["army","전역", esc(x.name)]); });
@@ -1231,14 +1231,16 @@ function deskSections(){
     { id:"comm", t:"커뮤니티", items:[["notice","공지사항"],["reqboard","요청게시판"]] },
   ];
 }
+const MY_SECTION = () => ({ id:"my", t:"더보기", items:[["more","설정"],["myteam","우리 팀"], ...(S.isAdmin?[["members","멤버 관리"]]:[])] });
 function sectionOf(r){
+  if(["more","members","myteam","mhome"].includes(r)) return "my";
   if(["eapp","expense","expCheck","expenses","expReview","expForm"].includes(r)) return "eapp";
   if(r==="cal") return "sched";
   if(["notice","post","board","reqboard","requests"].includes(r)) return "comm";
   const d = ROUTE_DEPT[r]; if(d && d!=="home") return "dept";
   return null;
 }
-function pageTitle(r){ if(r==="expForm") return S.expFormId ? "지출결의서 고치기" : "지출결의서 작성"; return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"지출결의", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
+function pageTitle(r){ if(["more","members","myteam","mhome"].includes(r)) return ({more:"설정",members:"멤버 관리",myteam:"우리 팀",mhome:"우리 팀"})[r]; if(r==="expForm") return S.expFormId ? "지출결의서 고치기" : "지출결의서 작성"; return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"결재하기", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
 function renderDeskMenu(r){
   const nav = document.getElementById("deskmenu"); if(!nav) return;
   const secs = deskSections(); const cur = r==="portal" ? "portal" : sectionOf(r);
@@ -1249,14 +1251,15 @@ function renderDeskMenu(r){
 }
 // PC: 왼쪽 세부 메뉴 + 제목·위치 표시로 감싸기
 function deskLayout(r, html){
-  const sid = sectionOf(r); const sec = deskSections().find(x=>x.id===sid); if(!sec) return html;
+  const sid = sectionOf(r); const sec = sid==="my" ? MY_SECTION() : deskSections().find(x=>x.id===sid); if(!sec) return html;
   const curDept = ROUTE_DEPT[r];
   const side = sec.items.map(([h,l,d])=>{
-    const on = d ? curDept===d : (sectionOf(r)===sid && (h===r || pageTitle(r)===l));
+    const on = d ? curDept===d : (sectionOf(r)===sid && (h===r || pageTitle(r)===l || (h==="myteam" && r==="mhome")));
     const sub = d && on ? `<div class="dside-sub">${DEPTS[d].tabs.filter(t=>t[0]!=="more" && (!t[2]||can(d))).map(([k,lb])=>`<a href="#${k}" class="${k===r||(r==="team"&&k==="lead")?"on":""}">${lb}</a>`).join("")}</div>` : "";
     return `<a href="#${h}" class="${on?"on":""}" ${d?`data-act="deskDept" data-d="${d}"`:""}>${l}</a>${sub}`; }).join("");
   const title = sid==="dept" ? (DEPT_MENU.find(x=>x[0]===curDept)?.[1]||"") : pageTitle(r);
-  const showHead = sid!=="dept";
+  // 화면 안에 자기 제목이 있는 곳은 위치 표시만
+  const showHead = sid!=="dept" && sid!=="my" && !["requests","expReview","expense","expCheck","post"].includes(r);
   return `<div class="dlayout"><aside class="dside"><div class="dside-h">${sec.t}</div><nav>${side}</nav></aside>
     <div class="dmain"><div class="dhead ${showHead?"":"slim"}">${showHead?`<h1>${title}</h1>`:""}<div class="crumb"><a href="#portal" aria-label="포털">${icon("grid")}</a> › ${sec.t} › <b>${title}</b></div></div>${html}</div></div>`;
 }
@@ -1321,8 +1324,8 @@ const svcKind = w => w.event ? "통합예배" : "러너스예배";
 function calEntries(d){
   const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate(); const F = S.calF || "all";
   const w = weekOn(d);
-  if(w && (F==="all"||F==="svc")) out.push(w.event ? {k:"ev", tag:"통합예배", t:esc(w.event && w.event!=="통합예배" ? w.event : ""), act:can("social")?`data-act="editWeek" data-date="${d}"`:""}
-    : {k:"svc", tag:"러너스예배", t:`사회 ${esc(w.mc||"미정")} · 기도 ${esc(w.prayer||"미정")}`, miss:!w.prayer, act:can("social")?`data-act="editWeek" data-date="${d}"`:`data-act="openScript" data-date="${d}"`});
+  if(w && (F==="all"||F==="svc")) out.push(w.event ? {k:"ev", tag:"예배", t:`통합예배${w.event && w.event!=="통합예배" ? ` · ${esc(w.event)}` : ""}`, act:can("social")?`data-act="editWeek" data-date="${d}"`:""}
+    : {k:"svc", tag:"예배", t:`러너스예배<small>사회 ${esc(w.mc||"미정")} · 기도 ${esc(w.prayer||"미정")}</small>`, miss:sees("social") && !w.prayer, act:can("social")?`data-act="editWeek" data-date="${d}"`:sees("social")?`data-act="openScript" data-date="${d}"`:""});
   if(F==="all"||F==="evt") eventsOn(d).forEach(ev=>{ const [cl,cc]=EV_CAT[ev.cat]||EV_CAT.etc; out.push({k:"evt", tag:cl, color:cc, t:`${ev.time?`<b class="tnum">${ev.time}</b> `:""}${esc(ev.title)}`, act:`data-act="viewEvent" data-id="${ev.id}"`}); });
   if(F==="all"||F==="bd") S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push({k:"bd", tag:"생일", t:esc(honor(b)), act:can("care")&&b.id?`data-act="editBirth" data-id="${b.id}"`:""}));
   if(sees("care") && (F==="all"||F==="army")) S.soldiers.forEach(x=>{ if(!x.start) return; if(x.start===d) out.push({k:"army", tag:"입대", t:esc(x.name), act:can("care")?`data-act="editSoldier" data-id="${x.id}"`:""}); if(dischargeOf(x)===d) out.push({k:"army", tag:"전역", t:esc(x.name), act:can("care")?`data-act="editSoldier" data-id="${x.id}"`:""}); });
@@ -1455,7 +1458,7 @@ function vPost(){
   const p = S.posts.find(x=>x.id===S.postSel);
   if(!p) return `${head("게시판")}<div class="card">${empty("지워졌거나 없는 글이에요","","pray",`<a class="btn" href="#board">게시판으로</a>`)}</div>`;
   const mine = p.uid===S.user?.uid; const d = tsOf(p);
-  return `<div class="page-head"><div><p class="eyebrow"><a href="#board" class="back-link">${icon("chev","flip")}게시판</a></p><h1 class="post-title">${esc(p.title)}</h1></div></div>
+  return `<div class="page-head"><div><p class="eyebrow"><a href="${isDesk()?"#notice":"#board"}" class="back-link">${icon("chev","flip")}${isDesk()?"공지사항":"게시판"}</a></p><h1 class="post-title">${esc(p.title)}</h1></div></div>
     <article class="card post-card">
       <div class="post-meta">${av(p.name)}<div><b>${esc(p.name||"")}</b><span>${d?`${d.getMonth()+1}월 ${d.getDate()}일 ${pad(d.getHours())}:${pad(d.getMinutes())}`:"방금"}${p.updatedAt?" · 수정됨":""}</span></div>
         <div class="post-acts">${S.isAdmin?`<button class="btn sm" type="button" data-act="pinPost" data-id="${p.id}">${p.pinned?"공지 해제":"공지로"}</button>`:""}
@@ -1563,7 +1566,7 @@ function vExpense(){
   if(!e) return `${head("지출결의서")}<div class="card">${empty("지워졌거나 없는 지출결의서예요","","pray",`<a class="btn" href="${S.dept==="finance"?"#expReview":"#expenses"}">목록으로</a>`)}</div>`;
   const fin = can("finance"); const st = expStatus(e);
   const who = e.reviewedBy || e.checkedBy || "";
-  const back = S.dept==="finance" ? ["#expReview","결의서 검토"] : ["#expenses","지출결의서"];
+  const back = isDesk() ? ["#eapp","지출결의 목록"] : S.dept==="finance" ? ["#expReview","결의서 검토"] : ["#expenses","지출결의서"];
   return `<div class="page-head"><div><p class="eyebrow"><a href="${back[0]}" class="back-link">${icon("chev","flip")}${back[1]}</a></p><h1 class="post-title">${esc(e.title)}</h1></div></div>
     ${S.dept==="finance"?`<p class="exp-from">${av(e.name,"sm")}<b>${esc(e.name||"")}</b> 님이 냈어요 · ${ago(tsOf(e))}</p>`:""}
     <div class="exp-bar">
@@ -2039,6 +2042,8 @@ function route(){
   const h=location.hash.slice(1);
   // 앱을 처음 열면(주소에 화면이 없으면) 포털부터 — PC·휴대폰 모두
   if((h==="portal" || !h) && S.approved) return "portal";
+  // PC에선 휴대폰용 목록 대신 표 화면으로
+  if(isDesk() && S.approved && (h==="board" || h==="expenses")){ const to = h==="board" ? "notice" : "eapp"; history.replaceState(null, "", "#"+to); return to; }
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
   if(h==="members" && !S.isAdmin) return homeRoute();
   if(h==="people" && !can("social")) return homeRoute();
@@ -2116,7 +2121,7 @@ document.addEventListener("click", async e => {
   if(a==="goDept"){ if(!sees(t.dataset.dept)) return; setDept(t.dataset.dept); closeDrawer(); if(location.hash==="#"+DEPTS[S.dept].home) render(); return; }
   if(a==="theme"){ setTheme(!isDark()); if(route()==="more"&&!document.body.classList.contains("gate")) render(); return; }
   if(a==="themeSet"){ setTheme(t.dataset.v==="dark"); render(); return; }
-  if(a==="openScript"){ syncScript(t.dataset.date); S.scriptTab="script"; if(route()==="script") render(); else location.hash="#script"; return; }
+  if(a==="openScript"){ if(!sees("social")) return; syncScript(t.dataset.date); S.scriptTab="script"; if(route()==="script") render(); else location.hash="#script"; return; }
   if(a==="schedYear"){ S.schedYear=t.dataset.v; render(); }
   if(a==="peopleFilter"){ S.peopleFilter=t.dataset.v; render(); }
   if(a==="resetPeople"){ S.peopleFilter="all"; S.peopleQ=""; render(); }

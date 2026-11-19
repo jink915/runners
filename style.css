@@ -1204,3 +1204,4 @@ button.bc-e:hover{background:var(--sunken)}
 .tk-item.snap{transition:none}
 @media (prefers-reduced-motion:reduce){ .tk-item{transition:opacity .2s ease;transform:none!important} }
 @media (max-width:1099px){ .pstrip > *{flex-basis:auto} .pst-l{font-size:13px} }
+.bc-e .bc-t small{display:block;font-size:11px;color:var(--muted);font-weight:600}
