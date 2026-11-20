@@ -1341,3 +1341,24 @@ button.bc-e:hover{background:var(--sunken)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .soon-line.warn{background:rgb(255 170 40 / .14);color:#FFD9A0} :root:not([data-theme="light"]) .warn-t{color:#FFC266} }
 :root[data-theme="dark"] .soon-line.warn{background:rgb(255 170 40 / .14);color:#FFD9A0}
 :root[data-theme="dark"] .warn-t{color:#FFC266}
+
+/* ---------- 원고: 남은 칸 바로가기 ---------- */
+.miss-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 12px;border-radius:14px;background:#FFF4DE;font-size:13.5px}
+.miss-bar > span{font-weight:800;color:#6B4400;margin-right:2px}
+.miss-chip{display:inline-flex;align-items:center;gap:2px;height:32px;padding:0 8px 0 12px;border:0;border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 0 0 1px rgba(184,110,0,.25);touch-action:manipulation}
+.miss-chip .i{width:15px;height:15px;color:#B86E00}
+.miss-chip:active{transform:scale(.97)}
+.miss-bar.done{background:var(--accent-soft)} .miss-bar.done > span{color:var(--ink-2);font-weight:600} .miss-bar.done .i{width:17px;height:17px;color:var(--accent)}
+.field.hit textarea,.field.hit input{box-shadow:0 0 0 3px var(--accent)}
+/* ---------- 홈: 할 일 한 목록 · 빈 공지 한 줄 ---------- */
+.pcount{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;margin-left:6px;border-radius:999px;background:#E5484D;color:#fff;font-size:12px;vertical-align:2px}
+.pmore-n{margin:6px 6px 0;font-size:12.5px;color:var(--muted)}
+.ptag.k-svc{background:#FFF1D6;color:#B86E00} .ptag.k-exp{background:#E3F5EC;color:#1F7A55} .ptag.k-join,.ptag.k-req{background:#EEE9FC;color:#6046C8} .ptag.k-mine{background:var(--sunken);color:var(--ink-2)}
+.pg.two-a{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+@media (max-width:1099px){ .pg.two-a{grid-template-columns:minmax(0,1fr)} }
+.pnote-line{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 18px;border-radius:14px;background:var(--surface);box-shadow:0 0 0 1px var(--line);color:var(--muted);font-size:13.5px;text-decoration:none}
+.pnote-line b{color:var(--ink);font-size:14px}
+.pnote-line span{flex:1}
+.pnote-line .i{width:16px;height:16px}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .miss-bar{background:rgb(255 170 40 / .12)} :root:not([data-theme="light"]) .miss-bar > span{color:#FFD9A0} :root:not([data-theme="light"]) .miss-chip{background:var(--surface-2)} }
+:root[data-theme="dark"] .miss-bar{background:rgb(255 170 40 / .12)} :root[data-theme="dark"] .miss-bar > span{color:#FFD9A0} :root[data-theme="dark"] .miss-chip{background:var(--surface-2)}
