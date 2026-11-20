@@ -5,7 +5,7 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 
-const APP = "https://jink915.github.io/runners/";
+const APP = "https://anam1-runners.web.app/";
 const DEFAULTS = {   // 앱의 ALERTS 기본값과 같게
   prayer: { days: [3, 4], hour: 12 }, hymn: { days: [3, 4], hour: 12 }, script: { days: [3, 4], hour: 12 },
   mcDay: { days: [6], hour: 20 }, prayDay: { days: [6], hour: 20 }, fallback: { days: [3, 4], hour: 12 },

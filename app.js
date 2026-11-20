@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.19-12";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.20-1";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -333,6 +333,7 @@ function vLogin(){
     <p class="tag">진실됨으로 하나님께 나아가자<br>주일 예배 준비를 한곳에서</p>
     ${sheep("heart")}
     <button class="gbtn" type="button" data-act="login" ${ready?"":"disabled"}>${GOOGLE}${ready?"Google 계정으로 시작하기":"연결하는 중…"}</button>
+    <a class="gate-privacy" href="privacy.html" target="_blank" rel="noopener">개인정보 처리 안내</a>
   </section>`;
 }
 
@@ -455,7 +456,11 @@ function vSchedule(){
   const y=S.schedYear; const ws=all.filter(w=>w.date.startsWith(y));
   const svc=ws.filter(isService); const filled=svc.filter(w=>w.mc&&w.prayer).length;
   const byMonth = {}; ws.forEach(w=>{ const m=+w.date.slice(5,7); (byMonth[m] ||= []).push(w); });
-  return `${head("주일 일정", `${y}년 예배 ${svc.length}번 중 ${filled}번 배정을 마쳤어요`)}
+  const soon = all.filter(w=>isService(w) && w.date>=TODAY && w.date<=addDays(TODAY,28) && (!w.mc||!w.prayer));
+  const gap = w => [!w.mc?"사회":"", !w.prayer?"대표기도":""].filter(Boolean).join("·");
+  const soonLine = soon.length ? `<div class="soon-line warn">${icon("bell")}<span>다가오는 4주 <b>미정 ${soon.length}건</b> · 가장 가까운 날 <b>${pmd(soon[0].date)}</b> ${gap(soon[0])}</span>${S.canEdit?`<button class="btn sm" type="button" data-act="editWeek" data-date="${soon[0].date}">${icon("edit")}채우기</button>`:""}</div>`
+    : `<div class="soon-line ok">${icon("check")}<span>다가오는 4주 배정이 모두 끝났어요</span></div>`;
+  return `${head("주일 일정", `${y}년 예배 ${svc.length}번 중 ${filled}번 배정을 마쳤어요`)}${soonLine}
     <div class="year-bar"><div class="seg" role="group" aria-label="연도">${years.map(k=>`<button type="button" data-act="schedYear" data-v="${k}" aria-pressed="${y===k}">${k}년</button>`).join("")}</div></div>
     <div class="section" style="gap:0">${Object.entries(byMonth).map(([m,list])=>`
       <div class="month-h"><span>${m}월</span></div>
@@ -862,7 +867,7 @@ const DEPTS = {
   home:   { name:"러너스", desc:"게시판·생일·우리 팀·지출결의서", icon:"heart", color:"#E85D8A", home:"mhome",
             tabs:[["mhome","홈"],["board","게시판"],["myteam","우리 팀"],["expenses","지출결의"],["more","더보기"]] },
   social: { name:"사회부", desc:"예배 사회·대표기도·원고", icon:"mic", color:"#2F78D0", home:"dash",
-            tabs:[["dash","홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
+            tabs:[["dash","사회부 홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
   care:   { name:"챙김부", desc:"생일·군입대 챙기기", icon:"cake", color:"#E0663E", home:"birth",
             tabs:[["birth","생일"],["births","전체"],["army","군입대"],["more","더보기"]] },
   finance:{ name:"총무부", desc:"장부·지출결의서 검토", icon:"wallet", color:"#1F9D6B", home:"ledger",
@@ -1152,18 +1157,36 @@ function pNotice(){
   const ps = [...S.posts].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0) || (tsOf(b)||0)-(tsOf(a)||0)).slice(0,8);
   return panel("공지사항", ps.length ? `<ul class="plist">${ps.map(p=>`<li><button type="button" data-act="openPost" data-id="${p.id}">
       ${p.pinned?`<span class="ptag">공지</span>`:`<span class="pdot"></span>`}<span class="pt">${esc(p.title||"")}</span>${p.commentCount?`<span class="pc">[${p.commentCount}]</span>`:""}${isNew(p)?`<span class="pnew">N</span>`:""}
-      <span class="pd">${pmd(new Date(tsOf(p)||Date.now()+0).toISOString().slice(0,10))}</span></button></li>`).join("")}</ul>` : `<p class="pempty">아직 글이 없어요</p>`, moreLink(isDesk()?"#notice":"#board"));
+      <span class="pd">${pmd(new Date(tsOf(p)||Date.now()+0).toISOString().slice(0,10))}</span></button></li>`).join("")}</ul>` : `<p class="pempty one">아직 공지가 없어요</p>`, moreLink(isDesk()?"#notice":"#board"), ps.length?"":"slim");
 }
 function pService(){
   const nx = nextService(); if(!nx) return panel("이번 주일", `<p class="pempty">앞으로 잡힌 예배가 없어요</p>`, moreLink("#schedule"));
   const dd = dday(nx.date); const row = (k,v) => `<div class="kv"><span>${k}</span><b class="${v?"":"none"}">${v||"미정"}</b></div>`;
   return panel("이번 주일", `<div class="psvc-top"><b>${fmtKo(nx.date)} (${WD[parse(nx.date).getDay()]})</b><span class="chip ${dd<=3?"warn":"acc"} plain tnum">${dd===0?"오늘":`D-${dd}`}</span></div>
+    ${(()=>{ const r=myRoles(); if(!r) return ""; const roles=[r.mc?"사회":"", r.pr?"대표기도":""].filter(Boolean).join("·");
+      return `<div class="psvc-me">${icon("check")}<span>이번 주 <b>${roles}</b> 차례예요${r.mc&&sees("social")?` · 원고 ${r.blanks?`<b class="warn-t">노란 칸 ${r.blanks}곳</b> 남음`:"준비 끝"}`:""}</span></div>`; })()}
     ${row("사회", esc(nx.mc||""))}${row("대표기도", esc(nx.prayer||""))}${row("본문", nx.book?esc(verseText(nx)):"")}${row("헌금찬송", nx.hymn?`${esc(nx.hymn)}장`:"")}
-    <div class="psvc-act">${sees("social")?`<a class="btn sm pri" href="#script" data-act="openScript" data-date="${nx.date}">${icon("doc")}사회 원고</a>`:""}${can("social")?`<button class="btn sm" type="button" data-act="editWeek" data-date="${nx.date}">${icon("edit")}배정 수정</button>`:""}</div>`,
-    sees("social") ? moreLink("#schedule") : "");
+    <div class="psvc-act">${sees("social")?`<a class="btn sm pri" href="#script" data-act="openScript" data-date="${nx.date}">${icon("doc")}${myRoles()?.mc?"원고 이어 쓰기":"사회 원고"}</a>`:""}${can("social")?`<button class="btn sm" type="button" data-act="editWeek" data-date="${nx.date}">${icon("edit")}배정 수정</button>`:""}</div>`,
+    sees("social") ? `<a class="pnl-more" href="#schedule">주일 배정표 ${icon("plus")}</a>` : "");
+}
+// 이번 주일 내 역할 (사회·대표기도)과 사회 원고 노란 칸 수
+function scriptBlanksFor(date){ const keep=S.script; S.script={...keep}; let n=0; try{ syncScript(date); n=(scriptText().match(/\[[^\]]+\]/g)||[]).length; }catch{} S.script=keep; return n; }
+function myRoles(){
+  const nx = nextService(); const me = myName(); if(!nx || !me) return null;
+  const mc = nx.mc===me, pr = nx.prayer===me; if(!mc && !pr) return null;
+  return { nx, mc, pr, blanks: mc ? scriptBlanksFor(nx.date) : 0 };
+}
+function prepItems(){
+  const r = myRoles(); if(!r) return []; const out = []; const when = `${pmd(r.nx.date)} (${WD[parse(r.nx.date).getDay()]})`;
+  if(r.mc) out.push(sees("social")
+    ? `<li><button type="button" data-act="openScript" data-date="${r.nx.date}"><span class="pt">사회 원고 ${r.blanks?`<b class="warn-t">노란 칸 ${r.blanks}곳</b> 남음`:"준비 끝"}</span><span class="pm">${when} 사회</span><span class="pd">${r.blanks?"이어 쓰기":"다시 보기"}</span></button></li>`
+    : `<li><div class="pli"><span class="pt">이번 주일 사회 차례예요</span><span class="pm">${when}</span></div></li>`);
+  if(r.pr) out.push(`<li><div class="pli"><span class="pt">대표기도 차례예요</span><span class="pm">${when}</span><span class="pd">${dday(r.nx.date)===0?"오늘":`D-${dday(r.nx.date)}`}</span></div></li>`);
+  return out;
 }
 function pTodo(){
   const tabs = [];
+  { const xs = prepItems(); if(xs.length) tabs.push(["prep","주일 준비",xs]); }
   if(can("finance")){ const xs=sortedExp().filter(e=>expStatus(e)==="submitted"); tabs.push(["exp","결의서 검토",xs.map(e=>`<li><button type="button" data-act="pOpenExp" data-id="${e.id}"><span class="pt">${esc(e.title)}</span><span class="pm">${esc(e.name||"")}</span><span class="pd tnum">${won(e.amount)}원</span></button></li>`)]); }
   if(S.isAdmin){ const xs=S.members.filter(m=>m.status==="pending"); tabs.push(["join","가입 신청",xs.map(m=>`<li><button type="button" data-act="editMember" data-id="${m.id}"><span class="pt">${esc(m.name||m.email)}</span><span class="pm">${esc(m.email||"")}</span><span class="pd">승인하기</span></button></li>`)]); }
   if(S.isAdmin){ const xs=S.requests.filter(r=>r.status!=="done"); tabs.push(["req","수정 요청",xs.map(r=>`<li><button type="button" data-act="openReq" data-id="${r.id}"><span class="pt">${esc(String(r.text||"").split("\n")[0])}</span><span class="pm">${esc(r.name||"")}</span><span class="pd">${r.status==="doing"?"진행 중":"새 요청"}</span></button></li>`)]); }
@@ -1214,7 +1237,7 @@ function pCalendar(){
   const it = dayItems(sel); const sd = parse(sel);
   const list = `<div class="pday-list"><h3><b class="tnum">${sel.slice(0,4)}.${pad(sd.getMonth()+1)}.${pad(sd.getDate())}</b> (${WD[sd.getDay()]}) 일정안내</h3>
     ${it.length ? `<ul>${it.map(([k,l,v])=>`<li><span class="ptag k-${k}">${l}</span><span>${v}</span></li>`).join("")}</ul>` : `<p class="pempty">등록된 일정이 없어요</p>`}</div>`;
-  return panel("달력", `<div class="pcal-wrap">${cal}${list}</div>`, sees("social")?moreLink("#schedule"):"", "cal");
+  return panel("달력", `<div class="pcal-wrap">${cal}${list}</div>`, `<a class="pnl-more" href="#cal">전체 달력 ${icon("plus")}</a>`, "cal");
 }
 function pStatus(){
   const tabs = [];
@@ -1237,7 +1260,7 @@ function vPortal(){
   const name = firstName(myName());
   return `<div class="portal">
     <div class="portal-hi"><b>${esc(name||"러너스")}님</b>, 안녕하세요 <span>${TODAY.slice(0,4)}.${TODAY.slice(5,7)}.${TODAY.slice(8)} (${WD[parse(TODAY).getDay()]})</span></div>
-    <div class="pg">${pNotice()}${pService()}${pTodo()}</div>
+    <div class="pg">${S.posts.some(p=>p.pinned && isNew(p)) ? pNotice()+pService()+pTodo() : pService()+pTodo()+pNotice()}</div>
     ${pStrip()}
     <div class="pg two">${pCalendar()}${pStatus()}</div>
   </div>`;
@@ -1265,7 +1288,8 @@ function sectionOf(r){
 function pageTitle(r){ if(["more","members","myteam","mhome"].includes(r)) return ({more:"설정",members:"멤버 관리",myteam:"우리 팀",mhome:"우리 팀"})[r]; if(r==="expForm") return S.expFormId ? "지출결의서 고치기" : "지출결의서 작성"; return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"결재하기", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
 // 맨 위 줄 (PC): 이번 주일 · 할 일 · 이름
 function todoCount(){
-  let n = sortedExp().filter(e=>expMine(e) && expStatus(e)!=="approved").length;
+  const r = myRoles(); let n = r ? ((r.mc && (r.blanks || !sees("social")))?1:0) + (r.pr?1:0) : 0;
+  n += sortedExp().filter(e=>expMine(e) && expStatus(e)!=="approved").length;
   if(can("finance")) n += S.expenses.filter(e=>expStatus(e)==="submitted").length;
   if(S.isAdmin) n += S.members.filter(m=>m.status==="pending").length + S.requests.filter(r=>r.status!=="done").length;
   return n;
@@ -1341,7 +1365,7 @@ function vEapp(){ if(!isDesk()) return vEappM();
       <tbody>${slice.map((e,i)=>`<tr data-act="${fin&&!expMine(e)?"pOpenExp":"openExp"}" data-id="${e.id}" tabindex="0"><td class="tnum">${xs.length-((pg-1)*EAPP_PER+i)}</td><td>지출결의서</td><td class="tnum">${e._no||""}</td>
         <td class="l"><span class="dt-t">${esc(e.title)}</span>${e.files?`<span class="dt-clip">${icon("image")}${e.files}</span>`:""}</td><td>${esc(e.name||"")}</td><td class="r tnum">${won(e.amount)}</td>
         <td><span class="dst st-${expStatus(e)}">${ST_TXT[expStatus(e)]}</span></td><td>${esc(e.reviewedBy||e.checkedBy||"")}</td><td class="tnum">${e.date||""}</td><td class="tnum">${tsOf(e)?iso(new Date(tsOf(e))):""}</td></tr>`).join("")
-        || `<tr><td colspan="10" class="dt-empty">해당하는 문서가 없어요</td></tr>`}</tbody></table></div>
+        || `<tr><td colspan="10" class="dt-empty">${f.box==="todo"?`결재할 문서가 없어요 · 새로 들어오면 알림으로 알려 드려요 <button class="btn sm" type="button" data-act="eBox" data-v="mine">내 문서 보기</button>`:"해당하는 문서가 없어요"}</td></tr>`}</tbody></table></div>
     ${pager(pg, pages, "ePage")}`;
 }
 function pager(pg, pages, key){
@@ -1423,7 +1447,7 @@ function vEappM(){
     ${boxes.length>1?`<div class="seg" role="group" aria-label="문서함">${boxes.map(([v,l])=>`<button type="button" data-act="eBox" data-v="${v}" aria-pressed="${f.box===v}">${l}</button>`).join("")}</div>`:""}
     <div class="chips-row">${sts.map(([v,l])=>`<button type="button" class="fchip ${f.st===v?"on":""}" data-act="eSt" data-v="${v}">${l}</button>`).join("")}</div>
     <div class="er-list">${xs.map(e=>`<div class="er-item">${expRow(e)}${fin && expStatus(e)==="submitted" && !expMine(e) ? `<div class="er-acts"><button class="btn sm danger" type="button" data-act="rejectExp" data-id="${e.id}">반려</button><button class="btn sm ok" type="button" data-act="approveExp" data-id="${e.id}">${icon("check")}승인</button></div>` : ""}</div>`).join("")
-      || `<div class="card">${empty(f.box==="todo"?"결재할 문서가 없어요":"해당하는 결의서가 없어요","","wave",`<button class="btn pri" type="button" data-act="newExp">작성하기</button>`)}</div>`}</div>`;
+      || `<div class="card">${empty(f.box==="todo"?"결재할 문서가 없어요":"해당하는 결의서가 없어요", f.box==="todo"?"새로 들어오면 알림으로 알려 드려요":"","wave", f.box==="todo"?`<button class="btn" type="button" data-act="eBox" data-v="mine">내 문서 보기</button>`:`<button class="btn pri" type="button" data-act="newExp">작성하기</button>`)}</div>`}</div>`;
 }
 function vCommM(tab){
   const seg = `<div class="seg" role="group" aria-label="커뮤니티"><a href="#notice" class="${tab==="notice"?"on":""}" aria-current="${tab==="notice"?"page":"false"}">공지사항</a><a href="#reqboard" class="${tab==="req"?"on":""}" aria-current="${tab==="req"?"page":"false"}">요청게시판</a></div>`;
@@ -1728,8 +1752,8 @@ function vExpForm(){
     <table class="dform-t"><colgroup><col style="width:150px"><col><col style="width:150px"><col></colgroup><tbody>
       <tr><th>기안자</th><td>${esc(myName()||"")}</td><th>기안일자</th><td class="tnum">${e&&tsOf(e)?iso(new Date(tsOf(e))):TODAY.replace(/-/g,".")}</td></tr>
       ${row("지출명", `<input id="ex-title" maxlength="80" autocomplete="off" placeholder="어떤 일로 썼나요 · 예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}">`, true)}
-      ${row("지출처", `<input id="ex-place" maxlength="80" autocomplete="off" placeholder="어디에 썼나요 · 예: 안암동 ○○식당" value="${esc(e?.place||"")}">`, true)}
-      ${row("참여자", `<input id="ex-people" maxlength="300" autocomplete="off" placeholder="예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">`, true)}
+      ${row("지출처", `<input id="ex-place" maxlength="80" autocomplete="off" placeholder="어디에 썼나요 · 예: 안암동 ○○식당" value="${esc(e?.place||"")}">`)}
+      ${row("참여자", `<input id="ex-people" maxlength="300" autocomplete="off" placeholder="예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">`)}
       ${row("금액", `<div class="dform-amt"><div class="won-in"><input id="ex-amt" inputmode="numeric" autocomplete="off" placeholder="0" value="${e?.amount?won(e.amount):""}"><span>원</span></div><span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span></div>`, true)}
       ${row("상세내역", `<textarea id="ex-detail" rows="4" maxlength="500" placeholder="한 줄에 하나씩 · 예: 김밥 10줄 30,000원">${esc(e?.detail||"")}</textarea>`)}
       ${row("영수확인", `<p class="dform-stmt">상기 금액을 정히 영수합니다.</p>
@@ -1737,26 +1761,28 @@ function vExpForm(){
           <div class="sig-pad ${S.expDraft.sign?"has":""}"><canvas id="ex-sig" aria-label="서명란"></canvas><span class="sig-ph">여기에 서명해 주세요</span><button class="btn sm" type="button" data-act="sigClear">지우기</button></div></div>`, true)}
       ${row("영수증 첨부", `<div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div>`)}
     </tbody></table>
+    <p class="exp-flow"><i class="req">*</i> 표시는 꼭 적어야 해요 · 제출하면 <b>총무부 운영자</b>가 검토하고, 승인되면 장부에 자동으로 기록돼요</p>
     <div class="dform-foot"><a class="btn" href="#eapp">취소</a><button class="btn pri" type="button" data-act="saveExp">${icon("check")}${e?"저장":"제출"}</button></div></form>`;
 }
 function expSheet(id){
   const e = id ? S.expenses.find(x=>x.id===id) : null;
   const d = S.expDraft = { id:e?.id||null, sign:e?.sign||"", files: e ? S.expFiles.map(f=>({data:f.data})) : [], oldFiles: e?.files||0 };
   openSheet(e?"지출결의서 고치기":"지출결의서 작성", `<div class="fields exp-form">
-    <label class="field"><span>지출명</span><input id="ex-title" maxlength="80" autocomplete="off" placeholder="예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}"></label>
+    <label class="field"><span>지출명 <i class="req">*</i></span><input id="ex-title" maxlength="80" autocomplete="off" placeholder="예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}"></label>
     <label class="field"><span>지출처</span><input id="ex-place" maxlength="80" autocomplete="off" placeholder="예: 안암동 ○○식당" value="${esc(e?.place||"")}"></label>
-    <div class="field"><span class="lab">지출사유</span>
+    <div class="field"><span class="lab">지출사유 <small>(금액 <i class="req">*</i>)</small></span>
       <div class="exp-in"><label class="sr-only" for="ex-people">참여자</label><input id="ex-people" maxlength="300" autocomplete="off" placeholder="참여자 · 예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">
         <div class="won-in"><label class="sr-only" for="ex-amt">금액</label><input id="ex-amt" inputmode="numeric" autocomplete="off" placeholder="금액" value="${e?.amount?won(e.amount):""}"><span>원</span></div></div>
       <span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span>
       <label class="sr-only" for="ex-detail">상세내역</label><textarea id="ex-detail" class="exp-detail" rows="3" maxlength="500" placeholder="상세내역 (한 줄에 하나씩)&#10;예: 김밥 10줄 30,000원&#10;음료 12개 18,000원">${esc(e?.detail||"")}</textarea></div>
-    <div class="field"><span class="lab">영수확인</span>
+    <div class="field"><span class="lab">영수확인 <i class="req">*</i></span>
       <p class="exp-stmt">상기 금액을 정히 영수합니다.</p>
       <div class="exp-in two"><label class="sr-only" for="ex-date">영수일</label><input type="date" id="ex-date" value="${e?.date||TODAY}">
         <label class="sr-only" for="ex-payee">영수자</label><input id="ex-payee" maxlength="20" autocomplete="off" placeholder="영수자 이름" value="${esc(e?.payee||myName()||"")}"></div>
       <div class="sig-pad ${d.sign?"has":""}"><canvas id="ex-sig" aria-label="서명란"></canvas><span class="sig-ph">여기에 서명해 주세요</span>
         <button class="btn sm" type="button" data-act="sigClear">지우기</button></div></div>
     <div class="field"><span class="lab">영수증 첨부</span><div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div></div>
+    <p class="exp-flow"><i class="req">*</i> 표시는 꼭 적어야 해요 · 제출하면 <b>총무부 운영자</b>가 검토하고, 승인되면 장부에 자동으로 기록돼요</p>
   </div>`, `<button class="btn pri block" type="button" data-act="saveExp">${e?"저장":"제출"}</button>`);
   requestAnimationFrame(bindSig);
 }

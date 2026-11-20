@@ -5,7 +5,7 @@
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 
-const APP = "https://jink915.github.io/runners/";
+const APP = "https://anam1-runners.web.app/";
 const DEPT_NAME = { social: "사회부", care: "챙김부", finance: "총무부", leaders: "리더단" };
 const LINK = { social: "#schedule", care: "#birth", finance: "#ledger", leaders: "#lead" };
 const won = n => (Math.round(n) || 0).toLocaleString("ko-KR");

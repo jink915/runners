@@ -1315,3 +1315,29 @@ button.bc-e:hover{background:var(--sunken)}
   .dfoot a{color:var(--ink-2);text-decoration:none}
   .dfoot a:hover{color:var(--accent);text-decoration:underline}
 }
+
+/* ---------- 이번 주 내 역할 · 원고 준비 상태 ---------- */
+.req{color:var(--bad);font-style:normal}
+.warn-t{color:#B86E00;font-weight:800}
+.psvc-me{display:flex;align-items:center;gap:7px;margin:2px 0 8px;padding:8px 11px;border-radius:10px;background:var(--accent-soft);color:var(--ink);font-size:13.5px;line-height:1.4}
+.psvc-me .i{width:16px;height:16px;color:var(--accent);flex:none}
+.plist li > div.pli{cursor:default}
+.pnl.slim .pnl-b{padding-top:2px;padding-bottom:10px}
+.pempty.one{padding:6px 2px;text-align:left}
+/* 주일 일정: 다가오는 4주 미정 */
+.soon-line{display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:14px;font-size:14px;margin:0 0 4px}
+.soon-line .i{width:18px;height:18px;flex:none}
+.soon-line > span{flex:1;min-width:0}
+.soon-line.warn{background:#FFF4DE;color:#6B4400}
+.soon-line.warn .i{color:#B86E00}
+.soon-line.ok{background:var(--accent-soft);color:var(--ink-2)}
+.soon-line.ok .i{color:var(--accent)}
+/* 지출결의서 안내 한 줄 */
+.exp-flow{margin:10px 2px 0;font-size:12.5px;line-height:1.55;color:var(--muted);text-wrap:pretty}
+.exp-flow b{color:var(--ink-2)}
+.field .lab small{font-weight:600;color:var(--muted)}
+/* 로그인 화면: 개인정보 안내 */
+.gate-privacy{display:inline-block;margin-top:14px;font-size:13px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .soon-line.warn{background:rgb(255 170 40 / .14);color:#FFD9A0} :root:not([data-theme="light"]) .warn-t{color:#FFC266} }
+:root[data-theme="dark"] .soon-line.warn{background:rgb(255 170 40 / .14);color:#FFD9A0}
+:root[data-theme="dark"] .warn-t{color:#FFC266}
