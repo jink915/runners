@@ -1362,3 +1362,25 @@ button.bc-e:hover{background:var(--sunken)}
 .pnote-line .i{width:16px;height:16px}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .miss-bar{background:rgb(255 170 40 / .12)} :root:not([data-theme="light"]) .miss-bar > span{color:#FFD9A0} :root:not([data-theme="light"]) .miss-chip{background:var(--surface-2)} }
 :root[data-theme="dark"] .miss-bar{background:rgb(255 170 40 / .12)} :root[data-theme="dark"] .miss-bar > span{color:#FFD9A0} :root[data-theme="dark"] .miss-chip{background:var(--surface-2)}
+
+/* ---------- Codex 3차: 표기 정리 ---------- */
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(34 67 142 / .12)}
+.psvc-time{font-size:13px;font-weight:600;color:var(--muted);margin-left:4px}
+.sec-note{font-size:12px;font-weight:600;color:var(--muted);margin-left:6px}
+.soon-list{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+.soon-chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 12px;border:0;border-radius:12px;background:var(--surface);box-shadow:0 0 0 1px rgba(184,110,0,.28);font:inherit;font-size:13.5px;color:var(--ink);cursor:pointer;touch-action:manipulation}
+div.soon-chip{cursor:default}
+.soon-chip span{color:#B86E00;font-weight:700}
+.soon-chip .i{width:15px;height:15px;color:var(--muted)}
+button.soon-chip:active{transform:scale(.97)}
+.timeline .dir{display:inline-block;margin:0 2px;padding:0 7px;border-radius:6px;background:var(--sunken);color:var(--muted);font-size:.86em;font-weight:600}
+.timeline .dir::before{content:"지시 · "}
+.copy2{display:inline-flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.miss-mk{position:absolute;top:2px;right:3px;font:900 10px/1 var(--f-body,inherit);color:#B86E00}
+.pcal-g button{position:relative}
+.exp-flow.top{margin:0 0 10px;padding:9px 12px;border-radius:10px;background:var(--accent-soft);color:var(--ink-2)}
+.exp-sum{display:block;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.ok-t{color:#1F7A55;font-weight:700}
+.dform-t th small{display:block;font-weight:500;font-size:11.5px;color:var(--muted)}
+.dform-sign label small{font-weight:500;color:var(--muted)}
+.dt-empty .btn{margin-left:8px}

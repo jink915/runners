@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.20-2";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.20-3";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -423,12 +423,12 @@ function vDash(){
   const tile = (ic,k,v,full=false) => `<div class="tile ${full?"full":""}"><span class="ic">${icon(ic)}</span><div><div class="k">${k}</div><div class="v ${v?"":"none"}">${v||"아직 미정"}</div></div></div>`;
   const name = firstName(myName());
   const hero = nx ? `
-    <section class="hero" aria-label="다음 주일 예배">
+    <section class="hero" aria-label="다가오는 예배">
       ${SPARK("52%","16px",20)}${SPARK("45%","74px",11)}${SPARK("10px","calc(100% - 110px)",14,.8)}
       <div class="hero-top">
-        <div class="eyebrow">다음 주일 예배</div>
+        <div class="eyebrow">다가오는 예배</div>
         <div class="date">${fmtKo(nx.date)}</div>
-        <div class="meta"><span>${dday(nx.date)===0?"오늘":`D-${dday(nx.date)}`}</span><span>오후 2시</span></div>
+        <div class="meta"><span>${dday(nx.date)===0?"오늘":`D-${dday(nx.date)}`}</span><span>${SVC_TIME}</span></div>
         ${sheep("heart","hero-sheep")}
       </div>
       <div class="tiles">
@@ -441,11 +441,11 @@ function vDash(){
         ${S.canEdit?`<button class="btn" type="button" data-act="editWeek" data-date="${nx.date}">${icon("edit")}배정 수정</button>`:""}
       </div>
     </section>` : `<div class="card">${empty("앞으로 잡힌 예배가 없어요","모든 주일이 행사로 잡혀 있어요.","wave",`<a class="btn" href="#schedule">일정 보기</a>`)}</div>`;
-  const upcoming = section("다가오는 주일", `<div class="card list">${up.map(w=>weekRow(w,nx)).join("")}</div>`, `<a class="link" href="#schedule">전체 일정${icon("chev")}</a>`);
-  const ranks = S.canEdit && S.got.p ? section("대표기도 순서", rankBoard(), `<a class="link" href="#people">명단${icon("chev")}</a>`) : "";
-  const bars = section(`${year} 사회 횟수`, `<div class="card"><div class="bars">${mcArr.map(([n,c])=>`<div class="bar"><span class="who">${av(n,"sm")}${esc(n)}</span><div class="track" role="img" aria-label="${esc(n)} ${c}회"><div class="fill" style="width:${c/mcMax*100}%"></div></div><span class="n">${c}</span></div>`).join("")||`<p class="note">기록이 없어요</p>`}</div></div>`);
+  const upcoming = section("다가오는 주일", `<div class="card list">${up.map(w=>weekRow(w,nx)).join("")}</div>`, `<a class="link" href="#schedule">주일 배정표${icon("chev")}</a>`);
+  const ranks = S.canEdit && S.got.p ? section("대표기도 순서", rankBoard(), `<a class="link" href="#people">대표기도 명단${icon("chev")}</a>`) : "";
+  const bars = section(`${year} 사회 횟수 <small class="sec-note">올해 배정 포함</small>`, `<div class="card"><div class="bars">${mcArr.map(([n,c])=>`<div class="bar"><span class="who">${av(n,"sm")}${esc(n)}</span><div class="track" role="img" aria-label="${esc(n)} ${c}회"><div class="fill" style="width:${c/mcMax*100}%"></div></div><span class="n">${c}</span></div>`).join("")||`<p class="note">기록이 없어요</p>`}</div></div>`);
   const pendBanner = S.isAdmin && pendingCount() ? `<a class="notice-line" href="#members">${icon("users")}<span>가입 신청 <b>${pendingCount()}명</b></span>${icon("chev","chev")}</a>` : "";
-  return `${head("이번 주일 준비", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}${pendBanner}${hero}<div class="cols"><div>${upcoming}</div><div>${ranks}${bars}</div></div>`;
+  return `${head(nx?`${fmtKo(nx.date)} 예배 준비`:"예배 준비", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}${pendBanner}${hero}<div class="cols"><div>${upcoming}</div><div>${ranks}${bars}</div></div>`;
 }
 
 /* ---------- 일정 ---------- */
@@ -458,9 +458,10 @@ function vSchedule(){
   const byMonth = {}; ws.forEach(w=>{ const m=+w.date.slice(5,7); (byMonth[m] ||= []).push(w); });
   const soon = all.filter(w=>isService(w) && w.date>=TODAY && w.date<=addDays(TODAY,28) && (!w.mc||!w.prayer));
   const gap = w => [!w.mc?"사회":"", !w.prayer?"대표기도":""].filter(Boolean).join("·");
-  const soonLine = soon.length ? `<div class="soon-line warn">${icon("bell")}<span>다가오는 4주 <b>미정 ${soon.length}건</b> · 가장 가까운 날 <b>${pmd(soon[0].date)}</b> ${gap(soon[0])}</span>${S.canEdit?`<button class="btn sm" type="button" data-act="editWeek" data-date="${soon[0].date}">${icon("edit")}채우기</button>`:""}</div>`
+  const soonLine = soon.length ? `<div class="soon-line warn">${icon("bell")}<span>다가오는 4주 <b>미정 ${soon.length}건</b></span></div>
+    <div class="soon-list">${soon.map(w=>`<${S.canEdit?`button type="button" data-act="editWeek" data-date="${w.date}"`:"div"} class="soon-chip"><b class="tnum">${fmtKo(w.date)}</b><span>${gap(w)} 미정</span>${S.canEdit?icon("edit"):""}</${S.canEdit?"button":"div"}>`).join("")}</div>`
     : `<div class="soon-line ok">${icon("check")}<span>다가오는 4주 배정이 모두 끝났어요</span></div>`;
-  return `${head("주일 일정", `${y}년 예배 ${svc.length}번 중 ${filled}번 배정을 마쳤어요`)}${soonLine}
+  return `${head("주일 배정표", `${y}년 예배 ${svc.length}번 중 ${filled}번 배정을 마쳤어요`)}${soonLine}
     <div class="year-bar"><div class="seg" role="group" aria-label="연도">${years.map(k=>`<button type="button" data-act="schedYear" data-v="${k}" aria-pressed="${y===k}">${k}년</button>`).join("")}</div></div>
     <div class="section" style="gap:0">${Object.entries(byMonth).map(([m,list])=>`
       <div class="month-h"><span>${m}월</span></div>
@@ -479,7 +480,7 @@ function rankBoard(){
       return `<div class="row"><span class="medal ${r===1?"first":""}">${av(p.name)}<b>${r}</b></span>
         <span class="main"><span class="t">${esc(p.name)}${p.pinned?` <span class="chip acc plain">고정</span>`:""}</span><span class="s">${last?`마지막 ${fmtFull(last)}`:"아직 기록 없음"}</span></span>
         ${S.canEdit?`<span class="acts">
-          ${r===1&&slot?`<button class="btn sm pri" type="button" data-act="assign" data-name="${esc(p.name)}" data-date="${slot.date}">${fmtShort(slot.date)} 배정</button>`:""}
+          ${r===1&&slot?`<button class="btn sm pri" type="button" data-act="assign" data-name="${esc(p.name)}" data-date="${slot.date}">${fmtKo(slot.date)}에 배정하기</button>`:""}
           ${r>1?`<button class="btn icon sm" type="button" data-act="rankUp" data-id="${p.id}" aria-label="${esc(p.name)} 순위 올리기">${icon("up")}</button>`:""}
           <button class="btn icon sm" type="button" data-act="rankClear" data-id="${p.id}" aria-label="${esc(p.name)} 순위에서 빼기">${icon("x")}</button></span>`:""}
       </div>`;}).join("")}</div>`;
@@ -533,8 +534,8 @@ function buildScript(){
     {no:9,t:"광고",cue:"",p:"이창무 목자님께서 광고와 기도제목을 나눠주시겠습니다."},
   ];
 }
-const scriptText = () => buildScript().map(s=>`${s.no}. ${s.t}${s.cue?` (${s.cue})`:""}${s.p?"\n"+s.p:""}`).join("\n\n");
-const hl = t => esc(t).replace(/\[([^\]]+)\]/g,'<mark>$1</mark>').replace(/\n/g,"<br>");
+const scriptText = (full=true) => buildScript().filter(s=>full||s.p).map(s=>`${s.no}. ${s.t}${full&&s.cue?` (${s.cue})`:""}${s.p?"\n"+(full?s.p:s.p.replace(/\s*\([^)]{1,20}\)/g,"")):""}`).join("\n\n");
+const hl = t => esc(t).replace(/\[([^\]]+)\]/g,'<mark>$1</mark>').replace(/\(([^)]{1,20})\)/g,'<span class="dir">$1</span>').replace(/\n/g,"<br>");
 const stepsHtml = () => buildScript().map(s=>`<div class="step ${s.p?"":"quiet"}"><span class="dot">${s.no}</span><div><h3>${s.t}</h3>${s.cue?`<span class="cue">${esc(s.cue)}</span>`:""}${s.p?`<p>${hl(s.p)}</p>`:""}</div></div>`).join("");
 function vScript(){
   const nx = nextService();
@@ -550,15 +551,15 @@ function vScript(){
   return `${head("사회 원고", cw?.title?`${esc(verseText(cw))} · ${esc(cw.title)}`:"", sheep("pray"))}
     <label class="sr-only" for="s-date">주일 선택</label>
     <div class="select-wrap"><select id="s-date" name="date">${services.map(w=>`<option value="${w.date}" ${w.date===sc.date?"selected":""}>${fmtFull(w.date)}${w.date===nx?.date?" · 다음 예배":""}</option>`).join("")}</select>${icon("down")}</div>
-    <div class="seg" role="group" aria-label="보기">
-      <button type="button" data-act="scriptTab" data-v="script" aria-pressed="${tab==="script"}">원고 보기</button>
-      <button type="button" data-act="scriptTab" data-v="input" aria-pressed="${tab==="input"}">내용 고치기</button>
+    <div class="seg" role="tablist" aria-label="원고 보기 방식">
+      <button type="button" role="tab" data-act="scriptTab" data-v="script" aria-selected="${tab==="script"}">원고 보기</button>
+      <button type="button" role="tab" data-act="scriptTab" data-v="input" aria-selected="${tab==="input"}">내용 고치기</button>
     </div>
     ${missBar}
     ${tab==="script"?`
     <div class="card">
       <div class="copybar"><span class="s">${blanks?`노란 칸 <b>${blanks}곳</b> · 위 '남은 칸'을 누르면 바로 적을 수 있어요`:"복사해서 카톡에 붙여 넣으세요"}</span>
-        <button class="btn sm pri" type="button" data-act="copyScript">${icon("copy")}전체 복사</button></div>
+        <span class="copy2"><button class="btn sm pri" type="button" data-act="copyScript">${icon("copy")}진행 지시 포함 복사</button><button class="btn sm" type="button" data-act="copyScript" data-v="read">낭독문만 복사</button></span></div>
       <div class="timeline">${stepsHtml()}</div>
     </div>`:`
     <div class="card fields">
@@ -870,7 +871,7 @@ const DEPTS = {
   home:   { name:"러너스", desc:"게시판·생일·우리 팀·지출결의서", icon:"heart", color:"#E85D8A", home:"mhome",
             tabs:[["mhome","홈"],["board","게시판"],["myteam","우리 팀"],["expenses","지출결의"],["more","더보기"]] },
   social: { name:"사회부", desc:"예배 사회·대표기도·원고", icon:"mic", color:"#2F78D0", home:"dash",
-            tabs:[["dash","사회부 홈"],["schedule","일정"],["people","명단",true],["script","원고"],["more","더보기"]] },
+            tabs:[["dash","사회부 홈"],["schedule","배정표"],["people","기도 명단",true],["script","원고"],["more","더보기"]] },
   care:   { name:"챙김부", desc:"생일·군입대 챙기기", icon:"cake", color:"#E0663E", home:"birth",
             tabs:[["birth","생일"],["births","전체"],["army","군입대"],["more","더보기"]] },
   finance:{ name:"총무부", desc:"장부·지출결의서 검토", icon:"wallet", color:"#1F9D6B", home:"ledger",
@@ -1033,9 +1034,9 @@ function vBirth(){
   // 달력 (이전·다음 달로 넘길 수 있고, 아래 명단도 같은 달로 바뀌어요)
   if(!S.calYM){ const t=parse(TODAY); S.calYM={y:t.getFullYear(), m:t.getMonth()+1}; }
   const {y, m:cm} = S.calYM;
-  const monthList = all.filter(b=>b.month===cm).sort((a,b)=>a.day-b.day||a.name.localeCompare(b.name,"ko"));
-  const copyBtn = `<button class="link" type="button" data-act="copyMonth" data-m="${cm}">${icon("copy")}복사</button>`;
-  return `${head("러너스 생일", `전체 ${all.length}명`, "", "챙김부")}${hero}
+  const monthList = all.filter(b=>b.month===cm).sort((a,b)=>(a.dd>300)-(b.dd>300)||a.day-b.day||a.name.localeCompare(b.name,"ko"));
+  const copyBtn = `<span class="copy2"><button class="link" type="button" data-act="copyMonth" data-m="${cm}">${icon("copy")}${cm}월 전체 복사</button><button class="link" type="button" data-act="copyWeekBd">${icon("copy")}앞으로 7일 복사</button></span>`;
+  return `${head("러너스 생일", `생일 명단 등록 ${all.length}명`, "", "챙김부")}${hero}
     ${birthCal(y, cm, monthList)}
     ${section(`${cm}월 생일 <span class="cnt">${monthList.length}</span>`, `<div class="card list">${monthList.map(b=>birthRow(b,{past:b.dd>300, chip:b.dd>300?`<span class="chip mute plain">지남</span>`:undefined})).join("")||`<p class="note" style="padding:16px">${cm}월은 생일이 없어요</p>`}</div>`, copyBtn)}`;
 }
@@ -1155,17 +1156,17 @@ const WD = ["일","월","화","수","목","금","토"];
 const weekOn = d => allWeeks().find(w=>w.date===d);   // 그날 일정이 있을 때만 (없으면 undefined)
 const isNew = x => { const t=tsOf(x); return t && Date.now()-t < 864e5; };
 function panel(title, body, more="", cls=""){ return `<section class="pnl ${cls}"><header class="pnl-h"><h2>${title}</h2>${more}</header><div class="pnl-b">${body}</div></section>`; }
-const moreLink = (href, act="") => `<a class="pnl-more" href="${href}" ${act}>더보기 ${icon("plus")}</a>`;
+const moreLink = (href, act="", label="더보기") => `<a class="pnl-more" href="${href}" ${act}>${label} ${icon("plus")}</a>`;
 function pNotice(){
   const ps = [...S.posts].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0) || (tsOf(b)||0)-(tsOf(a)||0)).slice(0,8);
   return panel("공지사항", ps.length ? `<ul class="plist">${ps.map(p=>`<li><button type="button" data-act="openPost" data-id="${p.id}">
       ${p.pinned?`<span class="ptag">공지</span>`:`<span class="pdot"></span>`}<span class="pt">${esc(p.title||"")}</span>${p.commentCount?`<span class="pc">[${p.commentCount}]</span>`:""}${isNew(p)?`<span class="pnew">N</span>`:""}
-      <span class="pd">${pmd(new Date(tsOf(p)||Date.now()+0).toISOString().slice(0,10))}</span></button></li>`).join("")}</ul>` : `<p class="pempty one">아직 공지가 없어요</p>`, moreLink(isDesk()?"#notice":"#board"), ps.length?"":"slim");
+      <span class="pd">${pmd(new Date(tsOf(p)||Date.now()+0).toISOString().slice(0,10))}</span></button></li>`).join("")}</ul>` : `<p class="pempty one">아직 공지가 없어요</p>`, moreLink(isDesk()?"#notice":"#board", "", "공지 전체 보기"), ps.length?"":"slim");
 }
 function pService(){
   const nx = nextService(); if(!nx) return panel("이번 주일", `<p class="pempty">앞으로 잡힌 예배가 없어요</p>`, moreLink("#schedule"));
   const dd = dday(nx.date); const row = (k,v) => `<div class="kv"><span>${k}</span><b class="${v?"":"none"}">${v||"미정"}</b></div>`;
-  return panel("이번 주일", `<div class="psvc-top"><b>${fmtKo(nx.date)} (${WD[parse(nx.date).getDay()]})</b><span class="chip ${dd<=3?"warn":"acc"} plain tnum">${dd===0?"오늘":`D-${dd}`}</span></div>
+  return panel("다가오는 예배", `<div class="psvc-top"><b>${fmtKo(nx.date)} (${WD[parse(nx.date).getDay()]}) <small class="psvc-time">${SVC_TIME}</small></b><span class="chip ${dd<=3?"warn":"acc"} plain tnum">${dd===0?"오늘":`D-${dd}`}</span></div>
     ${(()=>{ const r=myRoles(); if(!r) return ""; const roles=[r.mc?"사회":"", r.pr?"대표기도":""].filter(Boolean).join("·");
       return `<div class="psvc-me">${icon("check")}<span>이번 주 <b>${roles}</b> 차례예요${r.mc&&sees("social")?` · 원고 ${r.blanks?`<b class="warn-t">${missLabel(r.miss)}</b>`:"준비 끝"}`:""}</span></div>`; })()}
     ${row("사회", esc(nx.mc||""))}${row("대표기도", esc(nx.prayer||""))}${row("본문", nx.book?esc(verseText(nx)):"")}${row("헌금찬송", nx.hymn?`${esc(nx.hymn)}장`:"")}
@@ -1241,14 +1242,16 @@ function pCalendar(){
   const {y,m} = S.pcYM; const sel = S.pcSel || TODAY;
   const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
   const cells = Array.from({length:42},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
+  const dayLabel = d => { const it = dayItems(d); const dt = parse(d); return `${dt.getMonth()+1}월 ${dt.getDate()}일 ${WD[dt.getDay()]}요일${it.length?", "+it.map(x=>x[1]).join(", ")+` ${it.length}건`:""}${(()=>{ const w=weekOn(d); return w&&!w.event&&!w.prayer&&sees("social")?", 대표기도 미정":""; })()}`; };
+  const missMark = d => { const w=weekOn(d); return w && !w.event && !w.prayer && sees("social") ? `<span class="miss-mk" aria-hidden="true">!</span>` : ""; };
   const dots = d => { const it = dayItems(d); const k = new Set(it.map(x=>x[0])); const w = weekOn(d); const svcMiss = w && !w.event && !w.prayer;
     return `${k.has("svc")?`<i class="dt ${svcMiss?"warn":"svc"}"></i>`:""}${k.has("ev")?`<i class="dt ev"></i>`:""}${k.has("evt")?`<i class="dt evt"></i>`:""}${k.has("bd")?`<i class="dt bd"></i>`:""}${k.has("army")?`<i class="dt army"></i>`:""}${k.has("lg")?`<i class="dt lg"></i>`:""}`; };
   const cal = `<div class="pcal">
     <div class="pcal-nav"><button class="btn icon sm" type="button" data-act="pcMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b>
       <button class="btn icon sm" type="button" data-act="pcMonth" data-d="1" aria-label="다음 달">${icon("chev")}</button><button class="btn sm" type="button" data-act="pcToday">오늘</button></div>
     <div class="pcal-g">${WD.map((w,i)=>`<span class="wd ${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}
-      ${cells.map(d=>{ const dt=parse(d); const out=dt.getMonth()+1!==m; return `<button type="button" class="pday ${out?"out":""} ${d===TODAY?"today":""} ${d===sel?"sel":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}" data-act="pcDay" data-d="${d}" aria-label="${dt.getMonth()+1}월 ${dt.getDate()}일"><span>${dt.getDate()}</span><span class="dts">${dots(d)}</span></button>`; }).join("")}</div>
-    <div class="pcal-legend"><span><i class="dt svc"></i>러너스예배</span><span><i class="dt ev"></i>통합예배</span><span><i class="dt evt"></i>일정</span><span><i class="dt warn"></i>기도 미정</span>${sees("care")||S.births.length?`<span><i class="dt bd"></i>생일</span>`:""}${sees("care")?`<span><i class="dt army"></i>군</span>`:""}${sees("finance")?`<span><i class="dt lg"></i>장부</span>`:""}</div></div>`;
+      ${cells.map(d=>{ const dt=parse(d); const out=dt.getMonth()+1!==m; return `<button type="button" class="pday ${out?"out":""} ${d===TODAY?"today":""} ${d===sel?"sel":""} ${dt.getDay()===0?"sun":dt.getDay()===6?"sat":""}" data-act="pcDay" data-d="${d}" aria-label="${dayLabel(d)}"><span>${dt.getDate()}</span>${missMark(d)}<span class="dts">${dots(d)}</span></button>`; }).join("")}</div>
+    <div class="pcal-legend"><span><i class="dt svc"></i>러너스예배</span><span><i class="dt ev"></i>통합예배</span><span><i class="dt evt"></i>일정</span><span><i class="dt warn"></i>기도 미정</span>${sees("care")||S.births.length?`<span><i class="dt bd"></i>생일</span>`:""}${sees("care")?`<span><i class="dt army"></i>군복무</span>`:""}${sees("finance")?`<span><i class="dt lg"></i>장부</span>`:""}</div></div>`;
   const it = dayItems(sel); const sd = parse(sel);
   const list = `<div class="pday-list"><h3><b class="tnum">${sel.slice(0,4)}.${pad(sd.getMonth()+1)}.${pad(sd.getDate())}</b> (${WD[sd.getDay()]}) 일정안내</h3>
     ${it.length ? `<ul>${it.map(([k,l,v])=>`<li><span class="ptag k-${k}">${l}</span><span>${v}</span></li>`).join("")}</ul>` : `<p class="pempty">등록된 일정이 없어요</p>`}</div>`;
@@ -1284,7 +1287,7 @@ function vPortal(){
 // PC 메뉴: 전자결재 · 일정관리 · 부서관리 · 커뮤니티 (왼쪽엔 세부 메뉴)
 const DEPT_MENU = [["leaders","리더단"],["social","사회부"],["care","챙김부"],["finance","총무부"]];
 function deskSections(){
-  const depts = DEPT_MENU.filter(([d])=>sees(d)).map(([d,l])=>[DEPTS[d].home, l, d]);
+  const depts = DEPT_MENU.filter(([d])=>sees(d)).sort((a,b)=>can(b[0])-can(a[0])).map(([d,l])=>[DEPTS[d].home, l, d]);
   return [
     { id:"eapp", t:"전자결재", items:[["eapp","지출결의"]] },
     { id:"sched", t:"일정관리", items:[["cal","안암일정"]] },
@@ -1319,7 +1322,7 @@ function renderTopInfo(r){
       <span class="tm-sep"></span><span class="tm-k">사회</span><b>${esc(nx.mc||"미정")}</b><span class="tm-k">대표기도</span><b>${esc(nx.prayer||"미정")}</b>
       <span class="tm-dd tnum ${dd<=3?"warn":""}">${dd===0?"오늘":`D-${dd}`}</span></a>`; }
   const html = `<span class="tm-gap"></span>${svc}<span class="tm-gap"></span>
-    <a class="tm-todo" href="#portal" data-act="goTodo" aria-label="나의 할 일 ${n}건">${icon("bell")}${n?`<i class="tnum">${n>99?"99+":n}</i>`:""}</a>
+    <a class="tm-todo" href="#portal" data-act="goTodo" aria-label="나의 할 일 ${n}건" title="나의 할 일">${icon("list")}${n?`<i class="tnum">${n>99?"99+":n}</i>`:""}</a>
     <a class="tm-me" href="#more"><b>${esc(myName()||"")}</b>님</a><button class="tm-out" type="button" data-act="logout" aria-label="로그아웃" title="로그아웃">${icon("logout")}</button>`;
   if(el.dataset.html !== html){ el.innerHTML = html; el.dataset.html = html; }
 }
@@ -1369,8 +1372,8 @@ function vEapp(){ if(!isDesk()) return vEappM();
   const opt = (v,l,cur) => `<option value="${v}" ${v===cur?"selected":""}>${l}</option>`;
   const boxes = [["mine","내 문서"], ...(fin?[["todo","결재할 문서"],["all","전체 문서"]]:[])];
   return `<div class="dtool"><button type="button" data-act="newExp">${icon("receipt")}<span>지출결의서 작성</span></button>
-      ${fin?`<a href="#expReview" data-act="deskDept" data-d="finance">${icon("check")}<span>결재하기</span></a>`:""}</div>
-    <div class="dsec-h"><h2>지출결의 목록</h2><div class="dbtns"><button class="btn sm" type="button" data-act="eReset">${icon("upload","rot")}초기화</button><button class="btn sm ok" type="button" data-act="eCsv">${icon("download")}엑셀 다운로드</button></div></div>
+      ${fin?`<a href="#expReview" data-act="deskDept" data-d="finance">${icon("check")}<span>결재하기 <small class="tnum">${S.expenses.filter(e=>expStatus(e)==="submitted").length?`(${S.expenses.filter(e=>expStatus(e)==="submitted").length})`:"· 대기 0"}</small></span></a>`:""}</div>
+    <div class="dsec-h"><h2>지출결의서 목록</h2><div class="dbtns"><button class="btn sm" type="button" data-act="eReset">${icon("upload","rot")}검색 조건 지우기</button><button class="btn sm ok" type="button" data-act="eCsv">${icon("download")}현재 목록 받기</button></div></div>
     <div class="dfilter">
       <label><span>문서함</span><div class="select-wrap"><select data-ef="box">${boxes.map(([v,l])=>opt(v,l,f.box)).join("")}</select>${icon("down")}</div></label>
       <label><span>결재상태</span><div class="select-wrap"><select data-ef="st">${opt("all","전체",f.st)}${opt("submitted","검토 중",f.st)}${opt("approved","승인",f.st)}${opt("rejected","반려",f.st)}</select>${icon("down")}</div></label>
@@ -1404,11 +1407,13 @@ const canAddEvent = () => S.isAdmin || editOf(S.member).length > 0;
 const canEditEvent = ev => S.isAdmin || ev.by === S.user?.uid;
 const eventsOn = d => S.events.filter(ev=>ev.date && d >= ev.date && d <= (ev.end || ev.date)).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
 // 주일: 러너스예배 / 통합예배 두 가지로만
+const SVC_TIME = "오후 2시";
 const svcKind = w => w.event ? "통합예배" : "러너스예배";
 function calEntries(d){
   const out = []; const dt = parse(d); const m = dt.getMonth()+1, day = dt.getDate(); const F = S.calF || "all";
   const w = weekOn(d);
-  if(w && (F==="all"||F==="svc")) out.push(w.event ? {k:"ev", tag:"예배", t:`통합예배${w.event && w.event!=="통합예배" ? ` · ${esc(w.event)}` : ""}`, act:can("social")?`data-act="editWeek" data-date="${d}"`:""}
+  const me = myName(); const mine = w && !w.event && me && (w.mc===me || w.prayer===me);
+  if(w && (F==="all"||F==="svc"||(F==="my"&&mine))) out.push(w.event ? {k:"ev", tag:"예배", t:`통합예배${w.event && w.event!=="통합예배" ? ` · ${esc(w.event)}` : ""}`, act:can("social")?`data-act="editWeek" data-date="${d}"`:""}
     : {k:"svc", tag:"예배", t:`러너스예배<small>사회 ${esc(w.mc||"미정")} · 기도 ${esc(w.prayer||"미정")}</small>`, miss:sees("social") && !w.prayer, act:can("social")?`data-act="editWeek" data-date="${d}"`:sees("social")?`data-act="openScript" data-date="${d}"`:""});
   if(F==="all"||F==="evt") eventsOn(d).forEach(ev=>{ const [cl,cc]=EV_CAT[ev.cat]||EV_CAT.etc; out.push({k:"evt", tag:cl, color:cc, t:`${ev.time?`<b class="tnum">${ev.time}</b> `:""}${esc(ev.title)}`, act:`data-act="viewEvent" data-id="${ev.id}"`}); });
   if(F==="all"||F==="bd") S.births.filter(b=>+b.month===m && +b.day===day).forEach(b=>out.push({k:"bd", tag:"생일", t:esc(honor(b)), act:can("care")&&b.id?`data-act="editBirth" data-id="${b.id}"`:""}));
@@ -1444,7 +1449,7 @@ function vCal(){ if(!isDesk()) return vCalM();
   const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
   const weeksN = Math.ceil((first.getDay() + new Date(y, m, 0).getDate())/7);
   const cells = Array.from({length:weeksN*7},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
-  const filters = [["all","전체"],["svc","예배"],["evt","일정"],["bd","생일"], ...(sees("care")?[["army","군"]]:[])];
+  const filters = [["all","전체"],["my","내 담당"],["svc","예배"],["evt","일정"],["bd","생일"], ...(sees("care")?[["army","군복무"]]:[])];
   return `<div class="dsec-h cal-top"><div class="cal-f">${filters.map(([k,l])=>`<button type="button" class="${F===k?"on":""}" data-act="calF" data-v="${k}">${l}</button>`).join("")}</div>
       <div class="cal-nav"><button class="btn icon sm" type="button" data-act="calMonth" data-d="-1" aria-label="이전 달">${icon("chev","flip")}</button><b class="tnum">${y}년 ${m}월</b><button class="btn icon sm" type="button" data-act="calMonth" data-d="1" aria-label="다음 달">${icon("chev")}</button></div>
       <div class="dbtns"><button class="btn sm" type="button" data-act="calToday">오늘</button>${canAddEvent()?`<button class="btn sm pri" type="button" data-act="newEvent">${icon("plus")}일정 등록</button>`:""}</div></div>
@@ -1479,7 +1484,7 @@ function vCalM(){
   const first = new Date(y, m-1, 1), start = new Date(y, m-1, 1-first.getDay());
   const weeksN = Math.ceil((first.getDay() + new Date(y, m, 0).getDate())/7);
   const cells = Array.from({length:weeksN*7},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return iso(d); });
-  const filters = [["all","전체"],["svc","예배"],["evt","일정"],["bd","생일"], ...(sees("care")?[["army","군"]]:[])];
+  const filters = [["all","전체"],["my","내 담당"],["svc","예배"],["evt","일정"],["bd","생일"], ...(sees("care")?[["army","군복무"]]:[])];
   const it = calEntries(sel); const sd = parse(sel);
   return `${head("안암일정", "", canAddEvent()?`<button class="btn pri" type="button" data-act="newEvent" data-date="${sel}">${icon("plus")}일정 등록</button>`:"", "일정관리")}
     <div class="chips-row">${filters.map(([k,l])=>`<button type="button" class="fchip ${F===k?"on":""}" data-act="calF" data-v="${k}">${l}</button>`).join("")}</div>
@@ -1505,7 +1510,7 @@ function vNotice(){ if(!isDesk()) return vCommM("notice");
       <tbody>${slice.map(p=>{ const no = p.pinned ? `<span class="pin-ic" aria-label="공지">📢</span>` : n--; const t = tsOf(p);
         return `<tr data-act="openPost" data-id="${p.id}" tabindex="0" class="${p.pinned?"pinned":""}"><td class="tnum">${no}</td><td class="l"><span class="dt-t">${p.pinned?"[공지] ":""}${esc(p.title||"")}</span>${isNew(p)?`<span class="pnew">N</span>`:""}</td>
           <td class="tnum">${p.commentCount||0}</td><td>${esc(p.name||"")}</td><td class="tnum">${t?`${iso(new Date(t))} ${pad(new Date(t).getHours())}:${pad(new Date(t).getMinutes())}`:""}</td></tr>`; }).join("")
-        || `<tr><td colspan="5" class="dt-empty">글이 없어요</td></tr>`}</tbody></table></div>
+        || `<tr><td colspan="5" class="dt-empty">아직 글이 없어요 · 모임 소식이나 안내를 러너스 모두에게 알리는 곳이에요 <button class="btn sm pri" type="button" data-act="newPost">첫 글 쓰기</button></td></tr>`}</tbody></table></div>
     ${pager(pg, pages, "nPage")}`;
 }
 function vReqBoard(){ if(!isDesk()) return vCommM("req");
@@ -1524,10 +1529,10 @@ function vReqBoard(){ if(!isDesk()) return vCommM("req");
 
 function renderQuick(){
   const q = document.getElementById("quick"); if(!q) return;
-  const items = [["newExp","receipt","결의서"], ["qReq","edit","수정 요청"]];
+  const items = [["newExp","receipt","결의서 쓰기"], ["qReq","edit","수정 요청"]];
   if(sees("social")) items.push(["qScript","doc","사회 원고"]);
   if(sees("finance")) items.push(["qLedger","wallet","장부"]);
-  items.push(["notify","bell","알림"]);
+  items.push(["notify","bell","알림 설정"]);
   const key = items.map(x=>x[0]).join(); if(q.dataset.key===key) return; q.dataset.key = key;
   q.innerHTML = `<b class="q-h">QUICK</b>${items.map(([a,i,l])=>`<button type="button" data-act="${a}" aria-label="${l}">${icon(i)}<span>${l}</span></button>`).join("")}<button type="button" class="q-top" data-act="qTop" aria-label="맨 위로">${icon("up")}</button>`;
 }
@@ -1555,7 +1560,7 @@ function vMHome(){
   const t = myTeam(); const wk = t ? tw(sundayOn(TODAY), t.id) : {}; const pr = wk.prayers||{};
   const tlines = t ? teamMembers(t.id).filter(x=>pr[x]?.trim()) : [];
   const worship = nx ? `<section class="card m-worship">
-      <div class="mw-top"><span class="eyebrow">다음 주일 예배</span><b>${fmtKo(nx.date)}</b><span class="chip acc plain">${dday(nx.date)===0?"오늘":`D-${dday(nx.date)}`}</span></div>
+      <div class="mw-top"><span class="eyebrow">다가오는 예배</span><b>${fmtKo(nx.date)}</b><span class="chip acc plain">${dday(nx.date)===0?"오늘":`D-${dday(nx.date)}`}</span></div>
       ${nx.book?`<div class="mw-verse">${icon("book")}<span>${esc(verseText(nx))}${nx.title?` · ${esc(nx.title)}`:""}</span></div>`:""}
       <div class="mw-people">${person("사회",nx.mc)}${person("기도",nx.prayer)}</div></section>` : "";
   return `${head("러너스", "", "", name?`${esc(name)}님, 반가워요`:"반가워요")}
@@ -1665,6 +1670,13 @@ function watchComments(id){
 
 /* ---------- 러너스: 지출결의서 ---------- */
 const EXP_MAX = 4;
+// 상세내역 줄마다 적은 "…원" 금액을 더해서 신청 금액과 맞는지 알려 줘요
+function detailSum(text, amount){
+  const ns = String(text||"").split("\n").map(l=>l.match(/([\d,]+)\s*원/)).filter(Boolean).map(m=>+m[1].replace(/,/g,"")).filter(n=>n>0);
+  if(!ns.length) return "";
+  const sum = ns.reduce((a,b)=>a+b,0); const a = +amount||0;
+  return `상세내역 합계 <b class="tnum">${won(sum)}원</b>${a ? (sum===a ? ` · <span class="ok-t">신청 금액과 같아요</span>` : ` · <span class="warn-t">신청 금액(${won(a)}원)과 ${won(Math.abs(sum-a))}원 달라요</span>`) : ""}`;
+}
 // 그림 주소는 우리가 만든 이미지(data:image/…;base64)만 그대로 쓰고, 나머지는 버려요 (남이 넣은 코드가 실행되지 않게)
 const imgData = u => typeof u==="string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(u) ? u : "";
 // 12300 → "일만이천삼백"
@@ -1764,41 +1776,41 @@ function vExpForm(){
   requestAnimationFrame(bindSig);
   const row = (label, body, req=false, cls="") => `<tr class="${cls}"><th>${req?`<i class="req">*</i>`:""}${label}</th><td colspan="3">${body}</td></tr>`;
   return `<div class="dsec-h"><h2>지출결의서 (일반)</h2><div class="dbtns"><a class="btn sm" href="#eapp">${icon("menu")}목록</a></div></div>
+    <p class="exp-flow top"><i class="req">*</i> 표시는 꼭 적어야 해요 · 제출하면 <b>총무부 운영자</b>가 검토하고, 승인되면 장부에 자동으로 기록돼요 (장부에 따로 적지 마세요)</p>
     <form class="dform" id="exp-form" data-id="${id||""}" onsubmit="return false">
     <table class="dform-t"><colgroup><col style="width:150px"><col><col style="width:150px"><col></colgroup><tbody>
       <tr><th>기안자</th><td>${esc(myName()||"")}</td><th>기안일자</th><td class="tnum">${e&&tsOf(e)?iso(new Date(tsOf(e))):TODAY.replace(/-/g,".")}</td></tr>
-      ${row("지출명", `<input id="ex-title" maxlength="80" autocomplete="off" placeholder="어떤 일로 썼나요 · 예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}">`, true)}
+      ${row("지출명", `<input id="ex-title" aria-label="지출명 (필수)" maxlength="80" autocomplete="off" placeholder="어떤 일로 썼나요 · 예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}">`, true)}
       ${row("지출처", `<input id="ex-place" maxlength="80" autocomplete="off" placeholder="어디에 썼나요 · 예: 안암동 ○○식당" value="${esc(e?.place||"")}">`)}
       ${row("참여자", `<input id="ex-people" maxlength="300" autocomplete="off" placeholder="예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">`)}
-      ${row("금액", `<div class="dform-amt"><div class="won-in"><input id="ex-amt" inputmode="numeric" autocomplete="off" placeholder="0" value="${e?.amount?won(e.amount):""}"><span>원</span></div><span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span></div>`, true)}
-      ${row("상세내역", `<textarea id="ex-detail" rows="4" maxlength="500" placeholder="한 줄에 하나씩 · 예: 김밥 10줄 30,000원">${esc(e?.detail||"")}</textarea>`)}
+      ${row("금액", `<div class="dform-amt"><div class="won-in"><input id="ex-amt" aria-label="금액, 원 (필수)" aria-describedby="ex-ko ex-sum" inputmode="numeric" autocomplete="off" placeholder="0" value="${e?.amount?won(e.amount):""}"><span>원</span></div><span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span></div>`, true)}
+      ${row("상세내역", `<textarea id="ex-detail" aria-label="상세내역" rows="4" maxlength="500" placeholder="한 줄에 하나씩 · 예: 김밥 10줄 30,000원">${esc(e?.detail||"")}</textarea><span class="exp-sum" id="ex-sum">${detailSum(e?.detail, e?.amount)}</span>`)}
       ${row("영수확인", `<p class="dform-stmt">상기 금액을 정히 영수합니다.</p>
-        <div class="dform-sign"><label><span>영수일</span><input type="date" id="ex-date" value="${e?.date||TODAY}"></label><label><span>영수자</span><input id="ex-payee" maxlength="20" autocomplete="off" value="${esc(e?.payee||myName()||"")}"></label>
-          <div class="sig-pad ${S.expDraft.sign?"has":""}"><canvas id="ex-sig" aria-label="서명란"></canvas><span class="sig-ph">여기에 서명해 주세요</span><button class="btn sm" type="button" data-act="sigClear">지우기</button></div></div>`, true)}
-      ${row("영수증 첨부", `<div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div>`)}
+        <div class="dform-sign"><label><span>영수일 <small>(목록의 지출일)</small></span><input type="date" id="ex-date" value="${e?.date||TODAY}"></label><label><span>영수자</span><input id="ex-payee" maxlength="20" autocomplete="off" value="${esc(e?.payee||myName()||"")}"></label>
+          <div class="sig-pad ${S.expDraft.sign?"has":""}"><canvas id="ex-sig" aria-label="서명란"></canvas><span class="sig-ph">여기에 서명해 주세요</span><button class="btn sm" type="button" data-act="sigClear">서명 다시 쓰기</button></div></div>`, true)}
+      ${row(`영수증 첨부<small>사진 ${EXP_MAX}장까지</small>`, `<div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div>`)}
     </tbody></table>
-    <p class="exp-flow"><i class="req">*</i> 표시는 꼭 적어야 해요 · 제출하면 <b>총무부 운영자</b>가 검토하고, 승인되면 장부에 자동으로 기록돼요</p>
     <div class="dform-foot"><a class="btn" href="#eapp">취소</a><button class="btn pri" type="button" data-act="saveExp">${icon("check")}${e?"저장":"제출"}</button></div></form>`;
 }
 function expSheet(id){
   const e = id ? S.expenses.find(x=>x.id===id) : null;
   const d = S.expDraft = { id:e?.id||null, sign:e?.sign||"", files: e ? S.expFiles.map(f=>({data:f.data})) : [], oldFiles: e?.files||0 };
   openSheet(e?"지출결의서 고치기":"지출결의서 작성", `<div class="fields exp-form">
+    <p class="exp-flow top"><i class="req">*</i> 표시는 꼭 적어야 해요 · 제출하면 <b>총무부 운영자</b>가 검토하고, 승인되면 장부에 자동으로 기록돼요 (장부에 따로 적지 마세요)</p>
     <label class="field"><span>지출명 <i class="req">*</i></span><input id="ex-title" maxlength="80" autocomplete="off" placeholder="예: 11월 새가족 환영 식사" value="${esc(e?.title||"")}"></label>
     <label class="field"><span>지출처</span><input id="ex-place" maxlength="80" autocomplete="off" placeholder="예: 안암동 ○○식당" value="${esc(e?.place||"")}"></label>
     <div class="field"><span class="lab">지출사유 <small>(금액 <i class="req">*</i>)</small></span>
       <div class="exp-in"><label class="sr-only" for="ex-people">참여자</label><input id="ex-people" maxlength="300" autocomplete="off" placeholder="참여자 · 예: 이수지, 김하늘 외 4명" value="${esc(e?.people||"")}">
         <div class="won-in"><label class="sr-only" for="ex-amt">금액</label><input id="ex-amt" inputmode="numeric" autocomplete="off" placeholder="금액" value="${e?.amount?won(e.amount):""}"><span>원</span></div></div>
       <span class="exp-ko" id="ex-ko">${e?.amount?wonLine(e.amount):""}</span>
-      <label class="sr-only" for="ex-detail">상세내역</label><textarea id="ex-detail" class="exp-detail" rows="3" maxlength="500" placeholder="상세내역 (한 줄에 하나씩)&#10;예: 김밥 10줄 30,000원&#10;음료 12개 18,000원">${esc(e?.detail||"")}</textarea></div>
+      <label class="sr-only" for="ex-detail">상세내역</label><textarea id="ex-detail" class="exp-detail" rows="3" maxlength="500" placeholder="상세내역 (한 줄에 하나씩)&#10;예: 김밥 10줄 30,000원&#10;음료 12개 18,000원">${esc(e?.detail||"")}</textarea><span class="exp-sum" id="ex-sum">${detailSum(e?.detail, e?.amount)}</span></div>
     <div class="field"><span class="lab">영수확인 <i class="req">*</i></span>
       <p class="exp-stmt">상기 금액을 정히 영수합니다.</p>
-      <div class="exp-in two"><label class="sr-only" for="ex-date">영수일</label><input type="date" id="ex-date" value="${e?.date||TODAY}">
+      <div class="exp-in two"><label class="sr-only" for="ex-date">영수일 (목록에 지출일로 표시돼요)</label><input type="date" id="ex-date" value="${e?.date||TODAY}">
         <label class="sr-only" for="ex-payee">영수자</label><input id="ex-payee" maxlength="20" autocomplete="off" placeholder="영수자 이름" value="${esc(e?.payee||myName()||"")}"></div>
       <div class="sig-pad ${d.sign?"has":""}"><canvas id="ex-sig" aria-label="서명란"></canvas><span class="sig-ph">여기에 서명해 주세요</span>
-        <button class="btn sm" type="button" data-act="sigClear">지우기</button></div></div>
-    <div class="field"><span class="lab">영수증 첨부</span><div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div></div>
-    <p class="exp-flow"><i class="req">*</i> 표시는 꼭 적어야 해요 · 제출하면 <b>총무부 운영자</b>가 검토하고, 승인되면 장부에 자동으로 기록돼요</p>
+        <button class="btn sm" type="button" data-act="sigClear">서명 다시 쓰기</button></div></div>
+    <div class="field"><span class="lab">영수증 첨부 <small>(사진 ${EXP_MAX}장까지 · 자동으로 줄여 저장)</small></span><div class="exp-thumbs" id="ex-thumbs">${expThumbs()}</div></div>
   </div>`, `<button class="btn pri block" type="button" data-act="saveExp">${e?"저장":"제출"}</button>`);
   requestAnimationFrame(bindSig);
 }
@@ -1869,24 +1881,25 @@ function ldWeekNav(){
   const d = S.ldSun;
   return `<div class="ld-week">
     <button class="btn icon sm" type="button" data-act="ldMove" data-v="-7" aria-label="지난주">${icon("chev","flip")}</button>
-    <div class="ld-week-t"><b>${fmtKo(d)}</b><span>${d===sundayOn(TODAY)?"이번 주일":dday(d)>0?"다가오는 주일":`${Math.round(-dday(d)/7)}주 전`}</span></div>
+    <div class="ld-week-t"><b>${fmtKo(d)}</b><span>${d===sundayOn(TODAY)?(d===TODAY?"오늘 주일 · 출석 집계":"지난 주일 · 출석 집계 대상"):dday(d)>0?"다가오는 주일":`${Math.round(-dday(d)/7)}주 전 · 출석 집계`}</span></div>
     <button class="btn icon sm" type="button" data-act="ldMove" data-v="7" aria-label="다음 주">${icon("chev")}</button></div>`;
 }
 function vLead(){
   if(!S.ldSun) S.ldSun = sundayOn(TODAY);
   const d = S.ldSun; const stats = TEAMS.map(t=>({t, ...teamStat(d, t.id)}));
   const tot = stats.reduce((a,x)=>({total:a.total+x.total, came:a.came+x.o+x.on, checked:a.checked+x.checked}), {total:0,came:0,checked:0});
-  const mine = myTeam();
-  return `${head("리더단", "", `<button class="btn" type="button" data-act="copyPrayers">${icon("copy")}기도제목 모아 복사</button>`, "리더단")}
+  const mine = myTeam(); if(mine) stats.sort((a,b)=>(b.t.id===mine.id)-(a.t.id===mine.id));
+  const prN = stats.reduce((a,x)=>a+x.prayers,0); const open = tot.checked<tot.total;
+  return `${head("리더단", "", `<button class="btn" type="button" data-act="copyPrayers" ${prN?"":"disabled"}>${icon("copy")}기도제목 모아 복사 <small class="tnum">(${prN}건)</small></button>`, "리더단")}
     ${ldWeekNav()}
     <section class="card ld-total">
-      <div class="ld-total-n"><span class="k">전체 출석</span><b class="tnum">${tot.came}<small>/${tot.total}명</small></b></div>
+      <div class="ld-total-n"><span class="k">${open?"출석 집계 중 · 입력":"전체 출석"}</span><b class="tnum">${open?tot.checked:tot.came}<small>/${tot.total}명</small></b></div>
       <div class="ld-total-bar" role="img" aria-label="출석 ${tot.came}명, 전체 ${tot.total}명"><div style="width:${tot.total?tot.came/tot.total*100:0}%"></div></div>
-      <span class="s">${tot.total?`출석률 ${Math.round(tot.came/tot.total*100)}% · 체크 ${tot.checked}/${tot.total}`:"팀원을 먼저 등록해 주세요"}</span>
+      <span class="s">${!tot.total?"팀원을 먼저 등록해 주세요":open?`출석 대상 ${tot.total}명 중 <b>${tot.checked}명 입력</b> · 출석 확인 ${tot.came}명 · <b>미입력 ${tot.total-tot.checked}명</b>`:`출석 대상 ${tot.total}명 · 출석 ${tot.came}명 · 출석률 ${Math.round(tot.came/tot.total*100)}%`}</span>
     </section>
     <div class="team-grid">${stats.map(x=>`<button type="button" class="team-card ${mine?.id===x.t.id?"mine":""}" data-act="openTeam" data-id="${x.t.id}" style="--tc:${x.t.c}">
       <span class="team-top"><span class="team-dot"></span><b>${x.t.name}</b>${mine?.id===x.t.id?`<span class="chip acc plain">우리 팀</span>`:""}</span>
-      <span class="team-n tnum">${x.total?`${x.o+x.on}<small>/${x.total}</small>`:`<small>팀원 없음</small>`}</span>
+      <span class="team-n tnum">${!x.total?`<small>팀원 없음</small>`:!x.checked?`<small>입력 전</small>`:`${x.o+x.on}<small>/${x.total}</small>`}</span>
       <span class="team-bar"><i style="width:${x.total?(x.o+x.on)/x.total*100:0}%"></i></span>
       <span class="team-meta">${x.total?`${x.checked<x.total?`미체크 ${x.total-x.checked}명`:"체크 완료"} · 기도제목 ${x.prayers}`:"눌러서 팀원 등록"}</span>
     </button>`).join("")}</div>`;
@@ -1922,7 +1935,7 @@ function vLeadHist(){
     return `<tr class="grp"><td class="c-date" colspan="${N+2}" style="--tc:${t.c}"><span class="team-dot"></span>${t.name}</td></tr>` + ms.map(m=>{
       const vals = dates.map(d=>(tw(d,t.id).att||{})[m]); const came = vals.filter(v=>v==="o"||v==="on").length, chk = vals.filter(Boolean).length;
       return `<tr><td class="c-date">${esc(m)}</td>${vals.map(v=>`<td class="c-mk">${mark(v)}</td>`).join("")}<td class="c-num">${chk?Math.round(came/chk*100)+"%":"-"}</td></tr>`; }).join(""); }).join("");
-  return `${head("출석부", `최근 ${N}주 · ○ 참석  △ 온라인  ✕ 결석`, `<button class="btn" type="button" data-act="histCsv">${icon("dl")}엑셀로 받기</button>`, "리더단")}
+  return `${head("출석부", `최근 ${N}주 · ○ 참석  △ 온라인  ✕ 결석`, `<button class="btn" type="button" data-act="histCsv">${icon("dl")}최근 ${N}주 출석부 받기</button>`, "리더단")}
     <div class="seg mini months" role="group" aria-label="팀">${[["all","전체"],...TEAMS.map(t=>[t.id,t.name.replace(/팀$/,"")])].map(([k,l])=>`<button type="button" data-act="histTeam" data-v="${k}" aria-pressed="${sel===k}">${l}</button>`).join("")}</div>
     <section class="card sheet-card"><div class="xl-wrap" tabindex="0" role="region" aria-label="출석부"><table class="xl att-xl">
       <thead><tr><th class="c-date">이름</th>${dates.map(d=>`<th class="c-mk">${+d.slice(5,7)}/${+d.slice(8)}</th>`).join("")}<th class="c-num">출석률</th></tr></thead>
@@ -2038,12 +2051,12 @@ function vLedger(){
       <td class="c-num out d-only">${r.type==="out"?won(r.amount):""}</td>
       <td class="c-num amt m-only ${r.type}">${r.type==="in"?"+":"−"}${won(r.amount)}</td>
       <td class="c-num bal ${r.bal<0?"neg":""}">${sgn(r.bal)}</td></tr>`).join("");
-  return `${head("총무부 장부", `${y}년 ${m}월`, `<button class="btn" type="button" data-act="lgCsv">${icon("dl")}엑셀로 받기</button>`, "총무부")}
+  return `${head("총무부 장부", `${y}년 ${m}월`, `<button class="btn" type="button" data-act="lgCsv">${icon("dl")}${y}년 ${m}월 장부 받기</button>`, "총무부")}
     <div class="kpis">
-      ${tile("현재 잔액", sgn(total)+"원", total<0?"neg":"bal", "전체 누적")}
-      ${tile(`${m}월 수입`, "+"+won(inM), "in", `${month.filter(r=>r.type==="in").length}건`)}
-      ${tile(`${m}월 지출`, "−"+won(outM), "out", `${month.filter(r=>r.type==="out").length}건`)}
-      ${tile(`${m}월 순액`, (inM-outM>=0?"+":"")+sgn(inM-outM), inM-outM<0?"neg":"net", `월초 ${sgn(opening)} → 월말 ${sgn(opening+inM-outM)}`)}
+      ${tile("현재 잔액", sgn(total)+"원", total<0?"neg":"bal", `${+TODAY.slice(5,7)}월 ${+TODAY.slice(8)}일 기준 · 전체 누적`)}
+      ${tile(`${m}월 수입`, inM?"+"+won(inM):"0원", "in", `${month.filter(r=>r.type==="in").length}건`)}
+      ${tile(`${m}월 지출`, outM?"−"+won(outM):"0원", "out", `${month.filter(r=>r.type==="out").length}건`)}
+      ${tile(`${m}월 순액`, inM-outM?(inM-outM>0?"+":"")+sgn(inM-outM):"0원", inM-outM<0?"neg":"net", `월초 ${sgn(opening)} → ${`${y}-${pad(m)}`===TODAY.slice(0,7)?"현재까지":`${y}-${pad(m)}`<TODAY.slice(0,7)?"월말 확정":"예정"} ${sgn(opening+inM-outM)}`)}
     </div>
     ${entry}
     <section class="card sheet-card">
@@ -2470,6 +2483,7 @@ document.addEventListener("click", async e => {
     const ref = t.dataset.id ? S.db.doc("birthdays/"+t.dataset.id) : S.db.collection("birthdays").doc();
     t.disabled=true; if(await write(()=>ref.set(body),"저장했어요")) closeSheet(); else t.disabled=false; }
   if(a==="copyMonth") copy(monthText(+t.dataset.m));
+  if(a==="copyWeekBd"){ const xs=births().filter(b=>b.dd<=7).sort((a,b)=>a.dd-b.dd); if(!xs.length){ toast("앞으로 7일 안에 생일이 없어요"); return; } copy(`🎂 이번 주 러너스 생일 (${xs.length}명)\n`+xs.map(b=>`${pad(b.month)}.${pad(b.day)} ${honor(b)}`).join("\n")); return; }
   if(a==="copyToday"){ const td=births().filter(b=>b.dd===0); copy(`🎉 오늘은 ${td.map(honor).join(", ")} 생일이에요! 다 같이 축하해 주세요 🎂`); }
   if(a==="jumpMonth"){ const el=document.getElementById("m-"+t.dataset.m); if(el){ const bar=document.querySelector(".month-bar"); const y=el.getBoundingClientRect().top+scrollY-(bar?bar.offsetHeight+70:80); scrollTo({top:y, behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"}); }
     t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b===t))); return; }
@@ -2547,7 +2561,7 @@ document.addEventListener("click", async e => {
     const did=t.dataset.id;
     if(await write(()=>S.db.doc("people/"+did).delete(),"삭제했어요")){ closeSheet(); await applyPriorities(S.people.filter(x=>x.id!==did), S.weeks); }
   }
-  if(a==="copyScript") copy(scriptText());
+  if(a==="copyScript") copy(scriptText(t.dataset.v!=="read"));
   if(a==="saveLines"){ const sc=S.script; if(!sc.date) return;
     await write(()=>S.db.doc("weeks/"+sc.date).set(opsOf(weekAt(sc.date), {mukdo:sc.mukdo, offering:sc.offering})),"묵도·헌금기도를 저장했어요"); }
   if(a==="copyTopics") copy(document.getElementById("t-topics")?.value || S.topics || DEFAULT_TOPICS);
@@ -2596,7 +2610,9 @@ document.addEventListener("input", e => {
   if(id==="so-start"||id==="so-end"){ syncSoldierCalc(); return; }
   if(id==="ef-q"){ clearTimeout(S._qt); S._qt=setTimeout(()=>{ S.eF.q=e.target.value; S.ePage=1; render(); }, 250); return; }
   if(id==="n-q"){ clearTimeout(S._qt); S._qt=setTimeout(()=>{ S.nQ=e.target.value; S.nPage=1; render(); }, 250); return; }
-  if(id==="ex-amt"){ const n=parseWon(e.target.value); const ko=document.getElementById("ex-ko"); if(ko) ko.textContent = n ? wonLine(n) : ""; return; }
+  if(id==="ex-amt"){ const el=e.target; const n0=parseWon(el.value); const f=n0?won(n0):""; if(el.value!==f){ el.value=f; el.setSelectionRange?.(f.length,f.length); } }
+  if(id==="ex-amt"||id==="ex-detail"){ const n=parseWon(document.getElementById("ex-amt")?.value||""); const ko=document.getElementById("ex-ko"); if(ko && id==="ex-amt") ko.textContent = n ? wonLine(n) : "";
+    const sm=document.getElementById("ex-sum"); if(sm) sm.innerHTML = detailSum(document.getElementById("ex-detail")?.value, n); return; }
   if(id==="pref-all"){ document.getElementById("alert-list")?.classList.toggle("dim", !e.target.checked); return; }
   if(e.target.matches?.("[data-group-switch]")){ const box=e.target.closest(".ag"); box.querySelectorAll("[data-pref]").forEach(x=>{ x.checked=e.target.checked; const cfg=x.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!x.checked; }); syncAlertGroup(box); return; }
   if(e.target.matches?.("[data-pref]")){ const cfg=e.target.closest(".alert")?.querySelector(".alert-cfg"); if(cfg) cfg.hidden=!e.target.checked; syncAlertGroup(e.target.closest(".ag")); return; }
