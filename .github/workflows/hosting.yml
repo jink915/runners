@@ -1,0 +1,53 @@
+name: 앱 화면 배포 (anam1-runners.web.app)
+on:
+  push:
+    branches: [main]
+    paths: ["*.html", "*.js", "*.css", "*.webmanifest", "icons/**", "img/**", "data/**", "firebase.json", ".github/workflows/hosting.yml"]
+  workflow_dispatch:
+concurrency: { group: hosting-deploy, cancel-in-progress: false }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: 서비스 계정 준비
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+        env: { SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" }
+      - name: 올릴 파일만 모으기 (앱 화면 파일만)
+        run: |
+          mkdir _site
+          cp index.html privacy.html app.js style.css sw.js firebase-config.js manifest.webmanifest _site/
+          cp -r icons img data _site/
+          ls -R _site | head -40
+      - name: 주소(사이트) 만들기 — 이미 있으면 넘어가요
+        run: |
+          npx --yes firebase-tools@14 hosting:sites:get anam1-runners --project runners-prepare --non-interactive >/dev/null 2>&1 \
+            || npx --yes firebase-tools@14 hosting:sites:create anam1-runners --project runners-prepare --non-interactive
+      - name: 새 주소에서 구글 로그인 허용
+        run: |
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json" --quiet
+          T=$(gcloud auth print-access-token)
+          U="https://identitytoolkit.googleapis.com/admin/v2/projects/runners-prepare/config"
+          cur=$(curl -s -H "Authorization: Bearer $T" -H "x-goog-user-project: runners-prepare" "$U")
+          body=$(echo "$cur" | node -e '
+            let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=JSON.parse(s);
+              if(!c.authorizedDomains){console.error("설정을 못 읽었어요");process.exit(1)}
+              const want=["anam1-runners.web.app","anam1-runners.firebaseapp.com"];
+              const add=want.filter(d=>!c.authorizedDomains.includes(d));
+              console.error("허용 주소 "+c.authorizedDomains.length+"개, 추가할 것 "+add.length+"개");
+              process.stdout.write(add.length?JSON.stringify({authorizedDomains:[...c.authorizedDomains,...add]}):"");})')
+          if [ -n "$body" ]; then
+            curl -s -o /dev/null -w "추가 결과 HTTP %{http_code}\n" -X PATCH -H "Authorization: Bearer $T" -H "x-goog-user-project: runners-prepare" \
+              -H "Content-Type: application/json" -d "$body" "$U?updateMask=authorizedDomains"
+          fi
+      - name: 배포
+        run: npx --yes firebase-tools@14 deploy --only hosting --project runners-prepare --non-interactive
+      - name: 열리는지 확인
+        run: curl -s -o /dev/null -w "anam1-runners.web.app → HTTP %{http_code}\n" https://anam1-runners.web.app/
+      - name: 정리
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
