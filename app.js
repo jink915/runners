@@ -20,7 +20,7 @@ const DEFAULT_TOPICS = `1. 지난 주 주신 말씀에 대한 감사
 
 (관리자가 더보기 → 기도제목에서 실제 기도제목을 적어 두면 이 내용 대신 보여요)`;
 
-const APP_VERSION = "11.20-3";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
+const APP_VERSION = "11.21-1";   // 더보기 맨 아래에 보여서, 휴대폰이 최신 버전인지 확인할 수 있어요
 const store = { get:k=>{ try{ return localStorage.getItem(k); }catch{ return null; } }, set:(k,v)=>{ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} } };
 // 알림 종류: 기본 요일(0=일 … 6=토)과 시각(시). 각자 앱에서 바꿀 수 있어요.
 const ALERTS = [
@@ -966,7 +966,7 @@ function openDrawer(){
       <p class="drawer-label">전자결재</p>${link("eapp","receipt","#E85D8A","지출결의")}
       <p class="drawer-label">일정관리</p>${link("cal","dash","#2F78D0","안암일정")}
       ${depts.length?`<p class="drawer-label">부서관리</p><div class="dept-list">${depts.map(item).join("")}</div>`:""}
-      <p class="drawer-label">커뮤니티</p>${link("notice","doc","#F0A020","공지사항")}${link("reqboard","edit","#14A3A0","요청게시판")}
+      <p class="drawer-label">커뮤니티</p>${link("notice","doc","#F0A020","공지사항")}${S.isAdmin?link("reqboard","edit","#14A3A0","요청게시판"):""}
       <div class="drawer-sep"></div>
       ${link("myteam","users","#7A5CE0","우리 팀")}
       <a class="dept-item" href="#more" data-act="closeDrawer"><span class="set-ic" style="--c:#6A7A95">${icon("bell")}</span><span class="main"><span class="t">더보기 · 설정</span></span></a>
@@ -1292,19 +1292,19 @@ function deskSections(){
     { id:"eapp", t:"전자결재", items:[["eapp","지출결의"]] },
     { id:"sched", t:"일정관리", items:[["cal","안암일정"]] },
     ...(depts.length ? [{ id:"dept", t:"부서관리", items:depts }] : []),
-    { id:"comm", t:"커뮤니티", items:[["notice","공지사항"],["reqboard","요청게시판"]] },
+    { id:"comm", t:"커뮤니티", items:[["notice","공지사항"], ...(S.isAdmin?[["reqboard","요청게시판"]]:[])] },
   ];
 }
-const MY_SECTION = () => ({ id:"my", t:"마이페이지", items:[["more","설정"],["myteam","우리 팀"], ...(S.isAdmin?[["members","멤버 관리"]]:[])] });
+const MY_SECTION = () => ({ id:"my", t:"마이페이지", items:[["more","설정"],["myteam","우리 팀"], ...(S.isAdmin?[["members","멤버 관리"]]:[["requests","내 수정 요청"]])] });
 function sectionOf(r){
-  if(["more","members","myteam","mhome"].includes(r)) return "my";
+  if(["more","members","myteam","mhome"].includes(r) || (r==="requests" && !S.isAdmin)) return "my";
   if(["eapp","expense","expCheck","expenses","expReview","expForm"].includes(r)) return "eapp";
   if(r==="cal") return "sched";
   if(["notice","post","board","reqboard","requests"].includes(r)) return "comm";
   const d = ROUTE_DEPT[r]; if(d && d!=="home") return "dept";
   return null;
 }
-function pageTitle(r){ if(["more","members","myteam","mhome"].includes(r)) return ({more:"설정",members:"멤버 관리",myteam:"우리 팀",mhome:"우리 팀"})[r]; if(r==="expForm") return S.expFormId ? "지출결의서 고치기" : "지출결의서 작성"; return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"결재하기", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:"요청게시판" })[r] || ""; }
+function pageTitle(r){ if(["more","members","myteam","mhome"].includes(r)) return ({more:"설정",members:"멤버 관리",myteam:"우리 팀",mhome:"우리 팀"})[r]; if(r==="expForm") return S.expFormId ? "지출결의서 고치기" : "지출결의서 작성"; return ({ eapp:"지출결의", expense:"지출결의서", expCheck:"지출결의서", expenses:"지출결의", expReview:"결재하기", cal:"안암일정", notice:"공지사항", post:"공지사항", board:"공지사항", reqboard:"요청게시판", requests:S.isAdmin?"요청게시판":"내 수정 요청" })[r] || ""; }
 // 맨 위 줄 (PC): 이번 주일 · 할 일 · 이름
 function todoCount(){
   const r = myRoles(); let n = r ? ((r.mc && (r.blanks || !sees("social")))?1:0) + (r.pr?1:0) : 0;
@@ -1471,7 +1471,7 @@ function vEappM(){
       || `<div class="card">${empty(f.box==="todo"?"결재할 문서가 없어요":"해당하는 결의서가 없어요", f.box==="todo"?"새로 들어오면 알림으로 알려 드려요":"","wave", f.box==="todo"?`<button class="btn" type="button" data-act="eBox" data-v="mine">내 문서 보기</button>`:`<button class="btn pri" type="button" data-act="newExp">작성하기</button>`)}</div>`}</div>`;
 }
 function vCommM(tab){
-  const seg = `<div class="seg" role="group" aria-label="커뮤니티"><a href="#notice" class="${tab==="notice"?"on":""}" aria-current="${tab==="notice"?"page":"false"}">공지사항</a><a href="#reqboard" class="${tab==="req"?"on":""}" aria-current="${tab==="req"?"page":"false"}">요청게시판</a></div>`;
+  const seg = !S.isAdmin ? "" : `<div class="seg" role="group" aria-label="커뮤니티"><a href="#notice" class="${tab==="notice"?"on":""}" aria-current="${tab==="notice"?"page":"false"}">공지사항</a><a href="#reqboard" class="${tab==="req"?"on":""}" aria-current="${tab==="req"?"page":"false"}">요청게시판</a></div>`;
   if(tab==="notice") return `${head("공지사항", `${S.posts.length}개의 글`, `<button class="btn pri" type="button" data-act="newPost">${icon("edit")}글쓰기</button>`, "커뮤니티")}${seg}
     <div class="card list">${sortedPosts().map(postRow).join("") || `<div style="padding:8px">${empty("첫 글을 남겨 주세요","","wave",`<button class="btn pri" type="button" data-act="newPost">글쓰기</button>`)}</div>`}</div>`;
   const xs = [...S.requests].filter(r=>S.isAdmin || r.uid===S.user?.uid).sort((a,b)=>(tsOf(b)||0)-(tsOf(a)||0));
@@ -2203,6 +2203,7 @@ function route(){
   // 휴대폰에서 작성 양식 주소로 들어오면 목록 + 작성 창으로
   if(h==="expForm" && !isDesk() && S.approved){ history.replaceState(null, "", "#eapp"); const id=S.expFormId; setTimeout(()=>expSheet(id), 0); return "eapp"; }
   // PC에선 휴대폰용 목록 대신 표 화면으로
+  if(S.approved && h==="reqboard" && !S.isAdmin){ history.replaceState(null, "", "#requests"); return "requests"; }
   if(S.approved && (h==="board" || h==="expenses" || h==="mhome")){ const to = ({board:"notice", expenses:"eapp", mhome:"portal"})[h]; history.replaceState(null, "", "#"+to); return to; }
   if(S.approved && (!DEPTS[S.dept] || !sees(S.dept))){ const d=deptOrder().find(sees); if(d) setDept(d); }
   if(h==="members" && !S.isAdmin) return homeRoute();
